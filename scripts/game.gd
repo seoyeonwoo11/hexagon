@@ -112,6 +112,7 @@ func _ready() -> void:
 	hud.upgrade_pressed.connect(upgrade_selected)
 	hud.skill_pressed.connect(use_skill)
 	hud.move_pressed.connect(toggle_move)
+	hud.close_tile_pressed.connect(func() -> void: board.select_tile(null))
 	board.move_finished.connect(_on_move_finished)
 	hud.endless_pressed.connect(continue_endless)
 	hud.end_run_pressed.connect(end_run_after_victory)
