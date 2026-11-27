@@ -39,7 +39,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1, DRONE HIVE는 드론 +1 (FROST에는 못 닮)
 - IGNITER: 맞은 적에게 3초 화상
 - CRIT LENS: 25% 확률로 3.5배 피해
-- DETONATOR: 맞힐 때마다 그 자리에서 폭발해 반경 90 안 다른 적에게 맞힌 피해의 35%
+- DETONATOR: 맞힐 때마다 그 자리에서 폭발해 반경 90 안 다른 적에게 맞힌 피해의 45%
 - BANK에는 장비를 달 수 없음
 
 ## 적 종류

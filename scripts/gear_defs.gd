@@ -26,7 +26,7 @@ const DEFS := {
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
-		"desc": "Every hit explodes, dealing 35% of it to enemies nearby.",
+		"desc": "Every hit explodes, dealing 45% of it to enemies nearby.",
 		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 }
@@ -38,7 +38,7 @@ const CRIT_CHANCE := 0.25
 const CRIT_MULT := 3.5
 ## 폭발: 맞힌 적 위치에서 반경 안 다른 적들에게 (맞힌 피해 × 비율) 피해
 const DETONATE_RADIUS := 90.0
-const DETONATE_RATIO := 0.35
+const DETONATE_RATIO := 0.45
 const DETONATE_FX_GAP := 0.08
 
 

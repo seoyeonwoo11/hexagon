@@ -205,7 +205,7 @@ func _run() -> void:
 	_check(absf(dealt - crit_avg) < crit_avg * 0.12, "crit average damage (dealt %.0f, expected %.0f)" % [dealt, crit_avg])
 	tank.queue_free()
 
-	# DETONATOR: 맞힐 때마다 폭발해 근처 다른 적에게 맞힌 피해의 35%, 멀리 있는 적은 무사
+	# DETONATOR: 맞힐 때마다 폭발해 근처 다른 적에게 맞힌 피해의 45%, 멀리 있는 적은 무사
 	core.equip("detonator")
 	var target := _spawn_enemy_at(Vector2(600, 400))
 	var near := _spawn_enemy_at(Vector2(660, 400))
