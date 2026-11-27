@@ -68,6 +68,9 @@ var pack_bonus := 0.0
 var frost_slow := FROST_SLOW
 ## BOOSTER: 맞닿은 타일에 주는 공격 속도 보너스 (0.25 = 25% 빠르게)
 var haste := 0.0
+## BURN: 불길 부채꼴의 반각(라디안)과 화상 시간(초)
+var cone := 0.0
+var burn_time := 0.0
 var level := 1
 var selected := false:
 	set(value):
@@ -100,6 +103,7 @@ var _orb_hit_cd := {}
 var _orbit_ring: OrbitRing
 var _frost_field: FrostField
 var _drones: Array[Drone] = []
+var _flame: FlameJet
 ## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태
 var _drawn_state := []
 var _anim_active := false
@@ -126,6 +130,12 @@ func setup(tile_kind: String) -> void:
 	focus_max = def.get("focus_max", 0)
 	drones = def.get("drones", 0)
 	pack_bonus = def.get("pack", 0.0)
+	cone = def.get("cone", 0.0)
+	burn_time = def.get("burn_time", 0.0)
+	if attack == "burn" and _flame == null:
+		_flame = FlameJet.new()
+		_flame.tile = self
+		add_child(_flame)
 	if attack == "frost" and _frost_field == null:
 		_frost_field = FrostField.new()
 		_frost_field.tile = self
@@ -347,6 +357,8 @@ func upgrade() -> void:
 				drones = mini(drones + 1, MAX_DRONES)
 		"archer":
 			pack_bonus += UPG_PACK
+		"burn":
+			burn_time += FlameJet.UPG_BURN_TIME
 		"laser", "core":
 			if EXTRA_BEAM_LEVELS.has(level) and not beam:
 				extra_beams += 1
@@ -382,6 +394,8 @@ func upgrade_preview() -> Array[String]:
 		"archer":
 			lines.append("PACK +%d%% > +%d%% PER ARCHER" % [roundi(pack_bonus * 100.0),
 					roundi((pack_bonus + UPG_PACK) * 100.0)])
+		"burn":
+			lines.append("BURN %.1f S > %.1f S" % [burn_time, burn_time + FlameJet.UPG_BURN_TIME])
 		"frost":
 			lines.append("SLOW %d%% > %d%%" % [roundi((1.0 - frost_slow) * 100.0),
 					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
@@ -426,6 +440,8 @@ func _process(delta: float) -> void:
 		_sync_drones()
 	elif _cooldown <= 0.0:
 		_fire()
+	if _flame != null:
+		_flame.tick(delta)
 	# 밝기 맥동은 다시 그리지 않고 투명도로만
 	self_modulate.a = 0.85 + 0.15 * sin(_time * 2.5)
 	_redraw_if_needed()
@@ -506,6 +522,9 @@ func _fire() -> void:
 					arrow.source = self
 					board.enemy_layer.add_child(arrow)
 					arrow.launch(global_position, enemy)
+		"burn":
+			if _flame.fire():
+				_cooldown = interval()
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
@@ -807,6 +826,16 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 					c, intensity * 0.8, 2.0)
 			NeonDraw.polyline(canvas, PackedVector2Array([Vector2(r * 0.65, -r * 0.3),
 					Vector2(r, 0), Vector2(r * 0.65, r * 0.3)]), c, intensity * 0.8, 2.0)
+		"burn":
+			# 불꽃: 바깥 불길 + 안쪽 작은 불길
+			var outer := PackedVector2Array([Vector2(0, -r * 1.05), Vector2(r * 0.3, -r * 0.45),
+					Vector2(r * 0.62, r * 0.05), Vector2(r * 0.55, r * 0.55), Vector2(0, r * 0.88),
+					Vector2(-r * 0.55, r * 0.55), Vector2(-r * 0.62, r * 0.05), Vector2(-r * 0.4, -r * 0.3),
+					Vector2(-r * 0.22, r * 0.05), Vector2(-r * 0.1, -r * 0.6), Vector2(0, -r * 1.05)])
+			NeonDraw.polyline(canvas, outer, c, intensity * 0.8, 2.0)
+			var inner := PackedVector2Array([Vector2(0, -r * 0.2), Vector2(r * 0.25, r * 0.3),
+					Vector2(0, r * 0.6), Vector2(-r * 0.25, r * 0.3), Vector2(0, -r * 0.2)])
+			NeonDraw.polyline(canvas, inner, c.lerp(FlameJet.HOT, 0.6), intensity * 0.7, 1.5)
 		"booster":
 			# 위로 향한 겹 화살표 두 개
 			for k in 2:

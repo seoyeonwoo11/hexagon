@@ -8,12 +8,12 @@ const DEFS := {
 	"scope": {
 		"name": "SCOPE", "color": Color(0.6, 1.0, 0.95),
 		"desc": "+40% attack range.",
-		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer", "burn"],
 	},
 	"splitter": {
 		"name": "SPLITTER", "color": Color(1.0, 0.6, 0.2),
-		"desc": "Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone).",
-		"attacks": ["laser", "spark", "orbit", "drone", "archer"],
+		"desc": "Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone, BURN: +1 flame).",
+		"attacks": ["laser", "spark", "orbit", "drone", "archer", "burn"],
 	},
 	"igniter": {
 		"name": "IGNITER", "color": Color(1.0, 0.4, 0.15),
@@ -23,12 +23,12 @@ const DEFS := {
 	"crit": {
 		"name": "CRIT LENS", "color": Color(1.0, 0.3, 0.6),
 		"desc": "25% chance to deal 3.5x damage.",
-		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer", "burn"],
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
 		"desc": "Every hit explodes, dealing 45% of it to enemies nearby.",
-		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer", "burn"],
 	},
 }
 
