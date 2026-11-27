@@ -207,6 +207,11 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 				1.0 + tile.focus_step * tile.focus_max])
 	if tile.attack == "spark":
 		lines.append("BOUNCES %d" % tile.bounces)
+	if tile.attack == "drone":
+		lines.append("DRONES %d" % tile.drone_count())
+	if tile.pack_bonus > 0.0:
+		lines.append("PACK %d ARCHERS (+%d%% DMG)" % [tile.linked_archers(),
+				roundi(tile.pack_bonus * tile.linked_archers() * 100.0)])
 	if tile.attack == "frost":
 		lines.append("SLOW %d%%" % roundi((1.0 - tile.frost_slow) * 100.0))
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])

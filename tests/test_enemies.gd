@@ -167,6 +167,43 @@ func _run() -> void:
 		e.queue_free()
 	las.queue_free()
 
+	# DRONE HIVE: 드론 2기가 사거리 안 적을 쫓아가 들이받는다. 강화하면 +1기
+	var hive := HexTile.new()
+	hive.setup("drone")
+	hive.board = board
+	board.add_child(hive)
+	hive.global_position = Vector2(-3000, 2000)
+	hive._sync_drones()
+	_check(hive._drones.size() == 2, "hive launches 2 drones")
+	var prey := _game.spawn_enemy("grunt", hive.global_position + Vector2(160, 0))
+	prey.max_hp = 10000.0
+	prey.hp = 10000.0
+	for i in 120:
+		for d in hive._drones:
+			d._process(1.0 / 60.0)
+	_check(prey.hp < 10000.0, "drones chase and hit enemies")
+	_check(hive._drones.all(func(d: Drone) -> bool: return d.target == prey), "drones lock on")
+	hive.upgrade()
+	hive.upgrade()
+	hive._sync_drones()
+	_check(hive._drones.size() == 3, "level 3 adds a drone")
+	prey.queue_free()
+	hive.queue_free()
+
+	# ARCHER: 맞닿은 ARCHER 1개당 공격력 +40%
+	var a1 := board.place_tile(board.placeable_cells()[0], "archer")
+	var a2: HexTile = null
+	for n in HexGrid.neighbors(a1.coord):
+		if board.can_place(n):
+			a2 = board.place_tile(n, "archer")
+			break
+	_check(a2 != null and a1.linked_archers() == 1 and a2.linked_archers() == 1, "archers link")
+	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * 1.4) < 0.001,
+			"linked archer +40%% dmg (%.2f)" % a1.damage())
+	a2.take_damage(1e9)
+	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
+	a1.take_damage(1e9)
+
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6
 	_game.wave = 9

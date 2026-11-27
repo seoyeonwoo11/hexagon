@@ -7,27 +7,27 @@ const DEFS := {
 	"scope": {
 		"name": "SCOPE", "color": Color(0.6, 1.0, 0.95),
 		"desc": "+40% attack range.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"splitter": {
 		"name": "SPLITTER", "color": Color(1.0, 0.6, 0.2),
-		"desc": "Hits one extra target each attack (ORBIT: +1 orb).",
-		"attacks": ["laser", "spark", "orbit"],
+		"desc": "Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone).",
+		"attacks": ["laser", "spark", "orbit", "drone", "archer"],
 	},
 	"igniter": {
 		"name": "IGNITER", "color": Color(1.0, 0.4, 0.15),
 		"desc": "Hits set enemies on fire for 3 seconds.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"crit": {
 		"name": "CRIT LENS", "color": Color(1.0, 0.3, 0.6),
 		"desc": "20% chance to deal triple damage.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
 		"desc": "Enemies it kills explode, hurting enemies nearby.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 }
 

@@ -20,7 +20,7 @@ const UPG_INTERVAL := 0.9
 const UPG_RANGE := 20.0
 const UPG_HP := 20.0
 const UPG_INCOME := 6
-## LASER/CORE: 이 레벨에 도달하면 광선 +1
+## CORE: 이 레벨에 도달하면 광선 +1 (LASER는 관통 광선이라 대신 집중이 세짐)
 const EXTRA_BEAM_LEVELS: Array[int] = [3, 5]
 ## LASER: 광선이 남아 보이는 시간, 관통 판정 폭, 강화마다 집중 보너스 +3%p
 const BEAM_TIME := 0.16
@@ -28,6 +28,11 @@ const BEAM_HALF_WIDTH := 14.0
 const UPG_FOCUS := 0.03
 ## LASER: 관통당한 (조준하지 않은) 적이 받는 피해 비율
 const PIERCE_RATIO := 0.4
+## DRONE HIVE: 최대 드론 수, 이 레벨에 도달하면 드론 +1
+const MAX_DRONES := 6
+const DRONE_LEVELS: Array[int] = [3, 5, 7]
+## ARCHER: 강화마다 맞닿은 ARCHER 1개당 공격력 보너스 +10%p
+const UPG_PACK := 0.10
 ## FROST: 강화마다 감속이 강해진다 (남는 속도 비율 ×0.88, 최저 0.25)
 const FROST_SLOW_STEP := 0.88
 const FROST_SLOW_MIN := 0.25
@@ -56,6 +61,10 @@ var pierce := false
 ## LASER: 같은 적을 연속으로 맞힐 때마다 공격력 +focus_step, 최대 focus_max번
 var focus_step := 0.0
 var focus_max := 0
+## DRONE HIVE: 띄우는 드론 수
+var drones := 0
+## ARCHER: 맞닿은 ARCHER 1개당 공격력 보너스 (0.4 = +40%)
+var pack_bonus := 0.0
 ## FROST: 감속 시 남는 속도 비율 (낮을수록 강함)
 var frost_slow := FROST_SLOW
 ## BOOSTER: 맞닿은 타일에 주는 공격 속도 보너스 (0.25 = 25% 빠르게)
@@ -89,6 +98,7 @@ var orbit_angle := 0.0
 var _orb_hit_cd := {}
 var _orbit_ring: OrbitRing
 var _frost_field: FrostField
+var _drones: Array[Drone] = []
 ## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태
 var _drawn_state := []
 var _anim_active := false
@@ -113,6 +123,8 @@ func setup(tile_kind: String) -> void:
 	pierce = def.get("pierce", false)
 	focus_step = def.get("focus_step", 0.0)
 	focus_max = def.get("focus_max", 0)
+	drones = def.get("drones", 0)
+	pack_bonus = def.get("pack", 0.0)
 	if attack == "frost" and _frost_field == null:
 		_frost_field = FrostField.new()
 		_frost_field.tile = self
@@ -125,7 +137,72 @@ func setup(tile_kind: String) -> void:
 
 ## 전체 강화 배율까지 반영한 실제 공격력.
 func damage() -> float:
-	return base_damage * (board.damage_mult if board != null else 1.0)
+	var d := base_damage * (board.damage_mult if board != null else 1.0)
+	if pack_bonus > 0.0:
+		d *= 1.0 + pack_bonus * linked_archers()
+	return d
+
+
+## ARCHER: 면이 맞닿은 다른 ARCHER 수.
+func linked_archers() -> int:
+	if board == null or pack_bonus <= 0.0:
+		return 0
+	var n := 0
+	for c in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(c)
+		if t != null and t != self and is_instance_valid(t) and t.kind == "archer":
+			n += 1
+	return n
+
+
+## DRONE HIVE: 실제 드론 수 (SPLITTER면 +1).
+func drone_count() -> int:
+	return mini(drones + (1 if gear == "splitter" else 0), MAX_DRONES)
+
+
+## DRONE HIVE: 드론이 노릴 적. 벌집 사거리 안에서, 다른 드론이 안 노리는 적 중 그 드론에 가장 가까운 적.
+## 모두 노려지고 있으면 그냥 가장 가까운 적.
+func drone_pick_target(drone: Drone) -> Enemy:
+	var taken := {}
+	for d in _drones:
+		if d != drone and is_instance_valid(d) and d.target != null and is_instance_valid(d.target):
+			taken[d.target] = true
+	var best: Enemy = null
+	var best_free: Enemy = null
+	var bd := INF
+	var bfd := INF
+	for e in enemies_in_range():
+		var dist := drone.global_position.distance_squared_to(e.global_position)
+		if dist < bd:
+			bd = dist
+			best = e
+		if not taken.has(e) and dist < bfd:
+			bfd = dist
+			best_free = e
+	return best_free if best_free != null else best
+
+
+## DRONE HIVE: 드론 수를 drone_count()에 맞춘다.
+func _sync_drones() -> void:
+	_drones = _drones.filter(func(d: Drone) -> bool: return is_instance_valid(d))
+	var want := drone_count()
+	while _drones.size() > want:
+		_drones.pop_back().queue_free()
+	if _drones.size() < want and board != null and board.enemy_layer != null:
+		while _drones.size() < want:
+			var d := Drone.new()
+			d.hive = self
+			d.index = _drones.size()
+			board.enemy_layer.add_child(d)
+			d.global_position = global_position
+			_drones.append(d)
+
+
+func _exit_tree() -> void:
+	for d in _drones:
+		if is_instance_valid(d):
+			d.queue_free()
+	_drones.clear()
 
 
 ## 전체 강화 배율까지 반영한 실제 공격 간격(초).
@@ -238,8 +315,13 @@ func upgrade() -> void:
 			frost_slow = maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)
 		"booster":
 			haste += UPG_HASTE
+		"drone":
+			if DRONE_LEVELS.has(level):
+				drones = mini(drones + 1, MAX_DRONES)
+		"archer":
+			pack_bonus += UPG_PACK
 		"laser", "core":
-			if EXTRA_BEAM_LEVELS.has(level):
+			if EXTRA_BEAM_LEVELS.has(level) and not pierce:
 				extra_beams += 1
 			if focus_max > 0:
 				focus_step += UPG_FOCUS
@@ -267,11 +349,17 @@ func upgrade_preview() -> Array[String]:
 		"orbit":
 			if orbs < MAX_ORBS:
 				lines.append("+1 ORB")
+		"drone":
+			if DRONE_LEVELS.has(level + 1) and drones < MAX_DRONES:
+				lines.append("+1 DRONE")
+		"archer":
+			lines.append("PACK +%d%% > +%d%% PER ARCHER" % [roundi(pack_bonus * 100.0),
+					roundi((pack_bonus + UPG_PACK) * 100.0)])
 		"frost":
 			lines.append("SLOW %d%% > %d%%" % [roundi((1.0 - frost_slow) * 100.0),
 					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
 		"laser", "core":
-			if EXTRA_BEAM_LEVELS.has(level + 1):
+			if EXTRA_BEAM_LEVELS.has(level + 1) and not pierce:
 				lines.append("+1 BEAM")
 			if focus_max > 0:
 				lines.append("FOCUS +%d%% > +%d%% / HIT" % [roundi(focus_step * 100.0),
@@ -297,6 +385,8 @@ func _process(delta: float) -> void:
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	if attack == "orbit":
 		_process_orbit(delta)
+	elif attack == "drone":
+		_sync_drones()
 	elif _cooldown <= 0.0:
 		_fire()
 	# 밝기 맥동은 다시 그리지 않고 투명도로만
@@ -308,7 +398,7 @@ func _process(delta: float) -> void:
 ## 광선, 피격 깜빡임, BOOSTER 화살표는 움직이는 동안만 매 프레임 그린다.
 func _redraw_if_needed() -> void:
 	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
-	var state := [level, hp, max_hp, gear, focus_stacks(),
+	var state := [level, hp, max_hp, gear, focus_stacks(), linked_archers(),
 			effective_range() if selected else 0.0]
 	if anim or _anim_active or state != _drawn_state:
 		_drawn_state = state
@@ -367,6 +457,17 @@ func _fire() -> void:
 					bolt.source = self
 					board.enemy_layer.add_child(bolt)
 					bolt.launch(global_position, enemy)
+		"archer":
+			var targets := nearest_targets(target_count())
+			if not targets.is_empty() and board != null:
+				_cooldown = interval()
+				for enemy in targets:
+					var arrow := Arrow.new()
+					arrow.color = color
+					arrow.damage = damage()
+					arrow.source = self
+					board.enemy_layer.add_child(arrow)
+					arrow.launch(global_position, enemy)
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
@@ -504,6 +605,8 @@ func _draw() -> void:
 		_draw_focus_meter(c)
 	if haste > 0.0:
 		_draw_boost_links(c)
+	if pack_bonus > 0.0:
+		_draw_pack_links(c)
 	if gear != "":
 		_draw_gear_badge()
 
@@ -551,6 +654,21 @@ func _draw_boost_links(c: Color) -> void:
 		NeonDraw.polyline(self, chev, c, 0.9 * (1.0 - flow * 0.6), 2.0)
 
 
+## ARCHER: 맞닿은 ARCHER와 공유하는 변에 밝은 연결 막대. (두 타일이 같은 막대를 겹쳐 그림)
+func _draw_pack_links(c: Color) -> void:
+	if board == null:
+		return
+	for n in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(n)
+		if t == null or t == self or t.kind != "archer":
+			continue
+		var dir := (t.position - position).normalized()
+		var side := Vector2(-dir.y, dir.x)
+		var mid := dir * size * 0.80
+		NeonDraw.polyline(self, PackedVector2Array([mid - side * size * 0.32,
+				mid + side * size * 0.32]), c.lerp(Color.WHITE, 0.4), 1.0, 3.0)
+
+
 ## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지.
 func _draw_gear_badge() -> void:
 	var gc: Color = GearDefs.get_def(gear)["color"]
@@ -593,6 +711,24 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 			canvas.draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
 			var a := angle
 			canvas.draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
+		"drone":
+			# 가운데 작은 육각형(벌집) + 둘레의 드론 세 개
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r * 0.45, c, intensity * 0.8, 2.0)
+			for i in 3:
+				var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 3.0) * r * 0.95
+				canvas.draw_circle(d, r * 0.22, Color(c, intensity))
+		"archer":
+			# 활: 왼쪽 반원 + 시위, 오른쪽으로 화살
+			canvas.draw_arc(Vector2(r * 0.1, 0), r * 0.85, PI * 0.55, PI * 1.45, 16,
+					Color(c, intensity), 2.0, true)
+			var top := Vector2(r * 0.1, 0) + Vector2.from_angle(PI * 0.55) * r * 0.85
+			var bot := Vector2(r * 0.1, 0) + Vector2.from_angle(PI * 1.45) * r * 0.85
+			NeonDraw.polyline(canvas, PackedVector2Array([top, Vector2(-r * 0.15, 0), bot]),
+					c, intensity * 0.6, 1.5)
+			NeonDraw.polyline(canvas, PackedVector2Array([Vector2(-r * 0.15, 0), Vector2(r, 0)]),
+					c, intensity * 0.8, 2.0)
+			NeonDraw.polyline(canvas, PackedVector2Array([Vector2(r * 0.65, -r * 0.3),
+					Vector2(r, 0), Vector2(r * 0.65, r * 0.3)]), c, intensity * 0.8, 2.0)
 		"booster":
 			# 위로 향한 겹 화살표 두 개
 			for k in 2:

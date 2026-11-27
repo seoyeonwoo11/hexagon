@@ -20,7 +20,7 @@ const UPGRADES := [
 
 ## 처음부터 쓸 수 있는 타일과 SHARD로 사야 하는 타일 (가격).
 const STARTER_TILES: Array[String] = ["laser", "frost", "bank"]
-const TILE_PRICES := {"spark": 12, "orbit": 20}
+const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "drone": 25}
 
 ## 효과 수치 (레벨당)
 const CORE_HP_PER_LV := 25.0
