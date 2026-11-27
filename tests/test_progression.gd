@@ -182,16 +182,43 @@ func _run() -> void:
 	_check(board.try_equip(bank_tile.coord) == null, "cannot equip scope on bank")
 	var range_before := core.effective_range()
 	_check(board.try_equip(core.coord) == core, "equip scope on core")
-	_check(core.gear == "scope" and core.effective_range() > range_before, "scope adds range")
+	_check(core.gears == ["scope"] and core.effective_range() > range_before, "scope adds range")
 	_check(_game.state == Game.State.INTERMISSION, "equip -> intermission")
 
 	# 장비 교체
 	core.equip("splitter")
-	_check(core.gear == "splitter" and core.target_count() == 2 + core.extra_beams, "splitter replaces scope")
+	_check(core.gears == ["splitter"] and core.target_count() == 2 + core.extra_beams, "splitter replaces scope")
 	_check(core.effective_range() == core.attack_range, "scope bonus gone after replace")
 	_check(not board.tiles.values().any(func(t: HexTile) -> bool:
 			return t.kind == "bank" and GearDefs.ids().any(func(id: String) -> bool:
 				return GearDefs.can_equip(id, t))), "bank takes no gear")
+
+	# 장비 칸: 레벨 SECOND_SLOT_LEVEL부터 2칸. 꽉 차면 가장 먼저 단 장비가 빠진다. 같은 장비는 1개만.
+	var slot_tile := board.place_tile(Vector2i(0, -1), "laser")
+	_check(slot_tile.gear_slots() == 1, "one gear slot at level 1")
+	slot_tile.equip("scope")
+	_check(not GearDefs.can_equip("scope", slot_tile), "same gear cannot be equipped twice")
+	slot_tile.equip("igniter")
+	_check(slot_tile.gears == ["igniter"], "full single slot replaces gear")
+	while slot_tile.level < GearDefs.SECOND_SLOT_LEVEL - 1:
+		slot_tile.upgrade()
+	_check(slot_tile.gear_slots() == 1, "still one slot below unlock level")
+	_check(slot_tile.upgrade_preview().has("+1 GEAR SLOT"), "preview shows gear slot unlock")
+	slot_tile.upgrade()
+	_check(slot_tile.gear_slots() == 2 and slot_tile.gears == ["igniter"], "second slot unlocks, gear kept")
+	_check(not slot_tile.upgrade_preview().has("+1 GEAR SLOT"), "preview mentions slot only once")
+	slot_tile.equip("scope")
+	_check(slot_tile.gears == ["igniter", "scope"], "second gear fills empty slot")
+	_check(slot_tile.has_gear("igniter") and slot_tile.effective_range() > slot_tile.attack_range,
+			"both gears active")
+	slot_tile.equip("splitter")
+	_check(slot_tile.gears == ["scope", "splitter"], "full slots drop the oldest gear")
+	_check(slot_tile.target_count() == 2 + slot_tile.extra_beams, "splitter works in second slot")
+	var bank_preview := bank_tile
+	while bank_preview.level < GearDefs.SECOND_SLOT_LEVEL - 1:
+		bank_preview.upgrade()
+	_check(not bank_preview.upgrade_preview().has("+1 GEAR SLOT"), "no slot preview on gearless tile")
+	slot_tile.take_damage(1e9)
 
 	# CRIT LENS: 평균 피해가 늘어난다 (25% 확률로 3.5배 → 기대값 1.625배)
 	core.equip("crit")

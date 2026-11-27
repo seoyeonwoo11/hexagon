@@ -1,6 +1,7 @@
 class_name GearDefs
 extends RefCounted
-## 타일 장비. 타일마다 1개 장착 (새로 장착하면 기존 장비는 교체).
+## 타일 장비. 타일마다 1칸, 레벨 SECOND_SLOT_LEVEL부터 2칸.
+## 칸이 꽉 찬 타일에 새로 달면 가장 먼저 단 장비가 빠진다. 같은 장비는 한 타일에 1개만.
 ## attacks: 장착할 수 있는 타일의 공격 방식 (TileDefs의 attack 값).
 
 const DEFS := {
@@ -31,6 +32,9 @@ const DEFS := {
 	},
 }
 
+## 이 레벨부터 장비를 하나 더 달 수 있다
+const SECOND_SLOT_LEVEL := 5
+
 const SCOPE_RANGE_MULT := 1.4
 const IGNITE_DPS_RATIO := 0.4
 const IGNITE_TIME := 3.0
@@ -50,5 +54,6 @@ static func ids() -> Array:
 	return DEFS.keys()
 
 
+## 타일에 이 장비를 달 수 있는지. 이미 단 장비는 다시 달 수 없다.
 static func can_equip(id: String, tile: HexTile) -> bool:
-	return tile != null and (DEFS[id]["attacks"] as Array).has(tile.attack)
+	return tile != null and (DEFS[id]["attacks"] as Array).has(tile.attack) and not tile.has_gear(id)

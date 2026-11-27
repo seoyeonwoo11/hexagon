@@ -356,10 +356,14 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		lines.append("SLOW %d%%" % roundi((1.0 - tile.frost_slow) * 100.0))
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
-	if tile.gear != "":
-		var gdef := GearDefs.get_def(tile.gear)
-		_tile_gear.text = "GEAR  %s" % gdef["name"]
-		_set_label_color(_tile_gear, gdef["color"])
+	if not tile.gears.is_empty():
+		var lines_g: Array[String] = []
+		for id in tile.gears:
+			lines_g.append("GEAR  %s" % GearDefs.get_def(id)["name"])
+		if tile.gears.size() < tile.gear_slots():
+			lines_g.append("GEAR  EMPTY SLOT")
+		_tile_gear.text = "\n".join(lines_g)
+		_set_label_color(_tile_gear, GearDefs.get_def(tile.gears[-1])["color"])
 		_tile_gear.visible = true
 	else:
 		_tile_gear.visible = false
