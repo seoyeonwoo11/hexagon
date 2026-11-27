@@ -57,7 +57,7 @@ func _process(_delta: float) -> bool:
 	return false
 
 
-## 카드가 나오면 첫 번째를 고르고, 타일 카드면 놓을 수 있는 첫 칸에 배치한다.
+## 카드가 나오면 첫 번째를 고르고, 타일 카드면 첫 칸에 배치, 장비 카드면 첫 타일에 장착한다.
 func _auto_choose(_options: Array) -> void:
 	_game.choose_option.call_deferred(0)
 	_place_if_needed.call_deferred()
@@ -66,3 +66,5 @@ func _auto_choose(_options: Array) -> void:
 func _place_if_needed() -> void:
 	if _game.state == Game.State.PLACING:
 		_game.board.try_place(_game.board.placeable_cells()[0])
+	elif _game.state == Game.State.EQUIPPING:
+		_game.board.try_equip(_game.board.equippable_tiles()[0].coord)

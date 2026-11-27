@@ -26,6 +26,8 @@ var bounces := 0
 var bounce_range := 0.0
 var level := 1
 var selected := false
+## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
+var gear := ""
 
 var coord := Vector2i.ZERO
 var size := 48.0
@@ -34,7 +36,7 @@ var board: Board
 
 var _time := 0.0
 var _cooldown := 0.0
-var _shot_target := Vector2.ZERO
+var _shot_targets: Array[Vector2] = []
 var _shot_time := 0.0
 var _hit_flash := 0.0
 var _destroyed := false
@@ -66,6 +68,38 @@ func interval() -> float:
 	return fire_interval / (board.rate_mult if board != null else 1.0)
 
 
+## 장비까지 반영한 실제 사거리.
+func effective_range() -> float:
+	return attack_range * (GearDefs.SCOPE_RANGE_MULT if gear == "scope" else 1.0)
+
+
+## 한 번 공격할 때 노리는 대상 수 (SPLITTER면 +1).
+func target_count() -> int:
+	return 2 if gear == "splitter" else 1
+
+
+## 장비 장착. 이미 있으면 교체한다 (REGENERATOR의 체력 보너스도 같이 정리).
+func equip(gear_id: String) -> void:
+	if gear == "regen":
+		max_hp -= GearDefs.REGEN_HP
+		hp = minf(hp, max_hp)
+	gear = gear_id
+	if gear == "regen":
+		max_hp += GearDefs.REGEN_HP
+		hp += GearDefs.REGEN_HP
+	queue_redraw()
+
+
+## 적 하나를 맞혔을 때: 피해 + 장비 효과.
+func apply_hit(enemy: Enemy, amount: float) -> void:
+	enemy.take_damage(amount, self)
+	match gear:
+		"igniter":
+			enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
+		"cryo":
+			enemy.apply_slow(GearDefs.CRYO_SLOW, GearDefs.CRYO_TIME)
+
+
 func upgrade_cost() -> int:
 	return roundi(20.0 * pow(1.7, level - 1))
 
@@ -90,6 +124,8 @@ func _process(delta: float) -> void:
 	_cooldown -= delta
 	_shot_time = maxf(_shot_time - delta, 0.0)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
+	if gear == "regen" and hp < max_hp and not _destroyed:
+		hp = minf(hp + GearDefs.REGEN_PER_SEC * delta, max_hp)
 	if _cooldown <= 0.0:
 		_fire()
 	queue_redraw()
@@ -98,29 +134,34 @@ func _process(delta: float) -> void:
 func _fire() -> void:
 	match attack:
 		"laser":
-			var enemy := find_target()
-			if enemy != null:
-				_shot_target = to_local(enemy.global_position)
+			var targets := nearest_targets(target_count())
+			if not targets.is_empty():
+				_shot_targets.clear()
+				for enemy in targets:
+					_shot_targets.append(to_local(enemy.global_position))
 				_shot_time = SHOT_TIME
 				_cooldown = interval()
-				enemy.take_damage(damage())
+				for enemy in targets:
+					apply_hit(enemy, damage())
 		"spark":
-			var enemy := find_target()
-			if enemy != null and board != null:
+			var targets := nearest_targets(target_count())
+			if not targets.is_empty() and board != null:
 				_cooldown = interval()
-				var bolt := ChainBolt.new()
-				bolt.color = color
-				bolt.damage = damage()
-				bolt.bounces = bounces
-				bolt.bounce_range = bounce_range
-				board.enemy_layer.add_child(bolt)
-				bolt.launch(global_position, enemy)
+				for enemy in targets:
+					var bolt := ChainBolt.new()
+					bolt.color = color
+					bolt.damage = damage()
+					bolt.bounces = bounces
+					bolt.bounce_range = bounce_range
+					bolt.source = self
+					board.enemy_layer.add_child(bolt)
+					bolt.launch(global_position, enemy)
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
 			for enemy in targets:
 				enemy.apply_slow(FROST_SLOW, FROST_SLOW_TIME)
-				enemy.take_damage(damage())
+				apply_hit(enemy, damage())
 
 
 func enemies_in_range() -> Array[Enemy]:
@@ -128,21 +169,24 @@ func enemies_in_range() -> Array[Enemy]:
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
 		if enemy != null and enemy.is_alive() \
-				and global_position.distance_to(enemy.global_position) <= attack_range:
+				and global_position.distance_to(enemy.global_position) <= effective_range():
 			result.append(enemy)
 	return result
 
 
 ## 사거리 안에서 가장 가까운 살아있는 적.
 func find_target() -> Enemy:
-	var best: Enemy = null
-	var best_dist := attack_range
-	for enemy in enemies_in_range():
-		var d := global_position.distance_to(enemy.global_position)
-		if d <= best_dist:
-			best = enemy
-			best_dist = d
-	return best
+	var targets := nearest_targets(1)
+	return targets[0] if not targets.is_empty() else null
+
+
+## 사거리 안에서 가까운 순서로 최대 n명.
+func nearest_targets(n: int) -> Array[Enemy]:
+	var enemies := enemies_in_range()
+	enemies.sort_custom(func(a: Enemy, b: Enemy) -> bool:
+		return global_position.distance_squared_to(a.global_position) \
+				< global_position.distance_squared_to(b.global_position))
+	return enemies.slice(0, n)
 
 
 func take_damage(amount: float) -> void:
@@ -160,7 +204,7 @@ func _draw() -> void:
 	var pulse := 0.85 + 0.15 * sin(_time * 2.5)
 	var c := color.lerp(Color(1.0, 0.15, 0.2), _hit_flash / HIT_FLASH_TIME)
 	if selected:
-		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 96, Color(c, 0.35), 1.5, true)
+		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5, true)
 		NeonDraw.hexagon(self, Vector2.ZERO, size * 0.98, Color.WHITE, 0.9, 2.0)
 	NeonDraw.hexagon(self, Vector2.ZERO, size * 0.9, c, pulse, 3.0, 0.10)
 	_draw_glyph(c, pulse)
@@ -174,10 +218,24 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32,
 				Color(c, 0.8), 2.0, true)
 	if _shot_time > 0.0:
-		NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, _shot_target]), c,
-				_shot_time / SHOT_TIME, 2.0)
+		for target in _shot_targets:
+			NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, target]), c,
+					_shot_time / SHOT_TIME, 2.0)
 	if attack == "frost":
-		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
+		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
+	if gear != "":
+		_draw_gear_badge()
+
+
+## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지.
+func _draw_gear_badge() -> void:
+	var gc: Color = GearDefs.get_def(gear)["color"]
+	var center := Vector2(0, size * 0.62)
+	var r := 6.0
+	var dia := PackedVector2Array([center + Vector2(0, -r), center + Vector2(r, 0),
+			center + Vector2(0, r), center + Vector2(-r, 0), center + Vector2(0, -r)])
+	draw_colored_polygon(dia, Color(gc, 0.35))
+	NeonDraw.polyline(self, dia, gc, 1.0, 1.5)
 
 
 ## 종류마다 가운데 모양을 다르게 그린다.

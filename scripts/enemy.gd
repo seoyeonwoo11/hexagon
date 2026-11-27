@@ -21,6 +21,11 @@ var _dead := false
 var _spin := 0.0
 var _slow_factor := 1.0
 var _slow_timer := 0.0
+var _burn_dps := 0.0
+var _burn_timer := 0.0
+var _burn_source: HexTile
+## 마지막으로 피해를 준 타일 (COLLECTOR 장비 보상용)
+var _last_source: HexTile
 
 
 func _ready() -> void:
@@ -35,6 +40,11 @@ func _process(delta: float) -> void:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
 			_slow_factor = 1.0
+	if _burn_timer > 0.0:
+		_burn_timer -= delta
+		take_damage(_burn_dps * delta, _burn_source)
+		if _dead:
+			return
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -54,6 +64,18 @@ func apply_slow(factor: float, duration: float) -> void:
 	_slow_timer = maxf(_slow_timer, duration)
 
 
+## 화상: duration초 동안 초당 dps 피해. 더 센 화상으로 덮어쓴다.
+func apply_burn(dps: float, duration: float, source: HexTile = null) -> void:
+	if dps >= _burn_dps or _burn_timer <= 0.0:
+		_burn_dps = dps
+		_burn_source = source
+	_burn_timer = maxf(_burn_timer, duration)
+
+
+func is_burning() -> bool:
+	return _burn_timer > 0.0
+
+
 func is_slowed() -> bool:
 	return _slow_timer > 0.0
 
@@ -62,9 +84,11 @@ func is_alive() -> bool:
 	return not _dead
 
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, source: HexTile = null) -> void:
 	if _dead:
 		return
+	if source != null:
+		_last_source = source
 	hp -= amount
 	if hp <= 0.0:
 		_die(true)
@@ -75,7 +99,10 @@ func take_damage(amount: float) -> void:
 func _die(killed: bool) -> void:
 	_dead = true
 	remove_from_group(GROUP)
-	died.emit(self, reward if killed else 0)
+	var bonus := 0
+	if killed and is_instance_valid(_last_source) and _last_source.gear == "collector":
+		bonus = GearDefs.COLLECTOR_BONUS
+	died.emit(self, reward + bonus if killed else 0)
 	queue_free()
 
 
@@ -85,6 +112,8 @@ func _draw() -> void:
 		var a := _spin + TAU * i / 3.0
 		pts.append(Vector2(cos(a), sin(a)) * radius)
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
+	if is_burning():
+		c = c.lerp(Color(1.0, 0.6, 0.1), 0.5 + 0.3 * sin(_spin * 6.0))
 	NeonDraw.polyline(self, pts, c, 1.0, 2.5)
 	if hp < max_hp:
 		var w := radius * 2.0

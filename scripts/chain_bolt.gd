@@ -11,6 +11,8 @@ var damage := 5.0
 var bounces := 4
 var bounce_range := 170.0
 var speed := 1100.0
+## 쏜 타일. 맞을 때 타일의 장비 효과(화상, 감속 등)를 적용한다.
+var source: HexTile
 
 var _target: Enemy
 var _hit: Array[Enemy] = []
@@ -54,7 +56,10 @@ func _hit_target() -> void:
 	var enemy := _target
 	_hit.append(enemy)
 	_trail.append([global_position, TRAIL_FADE])
-	enemy.take_damage(damage)
+	if is_instance_valid(source):
+		source.apply_hit(enemy, damage)
+	else:
+		enemy.take_damage(damage)
 	if _hit.size() > bounces:
 		_finish()
 		return

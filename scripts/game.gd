@@ -4,7 +4,8 @@ extends Node2D
 ##
 ## 상태 흐름:
 ##   INTERMISSION (잠깐 대기) -> WAVE (적 생성/전투) -> 모든 적 처치 ->
-##   CHOOSING (카드 3장 중 선택) -> [타일 카드면 PLACING (칸 클릭해 배치)] -> INTERMISSION ...
+##   CHOOSING (카드 3장 중 선택) -> [타일 카드면 PLACING (칸 클릭해 배치),
+##   장비 카드면 EQUIPPING (타일 클릭해 장착)] -> INTERMISSION ...
 
 signal money_changed(money: int)
 signal wave_started(wave: int)
@@ -12,13 +13,16 @@ signal wave_cleared(wave: int)
 signal choices_offered(options: Array)
 signal game_over
 
-enum State { INTERMISSION, WAVE, CHOOSING, PLACING }
+enum State { INTERMISSION, WAVE, CHOOSING, PLACING, EQUIPPING }
 
 const FIRST_WAVE_DELAY := 1.5
 const INTERMISSION := 1.5
 const SPAWN_MARGIN := 40.0
 const CARD_TAG_TILE := "NEW TILE"
 const CARD_TAG_BOOST := "BOOST"
+const CARD_TAG_GEAR := "GEAR"
+## 카드 풀에 한 번에 넣는 장비 수 (전체 장비 중 무작위)
+const GEAR_CARDS_IN_POOL := 3
 
 ## 강화 카드 종류. 새 카드는 여기와 _apply_boost에 추가한다.
 const BOOSTS := [
@@ -54,6 +58,7 @@ func _ready() -> void:
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)
 	board.placement_finished.connect(_on_placement_finished)
+	board.equip_finished.connect(_on_equip_finished)
 	hud.pause_pressed.connect(toggle_pause)
 	hud.speed_pressed.connect(toggle_speed)
 	hud.restart_pressed.connect(_on_restart_pressed)
@@ -106,8 +111,9 @@ func try_upgrade(tile: HexTile) -> bool:
 	return true
 
 
-## 카드 3장 만들기: 모든 타일 카드와 강화 카드를 한데 섞어 서로 다른 3장을 무작위로 뽑는다.
-## 보드에 놓을 칸이 없으면 타일 카드는 빼고 뽑는다.
+## 카드 3장 만들기: 타일 카드, 강화 카드, 장비 카드(무작위 GEAR_CARDS_IN_POOL개)를 한데 섞어
+## 서로 다른 3장을 무작위로 뽑는다. 보드에 놓을 칸이 없으면 타일 카드는 빼고 뽑는다.
+## 장착할 타일이 하나도 없는 장비는 넣지 않는다.
 func make_options() -> Array:
 	var pool: Array = []
 	if not board.placeable_cells().is_empty():
@@ -120,6 +126,18 @@ func make_options() -> Array:
 		opt["type"] = "boost"
 		opt["tag"] = CARD_TAG_BOOST
 		pool.append(opt)
+	var gear_ids := GearDefs.ids()
+	gear_ids.shuffle()
+	var added := 0
+	for id in gear_ids:
+		if added >= GEAR_CARDS_IN_POOL:
+			break
+		if not board.tiles.values().any(func(t: HexTile) -> bool: return GearDefs.can_equip(id, t)):
+			continue
+		var gdef := GearDefs.get_def(id)
+		pool.append({"type": "gear", "gear": id, "tag": CARD_TAG_GEAR,
+				"title": gdef["name"], "desc": gdef["desc"], "color": gdef["color"]})
+		added += 1
 	pool.shuffle()
 	return pool.slice(0, 3)
 
@@ -134,6 +152,10 @@ func choose_option(index: int) -> void:
 		state = State.PLACING
 		board.begin_placement(opt["kind"])
 		hud.show_banner("PLACE %s" % opt["title"], opt["color"])
+	elif opt["type"] == "gear":
+		state = State.EQUIPPING
+		board.begin_equip(opt["gear"])
+		hud.show_banner("EQUIP %s - CLICK A TILE" % opt["title"], opt["color"])
 	else:
 		_apply_boost(opt["id"])
 		_start_intermission()
@@ -153,6 +175,11 @@ func _apply_boost(id: String) -> void:
 
 func _on_placement_finished(_tile: HexTile) -> void:
 	if state == State.PLACING:
+		_start_intermission()
+
+
+func _on_equip_finished(_tile: HexTile) -> void:
+	if state == State.EQUIPPING:
 		_start_intermission()
 
 

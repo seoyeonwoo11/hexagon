@@ -9,6 +9,7 @@ signal tile_placed(tile: HexTile)
 signal tile_destroyed(tile: HexTile)
 signal tile_selected(tile: HexTile)
 signal placement_finished(tile: HexTile)
+signal equip_finished(tile: HexTile)
 signal core_destroyed
 
 const CORE := Vector2i.ZERO
@@ -27,6 +28,8 @@ var damage_mult := 1.0
 var rate_mult := 1.0
 ## 배치 중인 타일 종류. 빈 문자열이면 배치 모드가 아님.
 var placing_kind := ""
+## 장착 중인 장비 id. 빈 문자열이면 장착 모드가 아님.
+var equipping_gear := ""
 var selected_tile: HexTile
 
 var _hover := Vector2i.ZERO
@@ -42,6 +45,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if is_equipping():
+		queue_redraw()  # 장착 가능한 타일 테두리 깜빡임
 	var cell := HexGrid.pixel_to_axial(get_local_mouse_position(), hex_size)
 	var inside := is_inside(cell)
 	if inside != _has_hover or cell != _hover:
@@ -58,10 +63,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mb.button_index == MOUSE_BUTTON_LEFT:
 		if is_placing():
 			try_place(cell)
+		elif is_equipping():
+			try_equip(cell)
 		else:
 			select_tile(tiles.get(cell))
 		get_viewport().set_input_as_handled()
-	elif mb.button_index == MOUSE_BUTTON_RIGHT and not is_placing():
+	elif mb.button_index == MOUSE_BUTTON_RIGHT and not is_placing() and not is_equipping():
 		select_tile(null)
 		get_viewport().set_input_as_handled()
 
@@ -128,6 +135,41 @@ func try_place(coord: Vector2i) -> HexTile:
 	return tile
 
 
+func begin_equip(gear_id: String) -> void:
+	select_tile(null)
+	equipping_gear = gear_id
+	queue_redraw()
+
+
+func is_equipping() -> bool:
+	return equipping_gear != ""
+
+
+## 장착 가능한 타일들 (장착 모드의 장비 기준).
+func equippable_tiles() -> Array[HexTile]:
+	var result: Array[HexTile] = []
+	if not is_equipping():
+		return result
+	for tile in tiles.values():
+		if GearDefs.can_equip(equipping_gear, tile):
+			result.append(tile)
+	return result
+
+
+## 장착 모드에서 coord의 타일에 장비를 단다. 장착할 수 없으면 null.
+func try_equip(coord: Vector2i) -> HexTile:
+	if not is_equipping():
+		return null
+	var tile: HexTile = tiles.get(coord)
+	if tile == null or not GearDefs.can_equip(equipping_gear, tile):
+		return null
+	tile.equip(equipping_gear)
+	equipping_gear = ""
+	queue_redraw()
+	equip_finished.emit(tile)
+	return tile
+
+
 func select_tile(tile: HexTile) -> void:
 	if selected_tile == tile:
 		return
@@ -176,6 +218,14 @@ func _draw() -> void:
 		for p in outline:
 			pts.append(p + center)
 		draw_polyline(pts, grid_color, 1.0, true)
+	if is_equipping():
+		var gear_color: Color = GearDefs.get_def(equipping_gear)["color"]
+		for tile in equippable_tiles():
+			var hovered := _has_hover and _hover == tile.coord
+			var pulse := 0.6 + 0.25 * sin(Time.get_ticks_msec() / 150.0)
+			NeonDraw.hexagon(self, tile.position, hex_size * 1.08, gear_color,
+					1.0 if hovered else pulse, 3.0 if hovered else 2.0)
+		return
 	if not is_placing():
 		return
 	var kind_color: Color = TileDefs.get_def(placing_kind)["color"]

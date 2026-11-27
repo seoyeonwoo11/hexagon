@@ -82,7 +82,7 @@ func _run() -> void:
 		for i in _game.current_options.size():
 			if _game.current_options[i]["type"] == "tile":
 				tile_idx = i
-			else:
+			elif _game.current_options[i]["type"] == "boost":
 				boost_idx = i
 
 	# 강화 카드: 바로 다음 웨이브 대기로
@@ -129,6 +129,51 @@ func _run() -> void:
 	for e in [e1, e2, e3, far]:
 		e.queue_free()
 
+	# 장비: 카드 -> 장착 모드 -> 맞지 않는 타일은 실패 -> 맞는 타일에 장착
+	var bank_tile := board.place_tile(Vector2i(-1, 0), "bank")
+	_game.state = Game.State.CHOOSING
+	_game.current_options = [{"type": "gear", "gear": "scope", "title": "SCOPE",
+			"color": Color.WHITE}]
+	_game.choose_option(0)
+	_check(_game.state == Game.State.EQUIPPING and board.is_equipping(), "gear -> equipping")
+	_check(not board.equippable_tiles().has(bank_tile), "scope not equippable on bank")
+	_check(board.try_equip(bank_tile.coord) == null, "cannot equip scope on bank")
+	var range_before := core.effective_range()
+	_check(board.try_equip(core.coord) == core, "equip scope on core")
+	_check(core.gear == "scope" and core.effective_range() > range_before, "scope adds range")
+	_check(_game.state == Game.State.INTERMISSION, "equip -> intermission")
+
+	# 장비 교체 + REGENERATOR 체력 보너스 정리
+	var hp_before := core.max_hp
+	core.equip("regen")
+	_check(core.max_hp == hp_before + GearDefs.REGEN_HP, "regen adds max hp")
+	core.equip("splitter")
+	_check(core.max_hp == hp_before and core.gear == "splitter", "replacing regen removes bonus")
+	_check(core.target_count() == 2, "splitter targets 2")
+
+	# 장비 효과: IGNITER 화상, CRYO 감속, COLLECTOR 보상
+	var victim := _spawn_enemy_at(Vector2(-700, -400))
+	core.equip("igniter")
+	core.apply_hit(victim, 1.0)
+	_check(victim.is_burning(), "igniter burns")
+	core.equip("cryo")
+	core.apply_hit(victim, 1.0)
+	_check(victim.is_slowed(), "cryo slows")
+	core.equip("collector")
+	var rewards: Array[int] = []
+	victim.reward = 2
+	victim.died.connect(func(_e: Enemy, r: int) -> void: rewards.append(r))
+	core.apply_hit(victim, 9999.0)
+	_check(rewards == [2 + GearDefs.COLLECTOR_BONUS], "collector bonus (got %s)" % [rewards])
+
+	# 카드 풀에 장비 카드가 등장
+	var saw_gear := false
+	for i in 100:
+		for o in _game.make_options():
+			if o["type"] == "gear":
+				saw_gear = true
+	_check(saw_gear, "gear cards appear in draws")
+
 	# BANK: 웨이브 클리어 때 돈
 	var bank := HexTile.new()
 	bank.setup("bank")
@@ -140,7 +185,7 @@ func _run() -> void:
 		if not board.tiles.has(cell):
 			board.tiles[cell] = core  # 자리만 채움
 	var full_opts := _game.make_options()
-	_check(full_opts.all(func(o: Dictionary) -> bool: return o["type"] == "boost"),
+	_check(full_opts.all(func(o: Dictionary) -> bool: return o["type"] != "tile"),
 			"no tile cards when board is full")
 
 

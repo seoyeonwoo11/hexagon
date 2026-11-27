@@ -35,6 +35,7 @@ var _choice_row: HBoxContainer
 var _tile_panel: PanelContainer
 var _tile_title: Label
 var _tile_stats: Label
+var _tile_gear: Label
 var _upgrade_button: Button
 
 
@@ -182,12 +183,19 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 	_set_label_color(_tile_title, tile.color)
 	var lines: Array[String] = []
 	if tile.attack != "none":
-		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.attack_range)])
+		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.effective_range())])
 		lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
+	if tile.gear != "":
+		var gdef := GearDefs.get_def(tile.gear)
+		_tile_gear.text = "GEAR  %s" % gdef["name"]
+		_set_label_color(_tile_gear, gdef["color"])
+		_tile_gear.visible = true
+	else:
+		_tile_gear.visible = false
 	var cost := tile.upgrade_cost()
 	_upgrade_button.text = "UPGRADE  $%d" % cost
 	_upgrade_button.disabled = money < cost
@@ -206,13 +214,14 @@ func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_panel.add_child(box)
 	_tile_title = _make_label(NEON_CYAN, 30, 800)
 	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
+	_tile_gear = _make_label(Color.WHITE, 20, 700)
 	var hint := _make_label(Color(1, 1, 1, 0.4), 15, 500)
 	hint.text = "RIGHT CLICK TO CLOSE"
 	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
 	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
 	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
 	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
-	for c in [_tile_title, _tile_stats, _upgrade_button, hint]:
+	for c in [_tile_title, _tile_stats, _tile_gear, _upgrade_button, hint]:
 		box.add_child(c)
 
 
