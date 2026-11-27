@@ -14,6 +14,11 @@ func _check(cond: bool, msg: String) -> void:
 
 
 func _initialize() -> void:
+	# 시작 화면 없이 바로 시작, 실제 저장 파일 대신 테스트용 빈 진행 상태
+	Game.hub_enabled = false
+	Meta.save_path = "user://test_meta.cfg"
+	Meta.reset()
+	Meta.loaded = true
 	change_scene_to_file("res://scenes/main.tscn")
 
 

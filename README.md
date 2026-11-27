@@ -15,6 +15,7 @@ godot --headless --path . -s res://tests/test_hex_grid.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_combat.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 ```
 
 ## 조작
@@ -55,6 +56,14 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도(반지름 145)를 돌며 닿은 적에게 피해 14 (레벨마다 구체 +1, 최대 6개)
 - BANK: 웨이브를 넘길 때마다 돈
 
+## 판 사이 성장 (SHARD)
+
+- 게임을 켜면 시작 화면(상점)이 뜨고, START 또는 Enter로 판을 시작
+- 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). 결과는 시작 화면에 표시되고, R을 누르면 상점 없이 바로 새 판
+- 영구 강화 (각 5레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
+- 타일 구매: 처음엔 LASER, FROST, BANK만 카드에 나오고 SPARK(12), ORBIT(20)은 SHARD로 사야 나옴
+- 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
+
 ## 강화 (타일 정보 창의 UPGRADE)
 
 - 1번마다 공격력 ×1.5, 공격 속도 +11%, 사거리 +20, 체력 +20. 비용은 $25에서 레벨마다 2배
@@ -76,5 +85,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
+- `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 저장/불러오기
+- `scripts/shop.gd`: 시작 화면 겸 상점
 - `scripts/hud.gd`: 화면 위 정보와 버튼
 - `scenes/main.tscn`: 메인 화면 (글로우, 카메라, 보드, HUD)

@@ -6,6 +6,9 @@ extends Node2D
 ##   INTERMISSION (잠깐 대기) -> WAVE (적 생성/전투) -> 모든 적 처치 ->
 ##   CHOOSING (카드 3장 중 선택) -> [타일 카드면 PLACING (칸 클릭해 배치),
 ##   장비 카드면 EQUIPPING (타일 클릭해 장착)] -> INTERMISSION ...
+##
+## 판 시작 전과 끝난 뒤에는 시작 화면(Shop)이 뜬다. 판이 끝나면 버틴 웨이브만큼 SHARD를 받고
+## (Meta.finish_run), Shop에서 영구 강화와 타일 구매를 한 뒤 START로 새 판을 시작한다.
 
 signal money_changed(money: int)
 signal wave_started(wave: int)
@@ -52,6 +55,14 @@ var _spawn_interval := 1.0
 var _alive := 0
 var _intermission := FIRST_WAVE_DELAY
 var _boss_pending := false
+## 판이 시작됐는지 (시작 화면이 떠 있는 동안은 false)
+var started := false
+var shop: Shop
+
+## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
+static var hub_enabled := true
+## 시작 화면에서 START를 눌러 씬을 다시 불러왔을 때 한 번 시작 화면을 건너뛴다.
+static var _skip_hub_once := false
 
 
 func _ready() -> void:
@@ -69,11 +80,43 @@ func _ready() -> void:
 	hud.set_wave(wave)
 	hud.set_speed(speed_multiplier)
 	hud.set_paused(false)
+	Meta.ensure_loaded()
+	shop = Shop.new()
+	shop.start_pressed.connect(_on_shop_start)
+	add_child(shop)
+	if hub_enabled and not _skip_hub_once:
+		shop.open()
+	else:
+		start_run()
+	_skip_hub_once = false
+
+
+## 판 시작: 시작 화면을 닫고 영구 강화를 적용한다.
+func start_run() -> void:
+	if started:
+		return
+	started = true
+	shop.close()
+	board.damage_mult *= Meta.damage_mult()
+	board.rate_mult *= Meta.rate_mult()
+	board.tile_hp_mult = Meta.tile_hp_mult()
+	var core := board.core_tile()
+	core.max_hp = (core.max_hp + Meta.core_hp_bonus()) * Meta.tile_hp_mult()
+	core.hp = core.max_hp
+	add_money(Meta.start_money())
 	hud.show_banner("READY", Hud.NEON_CYAN)
 
 
+func _on_shop_start() -> void:
+	if not started:
+		start_run()
+	else:
+		_skip_hub_once = true
+		_restart()
+
+
 func _process(delta: float) -> void:
-	if is_over:
+	if is_over or not started:
 		return
 	var core := board.core_tile()
 	if core != null:
@@ -123,6 +166,8 @@ func make_options() -> Array:
 	var pool: Array = []
 	if not board.placeable_cells().is_empty():
 		for kind in TileDefs.PLACEABLE:
+			if not Meta.is_tile_unlocked(kind):
+				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
 					"title": def["name"], "desc": def["desc"], "color": def["color"]})
@@ -205,7 +250,7 @@ func alive_enemies() -> int:
 
 
 func toggle_pause() -> void:
-	if is_over:
+	if is_over or not started:
 		return
 	var tree := get_tree()
 	tree.paused = not tree.paused
@@ -319,14 +364,21 @@ func _on_core_destroyed() -> void:
 	hud.hide_banner()
 	hud.hide_choices()
 	hud.show_tile_panel(null, 0)
-	hud.show_overlay("GAME OVER", "REACHED WAVE %d  -  PRESS R TO RESTART" % wave, Hud.NEON_PINK)
+	Meta.finish_run(wave)
 	get_tree().paused = true
+	shop.open()
 	game_over.emit()
 
 
+## R 키: 판이 끝났으면 시작 화면을 건너뛰고 바로 새 판.
 func _on_restart_pressed() -> void:
 	if not is_over:
 		return
+	_skip_hub_once = true
+	_restart()
+
+
+func _restart() -> void:
 	Engine.time_scale = 1.0
 	get_tree().paused = false
 	get_tree().reload_current_scene()
