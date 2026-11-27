@@ -51,6 +51,7 @@ var _spawn_timer := 0.0
 var _spawn_interval := 1.0
 var _alive := 0
 var _intermission := FIRST_WAVE_DELAY
+var _boss_pending := false
 
 
 func _ready() -> void:
@@ -85,11 +86,15 @@ func _process(delta: float) -> void:
 			if _intermission <= 0.0:
 				_begin_wave()
 		State.WAVE:
-			if _to_spawn > 0:
+			if _to_spawn > 0 or _boss_pending:
 				_spawn_timer -= delta
 				if _spawn_timer <= 0.0:
-					_spawn_enemy()
-					_to_spawn -= 1
+					if _to_spawn > 0:
+						spawn_enemy(EnemyDefs.pick_kind(wave), _random_spawn_point())
+						_to_spawn -= 1
+					else:
+						spawn_enemy("boss", _random_spawn_point())
+						_boss_pending = false
 					_spawn_timer = _spawn_interval
 			elif _alive == 0:
 				_on_wave_cleared()
@@ -234,10 +239,14 @@ func _begin_wave() -> void:
 	state = State.WAVE
 	wave += 1
 	_to_spawn = wave_enemy_count(wave)
+	_boss_pending = EnemyDefs.is_boss_wave(wave)
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)
 	_spawn_timer = 0.0
 	hud.set_wave(wave)
-	hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
+	if _boss_pending:
+		hud.show_banner("WAVE %d  -  BOSS" % wave, EnemyDefs.get_def("boss")["color"])
+	else:
+		hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
 	get_tree().create_timer(1.2, false).timeout.connect(_hide_wave_message.bind(wave))
 	wave_started.emit(wave)
 
@@ -259,18 +268,17 @@ func _on_wave_cleared() -> void:
 	choices_offered.emit(current_options)
 
 
-func _spawn_enemy() -> void:
+## kind 종류의 적을 전역 위치 pos에 만든다. 능력치 = 웨이브 기본값 × 종류 배율.
+func spawn_enemy(kind: String, pos: Vector2) -> Enemy:
 	var enemy := Enemy.new()
 	enemy.board = board
-	enemy.max_hp = wave_enemy_hp(wave)
-	enemy.speed = minf(55.0 + wave * 2.5, 140.0)
-	enemy.reward = wave_enemy_reward(wave)
-	enemy.contact_damage = 10.0 + wave * 0.5
-	enemy.color = Color(1.0, 0.3, 0.35) if wave % 2 == 1 else Color(1.0, 0.55, 0.1)
+	enemy.setup(kind, wave_enemy_hp(wave), minf(55.0 + wave * 2.5, 140.0),
+			wave_enemy_reward(wave), 10.0 + wave * 0.5)
 	enemy.died.connect(_on_enemy_died)
 	board.enemy_layer.add_child(enemy)
-	enemy.global_position = _random_spawn_point()
+	enemy.global_position = pos
 	_alive += 1
+	return enemy
 
 
 ## 카메라에 보이는 영역의 테두리 바로 바깥, 사방 중 임의의 한 점.
@@ -291,10 +299,15 @@ func _random_spawn_point() -> Vector2:
 	return center + p
 
 
-func _on_enemy_died(_enemy: Enemy, reward: int) -> void:
+func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	_alive -= 1
 	if reward > 0:
 		add_money(reward)
+	# SPLITTER: 처치되면 작은 적으로 갈라진다
+	if enemy.killed and enemy.splits_into != "" and not is_over:
+		for i in enemy.split_count:
+			var offset := Vector2.from_angle(TAU * i / enemy.split_count) * 18.0
+			spawn_enemy(enemy.splits_into, enemy.global_position + offset)
 
 
 func _on_core_destroyed() -> void:
