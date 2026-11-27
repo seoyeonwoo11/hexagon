@@ -28,6 +28,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 ```
 
 ## 조작
@@ -63,10 +64,29 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - OVERLORD (금색 왕관 별, 30웨이브 마지막): 최종 보스. BOSS의 2.5배 체력, 피해 30% 감소. 5초마다 RUNNER 3마리를 부름. 체력이 절반 아래로 떨어지면 붉게 맥동하며 1.6배 빨라지고 2.5초마다 부름. 화면 위에 체력 막대. 잡으면 클리어
 - 10웨이브 뒤로 일반 적(보스와 OVERLORD 부하 제외)은 웨이브마다 체력이 기본의 3.5%씩 더 붙어 30웨이브에 1.7배 (무한 모드에서는 1.7배 유지). 처치 보상은 그대로
 
+## 스테이지
+
+- 스테이지 5개. 적 종류와 순서, 30웨이브 OVERLORD는 같고 적 체력과 피해만 올라감. 시작 화면 위쪽에서 고름
+- 한 스테이지의 OVERLORD를 잡으면 다음 스테이지가 열림. 처음 깰 때마다 영구 강화 상한이 3단계씩 오르고(기본 5 -> 최대 20) 아래 보상이 풀림
+- 높은 스테이지일수록 받는 SHARD도 많음 (웨이브 몫과 클리어 보너스 모두). 처치 보상(돈)은 같음
+
+| 스테이지 | 적 체력 | 적 피해 | SHARD | 처음 깨면 |
+| --- | --- | --- | --- | --- |
+| 1 | x1 | x1 | x1 | 2스테이지, 강화 상한 +3, 새 영구 강화 BOUNTY (처치 보상 +8%/레벨, 5레벨) |
+| 2 | x1.9 | x1.2 | x1.5 | 3스테이지, 상한 +3, 새 코어 WARP CORE 구매 가능 (30) |
+| 3 | x2.7 | x1.35 | x2 | 4스테이지, 상한 +3, 출정 타일 칸 +1 (7종) |
+| 4 | x3.3 | x1.5 | x2.5 | 5스테이지, 상한 +3, 새 영구 강화 SKILL TUNING (스킬 쿨다운 -7%/레벨, 5레벨) |
+| 5 | x4 | x1.65 | x3 | 상한 +3 |
+
+- 클리어 화면에 새로 풀린 것이 나오고, 결과창에서 CONTINUE를 누르면 시작 화면이 다음 스테이지를 골라 둠 (RETRY는 같은 스테이지)
+- 왼쪽 위 웨이브 표시 위에 지금 스테이지, 시작 화면의 스테이지 칸 아래에 CLEAR / 최고 웨이브 / LOCKED
+- 스테이지가 생기기 전 저장 파일은 클리어 기록이 있으면 1스테이지를 깬 것으로 바뀜
+- 수치는 `scripts/stage_defs.gd`. 자동 플레이 봇(무작위 카드) 60판 기준으로, 스테이지에 처음 들어갔을 때의 강화 상한을 다 채우면 클리어 약 50~60%, 앞 스테이지 상한 그대로면 약 15~35%
+
 ## 클리어와 무한 모드
 
 - 왼쪽 위 웨이브 표시는 "WAVE 12 / 30"
-- OVERLORD를 포함해 30웨이브 적을 다 잡으면 VICTORY 화면. 그 자리에서 SHARD 75개 (30웨이브 몫 45 + 클리어 보너스 30)를 바로 받음
+- OVERLORD를 포함해 30웨이브 적을 다 잡으면 VICTORY 화면. 그 자리에서 SHARD를 바로 받음 (1스테이지 75개 = 30웨이브 몫 45 + 클리어 보너스 30, 위 스테이지는 배율만큼)
 - CONTINUE ENDLESS: 같은 판을 카드 3장부터 이어서 진행 ("WAVE 31 ENDLESS"). 끝나면 31웨이브부터 버틴 만큼 SHARD를 더 받음
 - END RUN: 결과창을 거쳐 시작 화면으로. 시작 화면에 클리어 횟수(Clears) 표시
 
@@ -100,9 +120,11 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
   - CRYO CORE (15): FREEZE, 모든 적 3.5초 정지 (움직이지도 때리지도 않음), 쿨다운 30초
   - AEGIS CORE (20): REPAIR, 모든 타일 최대 체력의 50% 회복, 쿨다운 40초
   - NOVA CORE (25): NOVA, 반경 560 안 적에게 최대 체력 30% 피해 (보스 10%, 장갑 무시), 쿨다운 40초
-- 영구 강화 (각 5레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
+  - WARP CORE (30, 2스테이지를 깨야 살 수 있음): WARP, 모든 적을 코어 반대쪽으로 380 날려 보냄 (보스 150), 쿨다운 30초
+- 영구 강화 (처음엔 각 5레벨, 스테이지를 처음 깰 때마다 +3레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
+- 스테이지 보상 강화 (5레벨 고정): BOUNTY 처치 보상 +8% (1스테이지 클리어), SKILL TUNING 코어 스킬 쿨다운 -7% (4스테이지 클리어)
 - 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), DRONE HIVE(25)는 SHARD로 사야 함 (예전에 PRISM을 샀다면 PRISM이 빠지면서 SHARD 20개를 돌려받음)
-- 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
+- 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 
 ## 강화 (타일 정보 창의 UPGRADE)
@@ -149,7 +171,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
-- `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 저장/불러오기
+- `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 스테이지 진행, 저장/불러오기
+- `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
 - `scripts/shop.gd`: 시작 화면 겸 상점
 - `scripts/hud.gd`: 화면 위 정보와 버튼
 - `scenes/main.tscn`: 메인 화면 (글로우, 카메라, 보드, HUD)

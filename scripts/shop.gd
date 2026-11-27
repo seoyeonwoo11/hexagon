@@ -4,6 +4,7 @@ extends CanvasLayer
 ##
 ## 배치 (1920x1080 기준):
 ##   왼쪽  : 게임 이름, 지난 판 결과, 가진 SHARD
+##   위    : 스테이지 고르기 (깬 스테이지 다음까지 열림)
 ##   가운데: 벌집 모양 보드. 가운데 육각형이 START, 둘레가 타일.
 ##           잠긴 타일은 클릭해서 구매, 풀린 타일은 클릭해서 출정 타일(최대 6종)에 넣거나 뺀다
 ##   오른쪽: 영구 강화 목록 (이름, 설명, 육각형 레벨 표시, 구매 버튼)
@@ -30,6 +31,7 @@ var _caption_title: Label
 var _caption_body: Label
 var _upgrade_list: VBoxContainer
 var _core_picker: CorePicker
+var _stage_picker: StagePicker
 
 
 func _ready() -> void:
@@ -42,6 +44,7 @@ func _ready() -> void:
 	add_child(bg)
 	_build_left(bg)
 	_build_center(bg)
+	_build_top(bg)
 	_build_right(bg)
 	if Hud.wants_fullscreen_button():
 		var full := Hud.make_fullscreen_button()
@@ -71,24 +74,32 @@ func refresh() -> void:
 	if _shards_value == null:
 		return
 	_shards_value.set_value(Meta.shards)
+	var last := StageDefs.title(Meta.last_run_stage)
 	if Meta.last_run_victory and Meta.last_run_wave > EnemyDefs.FINAL_WAVE:
-		_result_label.text = "Cleared! Endless until wave %d\n+%d shards" \
-				% [Meta.last_run_wave, Meta.last_run_shards]
+		_result_label.text = "%s cleared! Endless until wave %d\n+%d shards" \
+				% [last, Meta.last_run_wave, Meta.last_run_shards]
 	elif Meta.last_run_victory:
-		_result_label.text = "OVERLORD defeated!\n+%d shards" % Meta.last_run_shards
+		_result_label.text = "%s cleared!\n+%d shards" % [last, Meta.last_run_shards]
 	elif Meta.last_run_wave > 0:
-		_result_label.text = "Run ended on wave %d\n+%d shards" \
-				% [Meta.last_run_wave, Meta.last_run_shards]
+		_result_label.text = "%s ended on wave %d\n+%d shards" \
+				% [last, Meta.last_run_wave, Meta.last_run_shards]
 	else:
-		_result_label.text = "Beat the OVERLORD on wave %d.\nClear waves to earn shards." % EnemyDefs.FINAL_WAVE
-	_best_label.text = "Best wave  %d" % Meta.best_wave if Meta.best_wave > 0 else ""
+		_result_label.text = "Beat the OVERLORD on wave %d\nto open the next stage." % EnemyDefs.FINAL_WAVE
+	var best := Meta.stage_best_wave(Meta.stage)
+	_best_label.text = "%s best wave  %d" % [StageDefs.title(Meta.stage), best] if best > 0 else ""
 	if Meta.clears > 0:
 		_best_label.text += "    Clears  %d" % Meta.clears
 	_honeycomb.queue_redraw()
 	if _core_picker != null:
 		_core_picker.queue_redraw()
-	_show_caption(_honeycomb.hovered if _core_picker == null or _core_picker.hovered == "" \
-			else "core:" + _core_picker.hovered)
+	if _stage_picker != null:
+		_stage_picker.queue_redraw()
+	if _core_picker != null and _core_picker.hovered != "":
+		_show_caption("core:" + _core_picker.hovered)
+	elif _stage_picker != null and _stage_picker.hovered > 0:
+		_show_caption("stage:%d" % _stage_picker.hovered)
+	else:
+		_show_caption(_honeycomb.hovered)
 	for child in _upgrade_list.get_children():
 		child.queue_free()
 	for i in Meta.UPGRADES.size():
@@ -182,6 +193,24 @@ func _on_core_clicked(id: String) -> void:
 		refresh()
 
 
+# ---------------------------------------------------------------- 위 (스테이지)
+
+func _build_top(parent: Control) -> void:
+	_stage_picker = StagePicker.new()
+	_stage_picker.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	var w := StagePicker.GAP * StageDefs.count()
+	_stage_picker.offset_left = -w / 2.0
+	_stage_picker.offset_right = w / 2.0
+	_stage_picker.offset_top = 40
+	_stage_picker.offset_bottom = 40 + StagePicker.HEIGHT
+	_stage_picker.stage_clicked.connect(func(n: int) -> void:
+		if Meta.select_stage(n):
+			refresh())
+	_stage_picker.hover_changed.connect(func(n: int) -> void:
+		_show_caption("none" if n == 0 else "stage:%d" % n))
+	parent.add_child(_stage_picker)
+
+
 # ---------------------------------------------------------------- 가운데
 
 func _build_center(parent: Control) -> void:
@@ -238,16 +267,39 @@ func _show_caption(kind: String) -> void:
 			how = "Selected. Press Q in a run to use the skill (%ds cooldown)." % int(cdef["cooldown"])
 		elif Meta.is_core_unlocked(id):
 			how = "Click to use this core."
+		elif not Meta.is_core_available(id):
+			how = "Clear %s to unlock (then %d shards)." \
+					% [StageDefs.title(StageDefs.stage_for_unlock("core:" + id)), cdef["price"]]
 		elif Meta.shards >= cdef["price"]:
 			how = "Click to unlock for %d shards." % cdef["price"]
 		else:
 			how = "Unlock for %d shards (%d more needed)." % [cdef["price"], cdef["price"] - Meta.shards]
 		_caption_body.text = "%s\n%s" % [cdef["desc"], how]
 		return
+	if kind.begins_with("stage:"):
+		var n := int(kind.substr(6))
+		_caption_title.text = StageDefs.title(n)
+		_set_color(_caption_title, StageDefs.color(n))
+		var info := "Enemies x%s HP, x%s damage. Shards x%s." % [_num(StageDefs.hp_mult(n)),
+				_num(StageDefs.damage_mult(n)), _num(StageDefs.shard_mult(n))]
+		if n == 1:
+			info = "Base difficulty."
+		var reward := "First clear: %s." % ", ".join(StageDefs.reward_lines(n))
+		if Meta.is_stage_cleared(n):
+			reward = "Cleared."
+		var how := ""
+		if not Meta.is_stage_unlocked(n):
+			how = "Clear %s to unlock." % StageDefs.title(n - 1)
+		elif Meta.stage == n:
+			how = "Selected."
+		else:
+			how = "Click to select."
+		_caption_body.text = "%s\n%s\n%s" % [info, reward, how]
+		return
 	if kind == "none":
 		_caption_title.text = "Pick your tiles"
 		_set_color(_caption_title, Color.WHITE)
-		_caption_body.text = "Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it." % Meta.MAX_LOADOUT
+		_caption_body.text = "Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it." % Meta.max_loadout()
 		return
 	var def := TileDefs.get_def(kind)
 	_caption_title.text = def["name"]
@@ -257,9 +309,9 @@ func _show_caption(kind: String) -> void:
 		action = "In your loadout. Click to remove." if Meta.loadout.size() > 1 \
 				else "In your loadout (you need at least one)."
 	elif Meta.is_tile_unlocked(kind):
-		action = "Loadout full (%d/%d). Remove a tile first." % [Meta.loadout.size(), Meta.MAX_LOADOUT] \
+		action = "Loadout full (%d/%d). Remove a tile first." % [Meta.loadout.size(), Meta.max_loadout()] \
 				if Meta.loadout_full() else "Click to add to your loadout (%d/%d)." \
-				% [Meta.loadout.size(), Meta.MAX_LOADOUT]
+				% [Meta.loadout.size(), Meta.max_loadout()]
 	else:
 		var price: int = Meta.TILE_PRICES[kind]
 		if Meta.shards >= price:
@@ -285,19 +337,22 @@ func _build_right(parent: Control) -> void:
 	heading.text = "Permanent upgrades"
 	col.add_child(heading)
 	_upgrade_list = VBoxContainer.new()
-	_upgrade_list.add_theme_constant_override("separation", 16)
+	# 스테이지 보상 강화까지 7줄이라 촘촘하게
+	_upgrade_list.add_theme_constant_override("separation", 9)
 	col.add_child(_upgrade_list)
 
 
 func _upgrade_row(u: Dictionary) -> Control:
 	var id: String = u["id"]
+	if not Meta.is_upgrade_unlocked(id):
+		return _locked_upgrade_row(u)
 	var lv := Meta.level(id)
 	var cost := Meta.upgrade_cost(id)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_theme_constant_override("separation", 6)
+	text.add_theme_constant_override("separation", 4)
 	row.add_child(text)
 	var name_label := Hud.make_label(u["color"], 24, 800)
 	name_label.text = u["title"]
@@ -305,12 +360,12 @@ func _upgrade_row(u: Dictionary) -> Control:
 	desc.text = u["desc"]
 	var pips := LevelPips.new()
 	pips.level = lv
-	pips.max_level = u["max"]
+	pips.max_level = Meta.upgrade_max(id)
 	pips.color = u["color"]
 	for c in [name_label, desc, pips]:
 		text.add_child(c)
 	var b := Hud.make_neon_button("Maxed" if cost < 0 else "%d" % cost, SHARD_COLOR)
-	b.custom_minimum_size = Vector2(110, 54)
+	b.custom_minimum_size = Vector2(110, 50)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = cost < 0 or Meta.shards < cost
 	b.tooltip_text = "" if cost < 0 else "Buy level %d for %d shards" % [lv + 1, cost]
@@ -319,6 +374,36 @@ func _upgrade_row(u: Dictionary) -> Control:
 			refresh())
 	row.add_child(b)
 	return row
+
+
+## 스테이지 보상으로 풀리는 강화 (아직 안 풀림): 회색 이름과 설명 + 버튼 자리에 깨야 하는 스테이지.
+func _locked_upgrade_row(u: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 6)
+	row.add_child(text)
+	var name_label := Hud.make_label(LOCKED_COLOR, 24, 800)
+	name_label.text = u["title"]
+	var desc := Hud.make_label(INK_DIM, 17, 500)
+	desc.text = u["desc"]
+	for c in [name_label, desc]:
+		text.add_child(c)
+	var need := StageDefs.stage_for_unlock(u["unlock"])
+	var b := Hud.make_neon_button("CLEAR %d" % need, LOCKED_COLOR)
+	b.custom_minimum_size = Vector2(110, 48)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = true
+	b.add_theme_font_size_override("font_size", 17)
+	b.tooltip_text = "Clear %s to unlock." % StageDefs.title(need)
+	row.add_child(b)
+	return row
+
+
+## 배율 표시: 1.5 -> "1.5", 2.0 -> "2"
+static func _num(v: float) -> String:
+	return ("%.2f" % v).rstrip("0").rstrip(".")
 
 
 func _spacer(h: float) -> Control:
@@ -400,7 +485,7 @@ class Honeycomb extends Control:
 		var c0 := _center()
 		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째 타일 자리)
 		var full := Meta.loadout_full()
-		_text(c0 + Vector2(0, R * 3.05), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.MAX_LOADOUT],
+		_text(c0 + Vector2(0, R * 3.05), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.max_loadout()],
 				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
 		for cell in _cells:
 			var kind: String = _cells[cell]
@@ -427,7 +512,7 @@ class Honeycomb extends Control:
 				pos + Vector2(-10, -14)])
 		draw_colored_polygon(tri, ink)
 		_text(pos + Vector2(0, 10), "START", 30, ink)
-		_text(pos + Vector2(0, 40), "Enter", 15, Color(ink, 0.7))
+		_text(pos + Vector2(0, 40), StageDefs.title(Meta.stage), 15, Color(ink, 0.75))
 
 	func _draw_tile(pos: Vector2, kind: String) -> void:
 		var def := TileDefs.get_def(kind)
@@ -478,7 +563,8 @@ class LevelPips extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := 8.0
+		# 스테이지를 깰수록 칸이 늘어난다 (최대 20칸). 많으면 작게 그려 한 줄에 맞춘다.
+		var r := 8.0 if max_level <= 12 else 6.0
 		for i in max_level:
 			var pos := Vector2(r + 2 + i * (r * 2.3), size.y / 2.0)
 			if i < level:
@@ -538,7 +624,7 @@ class CorePicker extends Control:
 	signal hover_changed(id: String)
 
 	const R := 40.0
-	const GAP := 112.0
+	const GAP := 102.0
 
 	var hovered := ""
 	var _font: Font
@@ -586,6 +672,7 @@ class CorePicker extends Control:
 			var def := CoreDefs.get_def(id)
 			var pos := _center(i)
 			var owned := Meta.is_core_unlocked(id)
+			var available := Meta.is_core_available(id)
 			var picked := Meta.core_type == id
 			var hot := hovered == id
 			var c: Color = def["color"] if owned else LOCKED_COLOR
@@ -597,6 +684,94 @@ class CorePicker extends Control:
 			var label: String = def["skill_name"] if owned else "%d" % def["price"]
 			var lc := Color(c, 0.95 if picked else 0.6) if owned \
 					else (SHARD_COLOR if Meta.shards >= def["price"] else Color(SHARD_COLOR, 0.45))
+			if not owned and not available:
+				# 스테이지를 깨야 살 수 있다
+				label = "CLEAR %d" % StageDefs.stage_for_unlock("core:" + id)
+				lc = Color(LOCKED_COLOR, 0.9)
 			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 			draw_string(_font, pos + Vector2(-w / 2.0, R + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT,
 					-1, 14, lc)
+
+
+## 스테이지 고르기: 육각형 StageDefs.count()개를 가로로. 고른 스테이지는 꽉 차고,
+## 깬 스테이지는 아래에 CLEAR, 잠긴 스테이지는 회색 + LOCKED, 나머지는 최고 웨이브.
+class StagePicker extends Control:
+	signal stage_clicked(n: int)
+	## 0 = 아무것도 아님
+	signal hover_changed(n: int)
+
+	const R := 36.0
+	const GAP := 104.0
+	const HEIGHT := 122.0
+
+	var hovered := 0
+	var _font: Font
+	var _font_big: Font
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_font = Hud.font_weight(700)
+		_font_big = Hud.font_weight(900)
+
+	func _center(i: int) -> Vector2:
+		return Vector2(GAP * (i + 0.5), 26.0 + R)
+
+	func _stage_at(p: Vector2) -> int:
+		for i in StageDefs.count():
+			if p.distance_to(_center(i)) <= R:
+				return i + 1
+		return 0
+
+	func _gui_input(event: InputEvent) -> void:
+		var motion := event as InputEventMouseMotion
+		if motion != null:
+			var n := _stage_at(motion.position)
+			if n != hovered:
+				hovered = n
+				mouse_default_cursor_shape = CURSOR_ARROW if n == 0 else Control.CURSOR_POINTING_HAND
+				hover_changed.emit(n)
+				queue_redraw()
+			return
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var n := _stage_at(mb.position)
+			if n > 0:
+				stage_clicked.emit(n)
+				hover_changed.emit(n)
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_MOUSE_EXIT and hovered != 0:
+			hovered = 0
+			hover_changed.emit(0)
+			queue_redraw()
+
+	func _draw() -> void:
+		_text(Vector2(size.x / 2.0, 6.0), "STAGE", 18, INK_DIM, _font)
+		for i in StageDefs.count():
+			var n := i + 1
+			var pos := _center(i)
+			var open := Meta.is_stage_unlocked(n)
+			var picked := Meta.stage == n
+			var hot := hovered == n
+			var c: Color = StageDefs.color(n) if open else LOCKED_COLOR
+			NeonDraw.hexagon(self, pos, R * 0.92, c, (1.1 if picked else 0.5) + (0.3 if hot else 0.0),
+					3.0 if picked else 2.0, 0.85 if picked else (0.08 if hot else 0.02))
+			var num_color := Color.BLACK if picked else Color(c, 0.95 if open else 0.6)
+			_text(pos + Vector2(0, 2), "%d" % n, 30, num_color, _font_big)
+			var below := ""
+			var bc := Color(c, 0.75)
+			if not open:
+				below = "LOCKED"
+			elif Meta.is_stage_cleared(n):
+				below = "CLEAR"
+				bc = c
+			elif Meta.stage_best_wave(n) > 0:
+				below = "BEST %d" % Meta.stage_best_wave(n)
+			else:
+				below = "NEW"
+			_text(pos + Vector2(0, R + 16.0), below, 13, bc, _font)
+
+	func _text(pos: Vector2, s: String, font_size: int, color: Color, font: Font) -> void:
+		var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		draw_string(font, pos + Vector2(-w / 2.0, font_size * 0.35), s,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)

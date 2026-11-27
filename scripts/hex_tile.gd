@@ -769,6 +769,17 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 			for i in 6:
 				var d := Vector2.from_angle(TAU * i / 6.0 + PI / 6.0)
 				canvas.draw_line(d * r * 0.35, d * r * 0.7, Color(c, intensity), 1.5, true)
+		"core_warp":
+			# 가운데 점 + 바깥으로 향하는 꺾쇠 셋 (날려 보냄)
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			canvas.draw_circle(Vector2.ZERO, r * 0.16, Color(c, intensity))
+			for i in 3:
+				var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 3.0)
+				var side := d.orthogonal() * r * 0.2
+				var tip := d * r * 0.68
+				var back := d * r * 0.42
+				canvas.draw_polyline(PackedVector2Array([back + side, tip, back - side]),
+						Color(c, intensity), 1.8, true)
 		"laser":
 			var tri := PackedVector2Array()
 			for i in 4:

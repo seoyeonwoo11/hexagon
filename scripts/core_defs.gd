@@ -2,7 +2,8 @@ class_name CoreDefs
 extends RefCounted
 ## 코어 종류. 시작 화면에서 하나를 골라 판을 시작한다 (SHARD로 구매).
 ## 코어마다 액티브 스킬이 하나 있고, 쓰면 cooldown초(게임 시간) 동안 다시 못 쓴다.
-## skill: "overdrive" (공격력 증가), "freeze" (적 정지), "nova" (충격파), "repair" (수리)
+## skill: "overdrive" (공격력 증가), "freeze" (적 정지), "nova" (충격파), "repair" (수리),
+##        "warp" (모든 적을 코어 반대쪽으로 날려 보냄)
 
 const DEFS := {
 	"core": {
@@ -29,10 +30,17 @@ const DEFS := {
 		"duration": 0.0, "power": 0.3, "radius": 560.0,
 		"desc": "NOVA: a shockwave takes 30% of max HP from nearby enemies (bosses 10%).",
 	},
+	## 2스테이지를 깨면 살 수 있다 (StageDefs "core:warp")
+	"warp": {
+		"name": "WARP CORE", "color": Color(0.85, 0.4, 1.0), "price": 30,
+		"skill": "warp", "skill_name": "WARP", "cooldown": 30.0,
+		"duration": 0.0, "power": 380.0, "boss_power": 150.0,
+		"desc": "WARP: throws every enemy 380 away from the core (bosses 150).",
+	},
 }
 
 ## 시작 화면에 보이는 순서
-const ORDER: Array[String] = ["core", "cryo", "aegis", "nova"]
+const ORDER: Array[String] = ["core", "cryo", "aegis", "nova", "warp"]
 ## NOVA가 보스에게 주는 최대 체력 비율
 const NOVA_BOSS_POWER := 0.1
 

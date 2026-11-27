@@ -63,6 +63,11 @@ var _boss_name := ""
 ## 최종 보스 클리어 화면
 var _victory: ColorRect
 var _victory_sub: Label
+var _victory_tag: Label
+var _victory_unlocks: Label
+## 이번 판의 스테이지 (웨이브 표시 위에 작게)
+var stage := 1
+var _stage_label: Label
 
 
 func _ready() -> void:
@@ -81,8 +86,10 @@ func _ready() -> void:
 	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.add_theme_constant_override("separation", 6)
 	root.add_child(info)
+	_stage_label = _make_label(NEON_CYAN, 22, 800, 0.25)
 	_wave_label = _make_label(NEON_CYAN, 44, 800, 0.25)
 	_money_label = _make_label(NEON_YELLOW, 30, 700)
+	info.add_child(_stage_label)
 	info.add_child(_wave_label)
 	info.add_child(_money_label)
 	var core_row := HBoxContainer.new()
@@ -163,11 +170,15 @@ func set_money(value: int) -> void:
 
 
 ## 목표(FINAL_WAVE)까지는 "WAVE 12 / 30", 무한 모드에서는 "WAVE 31  ENDLESS".
+## 그 위 작은 글씨로 스테이지 (스테이지 색).
 func set_wave(value: int, endless := false) -> void:
 	if endless:
 		_wave_label.text = "WAVE %d  ENDLESS" % value
 	else:
 		_wave_label.text = "WAVE %d / %d" % [value, EnemyDefs.FINAL_WAVE]
+	_stage_label.text = StageDefs.title(stage)
+	_stage_label.label_settings.font_color = StageDefs.color(stage)
+	_stage_label.label_settings.shadow_color = Color(StageDefs.color(stage), 0.25)
 
 
 func _build_boss_bar(root: MarginContainer) -> void:
@@ -228,13 +239,17 @@ func _build_victory() -> void:
 	center.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_theme_constant_override("separation", 22)
 	_victory.add_child(center)
-	var tag := _make_label(Color(gold, 0.75), 26, 600)
-	tag.text = "OVERLORD DEFEATED"
+	_victory_tag = _make_label(Color(gold, 0.75), 26, 600)
+	_victory_tag.text = "OVERLORD DEFEATED"
 	var title := _make_label(gold, 120, 900, 0.4)
 	title.text = "VICTORY"
 	_victory_sub = _make_label(Color(1, 1, 1, 0.9), 30, 500)
 	_victory_sub.label_settings.line_spacing = 10
-	for l in [tag, title, _victory_sub]:
+	# 처음 깬 스테이지면 새로 풀린 것들 (한 줄에 하나)
+	_victory_unlocks = _make_label(Color.WHITE, 28, 700)
+	_victory_unlocks.label_settings.line_spacing = 8
+	_victory_unlocks.visible = false
+	for l in [_victory_tag, title, _victory_sub, _victory_unlocks]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		center.add_child(l)
 	var row := HBoxContainer.new()
@@ -255,9 +270,16 @@ func _build_victory() -> void:
 	row.add_child(end)
 
 
-## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수.
-func show_victory(wave: int, shards: int, clears: int) -> void:
+## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수,
+## cleared_stage: 깬 스테이지, unlocks: 처음 깨서 새로 풀린 것들 (StageDefs.reward_lines).
+func show_victory(wave: int, shards: int, clears: int, cleared_stage := 1,
+		unlocks: Array[String] = []) -> void:
+	var c := StageDefs.color(cleared_stage)
+	_victory_tag.text = "%s CLEARED  -  OVERLORD DEFEATED" % StageDefs.title(cleared_stage)
 	_victory_sub.text = "All %d waves cleared   -   +%d shards\nClears  %d" % [wave, shards, clears]
+	_victory_unlocks.text = "\n".join(unlocks)
+	_victory_unlocks.label_settings.font_color = c
+	_victory_unlocks.visible = not unlocks.is_empty()
 	_victory.visible = true
 
 
