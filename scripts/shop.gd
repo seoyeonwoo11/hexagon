@@ -124,8 +124,8 @@ func _build_center(parent: Control) -> void:
 	_honeycomb.set_anchors_preset(Control.PRESET_CENTER)
 	_honeycomb.offset_left = -300
 	_honeycomb.offset_right = 300
-	_honeycomb.offset_top = -380
-	_honeycomb.offset_bottom = 180
+	_honeycomb.offset_top = -330
+	_honeycomb.offset_bottom = 230
 	_honeycomb.start_pressed.connect(func() -> void: start_pressed.emit())
 	_honeycomb.tile_clicked.connect(_on_tile_clicked)
 	_honeycomb.hover_changed.connect(_show_caption)
@@ -135,8 +135,8 @@ func _build_center(parent: Control) -> void:
 	cap.set_anchors_preset(Control.PRESET_CENTER)
 	cap.offset_left = -300
 	cap.offset_right = 300
-	cap.offset_top = 200
-	cap.offset_bottom = 330
+	cap.offset_top = 250
+	cap.offset_bottom = 400
 	cap.add_theme_constant_override("separation", 8)
 	parent.add_child(cap)
 	_caption_title = Hud.make_label(Color.WHITE, 26, 800)
@@ -145,29 +145,6 @@ func _build_center(parent: Control) -> void:
 	for l in [_caption_title, _caption_body]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cap.add_child(l)
-
-	var start := Hud.make_neon_button("START RUN", Hud.NEON_CYAN)
-	start.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	start.offset_left = -200
-	start.offset_right = 200
-	start.offset_top = -150
-	start.offset_bottom = -70
-	start.add_theme_font_size_override("font_size", 34)
-	var filled := StyleBoxFlat.new()
-	filled.bg_color = Hud.NEON_CYAN
-	filled.set_corner_radius_all(6)
-	filled.shadow_color = Color(Hud.NEON_CYAN, 0.5)
-	filled.shadow_size = 18
-	var filled_hover := filled.duplicate() as StyleBoxFlat
-	filled_hover.bg_color = Hud.NEON_CYAN.lightened(0.35)
-	start.add_theme_stylebox_override("normal", filled)
-	start.add_theme_stylebox_override("hover", filled_hover)
-	start.add_theme_stylebox_override("pressed", filled_hover)
-	for key in ["font_color", "font_hover_color", "font_pressed_color"]:
-		start.add_theme_color_override(key, Color.BLACK)
-	start.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	start.pressed.connect(func() -> void: start_pressed.emit())
-	parent.add_child(start)
 
 
 func _on_tile_clicked(kind: String) -> void:
@@ -182,7 +159,7 @@ func _show_caption(kind: String) -> void:
 	if kind == "":
 		_caption_title.text = "Start a run"
 		_set_color(_caption_title, Hud.NEON_CYAN)
-		_caption_body.text = "Click here, the START RUN button, or press Enter."
+		_caption_body.text = "Click the core or press Enter."
 		return
 	if kind == "none":
 		_caption_title.text = "Your tiles"
