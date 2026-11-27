@@ -183,11 +183,24 @@ func _run() -> void:
 			d._process(1.0 / 60.0)
 	_check(prey.hp < 10000.0, "drones chase and hit enemies")
 	_check(hive._drones.all(func(d: Drone) -> bool: return d.target == prey), "drones lock on")
+	# 통계: 준 피해가 타일별로 기록된다 (장갑 반영, 넘친 피해 제외)
+	var recorded := board.stats.damage(hive.get_instance_id(), board.stats.current_wave)
+	_check(absf(recorded - (10000.0 - prey.hp)) < 0.01, "damage stats per tile (%.1f)" % recorded)
+	var tiny := _game.spawn_enemy("grunt", Vector2(-2000, 3000))
+	tiny.hp = 3.0
+	var before_total := board.stats.total(hive.get_instance_id())
+	hive.apply_hit(tiny, 50.0)
+	_check(absf(board.stats.total(hive.get_instance_id()) - before_total - 3.0) < 0.01,
+			"overkill not counted")
+	# 쫓던 적이 사라져도 오류 없이 다음 목표를 찾는다
+	prey.free()
+	for d in hive._drones:
+		d._process(1.0 / 60.0)
+	_check(hive._drones.all(func(d: Drone) -> bool: return d.target == null), "drones drop freed target")
 	hive.upgrade()
 	hive.upgrade()
 	hive._sync_drones()
 	_check(hive._drones.size() == 3, "level 3 adds a drone")
-	prey.queue_free()
 	hive.queue_free()
 
 	# ARCHER: 맞닿은 ARCHER 1개당 공격력 +40%

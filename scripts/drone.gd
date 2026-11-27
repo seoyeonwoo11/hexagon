@@ -57,10 +57,13 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-## 벌집 사거리 안에 있는 살아있는 적인지.
-func _target_ok(e: Enemy) -> bool:
-	return e != null and is_instance_valid(e) and e.is_alive() \
-			and hive.global_position.distance_to(e.global_position) <= hive.effective_range()
+## 벌집 사거리 안에 있는 살아있는 적인지. (이미 지워진 적이 들어올 수 있어 타입을 두지 않음)
+func _target_ok(e: Variant) -> bool:
+	if e == null or not is_instance_valid(e):
+		return false
+	var enemy := e as Enemy
+	return enemy.is_alive() \
+			and hive.global_position.distance_to(enemy.global_position) <= hive.effective_range()
 
 
 func _draw() -> void:

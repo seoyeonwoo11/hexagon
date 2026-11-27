@@ -26,6 +26,8 @@ var enemy_layer: Node2D
 ## 전체 강화 배율 (웨이브 클리어 카드로 오른다).
 var damage_mult := 1.0
 var rate_mult := 1.0
+## 타일별/웨이브별 준 피해 (일시정지 화면 통계)
+var stats := DamageStats.new()
 ## 배치 중인 타일 종류. 빈 문자열이면 배치 모드가 아님.
 var placing_kind := ""
 ## 장착 중인 장비 id. 빈 문자열이면 장착 모드가 아님.
@@ -208,6 +210,7 @@ func _on_tile_destroyed(tile: HexTile) -> void:
 		return
 	if selected_tile == tile:
 		select_tile(null)
+	stats.mark_dead(tile)
 	tiles.erase(tile.coord)
 	tile.queue_free()
 	queue_redraw()

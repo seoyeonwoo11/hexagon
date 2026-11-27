@@ -112,6 +112,7 @@ func start_run() -> void:
 		return
 	started = true
 	shop.close()
+	board.stats.reset()
 	board.damage_mult *= Meta.damage_mult()
 	board.rate_mult *= Meta.rate_mult()
 	board.tile_hp_mult = Meta.tile_hp_mult()
@@ -281,7 +282,7 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN)
+		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN, board.stats)
 	else:
 		hud.hide_overlay()
 
@@ -319,6 +320,7 @@ func wave_enemy_reward(n: int) -> float:
 func _begin_wave() -> void:
 	state = State.WAVE
 	wave += 1
+	board.stats.current_wave = wave
 	_to_spawn = wave_enemy_count(wave)
 	_boss_pending = EnemyDefs.is_boss_wave(wave)
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)

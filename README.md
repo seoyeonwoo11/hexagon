@@ -20,7 +20,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 
 ## 조작
 
-- Space: 일시정지 / 계속
+- Space: 일시정지 / 계속. 일시정지 화면에 타일별 최근 7웨이브 피해 표 (총 피해 많은 순, 부서진 타일은 흐리게 X)
 - F: 1배속 / 2배속
 - R: 게임 오버 후 재시작
 - F11: 전체 화면
@@ -30,7 +30,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 ## 장비 (타일마다 1개, 새로 달면 교체)
 
 - SCOPE: 사거리 +40%
-- SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1 (LASER, SPARK, ORBIT, CORE)
+- SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1, DRONE HIVE는 드론 +1 (FROST에는 못 닮)
 - IGNITER: 맞은 적에게 3초 화상
 - CRIT LENS: 20% 확률로 3배 피해
 - DETONATOR: 이 타일이 처치한 적이 폭발해 주변 적에게 피해
@@ -52,6 +52,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - SPARK: 가까운 적들 사이를 튕기는 번개 투사체 (레벨마다 튕김 +1)
 - FROST: 사거리 안 적을 느리게 하고 약한 피해. 감속 범위는 옅은 원과 테두리로 늘 보이고, 공격마다 냉기 파동이 퍼짐
 - ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도(반지름 145)를 돌며 닿은 적에게 피해 14 (레벨마다 구체 +1, 최대 6개)
+- DRONE HIVE: 드론 2기가 벌집 주위를 돌다가 사거리(330) 안 적을 쫓아가 들이받음. 드론마다 다른 적을 노림
+- ARCHER: 긴 사거리(360) 화살. 면이 맞닿은 ARCHER 1개당 공격력 +40% (가운데 끼면 최대 +240%). 연결된 변에 밝은 막대
 - BOOSTER: 공격하지 않는 대신 면이 맞닿은 타일들의 공격 속도 +25% (강화마다 +10%p, 여러 개면 더해짐). 장비 불가
 - BANK: 웨이브를 넘길 때마다 돈, 그리고 가진 돈의 4% 이자 (강화마다 +1%p, 최대 수입 × 3)
 
@@ -60,13 +62,14 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - 게임을 켜면 시작 화면(상점)이 뜨고, START 또는 Enter로 판을 시작
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). 결과는 시작 화면에 표시되고, R을 누르면 상점 없이 바로 새 판
 - 영구 강화 (각 5레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
-- 타일 구매: 처음엔 LASER, FROST, BANK만 카드에 나오고 SPARK(12), ORBIT(20)은 SHARD로 사야 나옴
+- 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), DRONE HIVE(25)는 SHARD로 사야 함
+- 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 
 ## 강화 (타일 정보 창의 UPGRADE)
 
 - 1번마다 공격력 ×1.5, 공격 속도 +11%, 사거리 +20, 체력 +20. 비용은 $25에서 레벨마다 1.8배
-- 타일별 추가 효과: LASER/CORE는 3, 5레벨에 광선 +1, SPARK는 튕김 +1, FROST는 감속 강화, ORBIT은 구체 +1, BANK는 수입 +$6
+- 타일별 추가 효과: CORE는 3, 5레벨에 광선 +1, LASER는 집중 +3%p, DRONE HIVE는 3, 5, 7레벨에 드론 +1, ARCHER는 연결 보너스 +10%p, SPARK는 튕김 +1, FROST는 감속 강화, ORBIT은 구체 +1, BANK는 수입 +$6
 - 정보 창의 NEXT LEVEL에 다음 강화로 바뀌는 수치가 나옴. 레벨이 오르면 타일이 더 밝고 두꺼워짐
 
 ## 후반 밸런스
@@ -96,6 +99,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
 - `scripts/orbit_ring.gd`: ORBIT 타일의 도는 구체 그리기
 - `scripts/level_up_fx.gd`: 강화 순간 연출 (퍼지는 고리와 LV 글자)
+- `scripts/frost_field.gd`: FROST 감속 범위와 냉기 파동
+- `scripts/drone.gd`, `scripts/arrow.gd`: DRONE HIVE의 드론, ARCHER의 화살
+- `scripts/damage_stats.gd`, `scripts/stats_panel.gd`: 타일별 웨이브 피해 기록과 일시정지 화면 표
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)

@@ -28,6 +28,7 @@ var _banner_label: Label
 var _overlay: ColorRect
 var _overlay_title: Label
 var _overlay_sub: Label
+var _stats_panel: StatsPanel
 var _pause_button: Button
 var _speed_button: Button
 var _choice_overlay: ColorRect
@@ -111,6 +112,11 @@ func _ready() -> void:
 	for l in [_overlay_title, _overlay_sub]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		center.add_child(l)
+	# 일시정지 때만: 타일별 웨이브 피해 표
+	_stats_panel = StatsPanel.new()
+	_stats_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_stats_panel.visible = false
+	center.add_child(_stats_panel)
 
 
 func set_money(value: int) -> void:
@@ -146,10 +152,15 @@ func hide_banner() -> void:
 
 
 ## 화면 가운데 큰 오버레이 (일시정지, 게임 오버).
-func show_overlay(title: String, subtitle: String, color := NEON_CYAN) -> void:
+## stats를 주면 아래에 타일별 웨이브 피해 표를 같이 보여 준다 (일시정지).
+func show_overlay(title: String, subtitle: String, color := NEON_CYAN,
+		stats: DamageStats = null) -> void:
 	_overlay_title.text = title
 	_overlay_sub.text = subtitle
 	_set_label_color(_overlay_title, color)
+	_stats_panel.visible = stats != null
+	if stats != null:
+		_stats_panel.show_stats(stats)
 	_overlay.visible = true
 
 

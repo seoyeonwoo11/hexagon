@@ -172,8 +172,11 @@ func is_alive() -> bool:
 func take_damage(amount: float, source: HexTile = null) -> void:
 	if _dead:
 		return
+	var dealt := minf(amount * (1.0 - armor), hp)
 	if source != null:
 		_last_source = source
+		if source.board != null:
+			source.board.stats.record(source, dealt)
 	hp -= amount * (1.0 - armor)
 	if hp <= 0.0:
 		_die(true)
