@@ -106,26 +106,22 @@ func try_upgrade(tile: HexTile) -> bool:
 	return true
 
 
-## 카드 3장 만들기: 놓을 칸이 있으면 타일 카드 1장 + 강화 카드 2장, 없으면 강화 카드만.
+## 카드 3장 만들기: 모든 타일 카드와 강화 카드를 한데 섞어 서로 다른 3장을 무작위로 뽑는다.
+## 보드에 놓을 칸이 없으면 타일 카드는 빼고 뽑는다.
 func make_options() -> Array:
-	var options: Array = []
-	var boosts := BOOSTS.duplicate()
-	boosts.shuffle()
+	var pool: Array = []
 	if not board.placeable_cells().is_empty():
-		var kinds := TileDefs.PLACEABLE.duplicate()
-		kinds.shuffle()
-		for kind in kinds.slice(0, 1):
+		for kind in TileDefs.PLACEABLE:
 			var def := TileDefs.get_def(kind)
-			options.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
+			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
 					"title": def["name"], "desc": def["desc"], "color": def["color"]})
-	for boost in boosts:
-		if options.size() >= 3:
-			break
+	for boost in BOOSTS:
 		var opt: Dictionary = boost.duplicate()
 		opt["type"] = "boost"
 		opt["tag"] = CARD_TAG_BOOST
-		options.append(opt)
-	return options
+		pool.append(opt)
+	pool.shuffle()
+	return pool.slice(0, 3)
 
 
 func choose_option(index: int) -> void:

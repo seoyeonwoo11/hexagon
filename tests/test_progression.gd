@@ -57,20 +57,33 @@ func _run() -> void:
 	board.select_tile(null)
 	_check(board.selected_tile == null and not core.selected, "deselect tile")
 
-	# 웨이브 클리어 카드
+	# 웨이브 클리어 카드: 무작위 구성 (서로 다른 3장, 타일 카드 수가 매번 달라질 수 있음)
+	var tile_counts := {}
+	for i in 300:
+		var opts := _game.make_options()
+		_check(opts.size() == 3, "3 options")
+		var titles := {}
+		var n_tiles := 0
+		for o in opts:
+			titles[o["title"]] = true
+			if o["type"] == "tile":
+				n_tiles += 1
+		_check(titles.size() == 3, "options are distinct")
+		tile_counts[n_tiles] = true
+	_check(tile_counts.size() >= 3, "card mix varies (tile counts seen: %s)" % [tile_counts.keys()])
+	# 타일 카드와 강화 카드가 모두 있는 구성을 골라 아래 흐름을 확인
 	_game.state = Game.State.CHOOSING
-	_game.current_options = _game.make_options()
-	_check(_game.current_options.size() == 3, "3 options")
 	var tile_idx := -1
 	var boost_idx := -1
-	for i in _game.current_options.size():
-		if _game.current_options[i]["type"] == "tile":
-			tile_idx = i
-		else:
-			boost_idx = i
-	_check(tile_idx >= 0 and boost_idx >= 0, "has tile and boost options")
-	var tile_cards := _game.current_options.filter(func(o: Dictionary) -> bool: return o["type"] == "tile")
-	_check(tile_cards.size() == 1, "one tile card")
+	while tile_idx < 0 or boost_idx < 0:
+		_game.current_options = _game.make_options()
+		tile_idx = -1
+		boost_idx = -1
+		for i in _game.current_options.size():
+			if _game.current_options[i]["type"] == "tile":
+				tile_idx = i
+			else:
+				boost_idx = i
 
 	# 강화 카드: 바로 다음 웨이브 대기로
 	var opts_copy := _game.current_options.duplicate()
