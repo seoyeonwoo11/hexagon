@@ -24,6 +24,11 @@ var armor := 0.0
 ## 처치되면 이 종류의 적으로 split_count마리 갈라진다 (빈 문자열이면 없음)
 var splits_into := ""
 var split_count := 0
+## 근접형(보스): 닿아도 사라지지 않고 hit_interval초마다 때린다
+var melee := false
+var hit_interval := 1.0
+var _hit_cd := 0.0
+var _lunge := 0.0
 ## 처치당해 죽었는지 (타일에 부딪혀 사라지면 false)
 var killed := false
 
@@ -56,6 +61,8 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: i
 	contact_damage = base_contact * def["contact"]
 	splits_into = def.get("splits_into", "")
 	split_count = def.get("split_count", 0)
+	melee = def.get("melee", false)
+	hit_interval = def.get("hit_interval", 1.0)
 
 
 func _ready() -> void:
@@ -81,7 +88,20 @@ func _process(delta: float) -> void:
 	if target == null:
 		return
 	var to_target := target.global_position - global_position
-	if to_target.length() <= board.hex_size * 0.8:
+	_lunge = maxf(_lunge - delta * 4.0, 0.0)
+	if melee:
+		# 타일 가장자리에 붙어서 hit_interval초마다 때린다. 사라지지 않는다.
+		_hit_cd -= delta
+		if to_target.length() <= board.hex_size * 0.85 + radius * 0.6:
+			if _hit_cd <= 0.0:
+				_hit_cd = hit_interval
+				_lunge = 1.0
+				target.take_damage(contact_damage)
+			_spin += delta * 3.0
+			_crit_flash = maxf(_crit_flash - delta, 0.0)
+			queue_redraw()
+			return
+	elif to_target.length() <= board.hex_size * 0.8:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
@@ -168,6 +188,10 @@ func shape_points() -> PackedVector2Array:
 
 func _draw() -> void:
 	var pts := shape_points()
+	if _lunge > 0.0:
+		# 근접 공격 순간 잠깐 부풀었다 돌아온다
+		for i in pts.size():
+			pts[i] *= 1.0 + 0.2 * _lunge
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
 	if _crit_flash > 0.0:
 		c = Color.WHITE
