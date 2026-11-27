@@ -180,8 +180,9 @@ func try_upgrade(tile: HexTile) -> bool:
 func make_options() -> Array:
 	var pool: Array = []
 	if not board.placeable_cells().is_empty():
+		# 출정 타일(시작 화면에서 고른 최대 6종)만 카드로 나온다
 		for kind in TileDefs.PLACEABLE:
-			if not Meta.is_tile_unlocked(kind):
+			if not Meta.in_loadout(kind):
 				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
