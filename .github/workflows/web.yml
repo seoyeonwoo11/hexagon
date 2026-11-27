@@ -4,7 +4,7 @@ name: Web build
 
 on:
   push:
-    branches: [main, claude/project-thread-or2nip]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
