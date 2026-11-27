@@ -28,6 +28,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_sound.gd
 ```
 
 ## 조작
@@ -37,6 +38,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - R: 게임 오버 후 재시작 (결과창에서도 됨)
 - Q: 코어 스킬 (왼쪽 아래 버튼, 막대가 차면 다시 쓸 수 있음)
 - M: 타일 옮기기. 웨이브마다 1번 (쌓이지 않음). 옮길 타일을 클릭한 뒤 갈 칸을 클릭. 다른 타일을 클릭하면 자리 바꾸기. 빈 칸은 다른 타일과 맞닿아 있어야 함. 코어는 제자리. 오른쪽 클릭으로 취소
+- N: 소리 끄기 / 켜기. 오른쪽 위 SOUND 버튼으로 소리 설정 창 (배경음/효과음 볼륨, 음소거)
 - F11: 전체 화면 (웹/터치 화면에서는 오른쪽 위 FULL 버튼)
 - 타일 왼쪽 클릭: 정보 창 (돈으로 UPGRADE), 오른쪽 클릭: 창 닫기
 - 웨이브 클리어: 카드 3장 중 하나 선택 (타일, 강화, 장비가 무작위로 섞여 나옴). 타일 카드는 표시된 맞닿은 칸을 클릭해 배치, 장비 카드는 깜빡이는 타일을 클릭해 장착
@@ -81,6 +83,16 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - ARCHER: 긴 사거리(360) 화살. 면이 맞닿은 ARCHER 1개당 공격력 +35% (가운데 끼면 최대 +210%). 연결된 변에 밝은 막대
 - BOOSTER: 공격하지 않는 대신 면이 맞닿은 타일들의 공격 속도 +25% (강화마다 +10%p, 여러 개면 더해짐). 장비 불가
 - BANK: 웨이브를 넘길 때마다 돈 $12 (강화마다 +$6), 그리고 가진 돈의 4% 이자 (강화마다 +1%p, 최대 수입 × 3)
+
+## 소리
+
+- 효과음 31종과 배경음 3곡 (시작 화면, 전투, 보스 웨이브). 전부 `tools/gen_sounds.py`가 코드로 합성한 것이라 외부 음원이나 저작권 걱정이 없음
+- 배경음: 시작 화면은 잔잔한 패드, 판이 시작되면 전투 곡, 보스 웨이브(10, 20, 30)에는 빠르고 어두운 보스 곡으로 천천히 바뀜. 일시정지 중에는 작게, 게임 오버와 클리어 때는 멈추고 짧은 곡
+- 효과음: 타일 공격마다 (LASER, CORE, SPARK, ARCHER, FROST, ORBIT, DRONE, 폭발, 치명타), 적 처치, 보스 처치, 타일 피격과 파괴, 보스/OVERLORD 등장, 웨이브 시작과 클리어, 카드 선택, 배치, 장착, 강화, 코어 스킬 4종, 상점 구매, 버튼 딸깍, 돈이 모자랄 때
+- 설정: 오른쪽 위 SOUND 버튼 (시작 화면에서는 FULL 아래). MUSIC, EFFECTS 볼륨 막대와 MUTE. 창이 열려 있는 동안은 게임이 멈춤. N 키는 바로 음소거. 음소거면 버튼이 MUTED로 바뀜
+- 저장: `user://settings.cfg` (SHARD 저장 파일과 따로)
+- 렉 방지: 효과음 재생기 14개를 미리 만들어 돌려 씀. 소리마다 동시에 울리는 수와 최소 간격(실제 시간 기준이라 2배속이어도 안 쌓임)이 있고, 전투 소리는 다 합쳐 7개까지. 자리가 없으면 중요한 소리(보스, 파괴, 스킬)가 전투 소리를 끊고 울림
+- 소리 다시 만들기: `pip install numpy scipy` 후 `python3 tools/gen_sounds.py` (배경음 인코딩에 ffmpeg 필요). 소리 이름과 볼륨은 `scripts/sfx.gd`의 SOUNDS
 
 ## 결과창
 
@@ -152,4 +164,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 저장/불러오기
 - `scripts/shop.gd`: 시작 화면 겸 상점
 - `scripts/hud.gd`: 화면 위 정보와 버튼
+- `scripts/sfx.gd`: 효과음과 배경음 (`Sfx.play("kill")`, `Sfx.music("battle")`), 볼륨 설정
+- `scripts/sound_panel.gd`: 소리 설정 창과 SOUND 버튼
+- `assets/sounds/`: 합성한 효과음(wav)과 배경음(ogg). `tools/gen_sounds.py`로 만듦
 - `scenes/main.tscn`: 메인 화면 (글로우, 카메라, 보드, HUD)

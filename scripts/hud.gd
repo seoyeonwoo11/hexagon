@@ -105,6 +105,7 @@ func _ready() -> void:
 	_speed_button = _make_button("1x", speed_pressed)
 	if wants_fullscreen_button():
 		buttons.add_child(make_fullscreen_button())
+	buttons.add_child(SoundPanel.make_button())
 	buttons.add_child(_pause_button)
 	buttons.add_child(_speed_button)
 

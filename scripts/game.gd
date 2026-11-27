@@ -148,6 +148,7 @@ func start_run() -> void:
 		return
 	started = true
 	shop.close()
+	Sfx.music("battle")
 	board.stats.reset()
 	best_at_start = Meta.best_wave
 	board.damage_mult *= Meta.damage_mult()
@@ -209,6 +210,7 @@ func use_skill() -> bool:
 					# 장갑과 상관없이 최대 체력의 일정 비율
 					e.take_damage(e.max_hp * frac / maxf(1.0 - e.armor, 0.01), core)
 	skill_cooldown = def["cooldown"]
+	Sfx.play("skill_" + def["skill"])
 	var fx := SkillFx.new()
 	fx.color = def["color"]
 	fx.radius = fx_radius
@@ -233,6 +235,7 @@ func can_move() -> bool:
 
 
 func _on_move_finished(_tile: HexTile) -> void:
+	Sfx.play("place")
 	move_charges = maxi(move_charges - 1, 0)
 	_update_actions()
 
@@ -307,9 +310,11 @@ func try_upgrade(tile: HexTile) -> bool:
 		return false
 	var cost := tile.upgrade_cost()
 	if money < cost:
+		Sfx.play("deny")
 		return false
 	add_money(-cost)
 	tile.upgrade()
+	Sfx.play("levelup")
 	return true
 
 
@@ -353,6 +358,7 @@ func choose_option(index: int) -> void:
 		return
 	var opt: Dictionary = current_options[index]
 	current_options = []
+	Sfx.play("card")
 	hud.hide_choices()
 	if opt["type"] == "tile":
 		state = State.PLACING
@@ -391,11 +397,13 @@ func _apply_boost(id: String) -> void:
 
 
 func _on_placement_finished(_tile: HexTile) -> void:
+	Sfx.play("place")
 	if state == State.PLACING:
 		_start_intermission()
 
 
 func _on_equip_finished(_tile: HexTile) -> void:
+	Sfx.play("equip")
 	if state == State.EQUIPPING:
 		_start_intermission()
 
@@ -484,6 +492,8 @@ func _begin_wave() -> void:
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)
 	_spawn_timer = 0.0
 	hud.set_wave(wave, endless)
+	Sfx.play("wave")
+	Sfx.music("boss" if _boss_pending else "battle")
 	if _boss_pending and wave == EnemyDefs.FINAL_WAVE:
 		hud.show_banner("FINAL WAVE  -  OVERLORD", EnemyDefs.get_def("overlord")["color"])
 	elif _boss_pending:
@@ -501,6 +511,7 @@ func _hide_wave_message(for_wave: int) -> void:
 
 func _on_wave_cleared() -> void:
 	wave_cleared.emit(wave)
+	Sfx.play("wave_clear")
 	# RESONANCE는 더하기로 쌓인다 (곱하면 후반에 끝없이 불어남)
 	if resonance > 0.0:
 		board.damage_mult += resonance
@@ -567,6 +578,7 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	_alive -= 1
 	if enemy.killed:
 		kills[enemy.kind] = kills.get(enemy.kind, 0) + 1
+		Sfx.play("boss_kill" if enemy.is_boss else "kill")
 	if reward > 0:
 		add_money(reward)
 	# SPLITTER: 처치되면 작은 적으로 갈라진다
@@ -581,6 +593,7 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 func _spawn_boss() -> Enemy:
 	var kind := EnemyDefs.boss_kind(wave)
 	var boss := spawn_enemy(kind, _random_spawn_point())
+	Sfx.play("overlord" if kind == "overlord" else "boss_appear")
 	if kind == "overlord":
 		final_boss = boss
 		hud.show_boss_bar(EnemyDefs.get_def(kind)["name"], boss.color)
@@ -608,6 +621,8 @@ func _on_victory() -> void:
 	hud.hide_boss_bar()
 	hud.show_tile_panel(null, 0)
 	get_tree().paused = true
+	Sfx.music("")
+	Sfx.play("victory")
 	hud.show_victory(wave, victory_shards, Meta.clears)
 	victory.emit()
 
@@ -621,6 +636,7 @@ func continue_endless() -> void:
 	hud.hide_victory()
 	get_tree().paused = false
 	hud.set_wave(wave, endless)
+	Sfx.music("battle")
 	_on_wave_cleared()
 
 
@@ -651,6 +667,8 @@ func _on_core_destroyed() -> void:
 	else:
 		Meta.finish_run(wave)
 	get_tree().paused = true
+	Sfx.music("")
+	Sfx.play("gameover")
 	_show_results()
 	game_over.emit()
 

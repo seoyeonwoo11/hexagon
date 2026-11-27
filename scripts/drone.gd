@@ -48,6 +48,7 @@ func _process(delta: float) -> void:
 			and to_goal.length() <= SIZE + target.radius:
 		_cd = hive.interval()
 		_flash = FLASH_TIME
+		Sfx.play("drone")
 		hive.apply_hit(target, hive.damage())
 		# 맞힌 뒤 살짝 튕겨 나온다
 		_vel = -_vel * 0.6

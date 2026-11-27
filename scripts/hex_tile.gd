@@ -289,6 +289,7 @@ func apply_hit(enemy: Enemy, amount: float) -> void:
 	if has_gear("crit") and randf() < GearDefs.CRIT_CHANCE:
 		amount *= GearDefs.CRIT_MULT
 		enemy.flash_crit()
+		Sfx.play("crit")
 	var pos := enemy.global_position
 	enemy.take_damage(amount, self)
 	if has_gear("detonator"):
@@ -305,6 +306,7 @@ func _detonate(pos: Vector2, amount: float, hit: Enemy) -> void:
 	var now := Time.get_ticks_msec()
 	if now - _last_blast_ms >= GearDefs.DETONATE_FX_GAP * 1000.0:
 		_last_blast_ms = now
+		Sfx.play("explode")
 		var fx := Explosion.new()
 		fx.color = GearDefs.get_def("detonator")["color"]
 		fx.radius = GearDefs.DETONATE_RADIUS
@@ -475,6 +477,7 @@ func _process_orbit(delta: float) -> void:
 				continue
 			if orb.distance_to(enemy.global_position) <= ORB_RADIUS + enemy.radius:
 				_orb_hit_cd[key] = interval()
+				Sfx.play("orbit")
 				apply_hit(enemy, damage())
 
 
@@ -486,6 +489,7 @@ func _fire() -> void:
 			var targets := nearest_targets(target_count())
 			if not targets.is_empty() and board != null:
 				_cooldown = interval()
+				Sfx.play("spark")
 				for enemy in targets:
 					var bolt := ChainBolt.new()
 					bolt.color = color
@@ -499,6 +503,7 @@ func _fire() -> void:
 			var targets := nearest_targets(target_count())
 			if not targets.is_empty() and board != null:
 				_cooldown = interval()
+				Sfx.play("arrow")
 				for enemy in targets:
 					var arrow := Arrow.new()
 					arrow.color = color
@@ -509,6 +514,8 @@ func _fire() -> void:
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
+			if not targets.is_empty():
+				Sfx.play("frost")
 			for enemy in targets:
 				enemy.apply_slow(frost_slow, FROST_SLOW_TIME)
 				apply_hit(enemy, damage())
@@ -522,6 +529,7 @@ func _fire_laser() -> void:
 	_shot_targets.clear()
 	_shot_time = SHOT_TIME
 	_cooldown = interval()
+	Sfx.play("core_shot")
 	for enemy in targets:
 		_shot_targets.append(to_local(enemy.global_position))
 	for enemy in targets:
@@ -565,6 +573,7 @@ func _process_beam(delta: float) -> void:
 ## LASER: 꽂힌 적마다 피해 한 번. 집중은 한 번 맞힐 때마다 +1 (최대 focus_max).
 func _beam_tick() -> void:
 	_cooldown = interval()
+	Sfx.play("laser")
 	var base := damage()
 	var new_focus := {}
 	for e in beam_targets:
@@ -636,6 +645,7 @@ func take_damage(amount: float) -> void:
 		return
 	hp -= amount
 	_hit_flash = HIT_FLASH_TIME
+	Sfx.play("tile_hit")
 	if hp <= 0.0:
 		hp = 0.0
 		_destroyed = true
