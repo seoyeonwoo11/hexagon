@@ -126,6 +126,9 @@ const KO := {
 	"DRONES %d": "드론 %d대",
 	"PACK %d ARCHERS (+%d%% DMG)": "무리 ARCHER %d개 (피해 +%d%%)",
 	"SLOW %d%%": "감속 %d%%",
+	"FLAMES %d": "불길 %d갈래",
+	"BURN %.1f / S FOR %.1f S": "화상 초당 %.1f, %.1f초 동안",
+	"FIRE SPREADS ON TOUCH (%d%%)": "닿으면 불이 번짐 (%d%%)",
 	"HP %d / %d": "체력 %d / %d",
 	"GEAR  %s": "장비  %s",
 	"GEAR  EMPTY SLOT": "장비  빈 칸",
@@ -142,6 +145,7 @@ const KO := {
 	"SLOW %d%% > %d%%": "감속 %d%% > %d%%",
 	"+1 BEAM": "광선 +1",
 	"FOCUS +%d%% > +%d%% / HIT": "집중 맞힐 때마다 +%d%% > +%d%%",
+	"BURN %.1f S > %.1f S": "화상 시간 %.1f초 > %.1f초",
 	"+1 GEAR SLOT": "장비 칸 +1",
 	"HP +%d": "체력 +%d",
 	# ---------------------------------------------------------------- 게임 진행
@@ -174,12 +178,14 @@ const KO := {
 	"Long-range arrows. +40% damage for every ARCHER touching it.":
 			"멀리 화살을 쏩니다. 맞닿은 ARCHER 1개마다 피해 +40%.",
 	"Adjacent tiles attack 25% faster.": "맞닿은 타일의 공격 속도 +25%.",
+	"Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.":
+			"화염방사기. 가장 가까운 적에게 부채꼴 불길을 뿜어 불태웁니다. 불은 맞닿은 적에게 번집니다.",
 	"Earns money after every wave, plus interest on your savings.":
 			"웨이브가 끝날 때마다 돈을 벌고, 가진 돈에 이자도 붙습니다.",
 	# ---------------------------------------------------------------- 장비 설명
 	"+40% attack range.": "사거리 +40%.",
-	"Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone).":
-			"공격마다 대상 1명 추가 (ORBIT은 구체 +1, HIVE는 드론 +1).",
+	"Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone, BURN: +1 flame).":
+			"공격마다 대상 1명 추가 (ORBIT은 구체 +1, HIVE는 드론 +1, BURN은 불길 +1).",
 	"Hits set enemies on fire for 3 seconds.": "맞은 적에게 3초 동안 불을 붙입니다.",
 	"25% chance to deal 3.5x damage.": "25% 확률로 3.5배 피해.",
 	"Every hit explodes, dealing 45% of it to enemies nearby.":
