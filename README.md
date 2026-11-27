@@ -16,6 +16,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_combat.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 ```
 
 ## 조작
