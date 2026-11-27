@@ -14,7 +14,7 @@ const DEFS := {
 	"laser": {
 		"name": "LASER", "color": Color(0.4, 1.0, 0.3), "attack": "laser",
 		"max_hp": 60.0, "damage": 6.6, "range": 290.0, "interval": 0.45, "income": 0,
-		"beam": true, "focus_step": 0.12, "focus_max": 6,
+		"beam": true, "focus_step": 0.25, "focus_max": 8,
 		"desc": "Locks a beam onto one enemy until it dies or leaves range. Gets stronger the longer it holds.",
 	},
 	"spark": {
