@@ -296,6 +296,7 @@ func _on_tile_destroyed(tile: HexTile) -> void:
 	if selected_tile == tile:
 		select_tile(null)
 	stats.mark_dead(tile)
+	Sfx.play("tile_break")
 	tiles.erase(tile.coord)
 	tile.queue_free()
 	queue_redraw()

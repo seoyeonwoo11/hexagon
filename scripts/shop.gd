@@ -43,6 +43,14 @@ func _ready() -> void:
 	_build_left(bg)
 	_build_center(bg)
 	_build_right(bg)
+	# 소리 설정 버튼: 오른쪽 위 줄(FULL, 언어) 바로 아래, 오른쪽 끝에 맞춤
+	var sound := SoundPanel.make_button()
+	sound.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	sound.offset_left = -40 - 150
+	sound.offset_right = -40
+	sound.offset_top = 116
+	sound.offset_bottom = 176
+	bg.add_child(sound)
 	if Hud.wants_fullscreen_button():
 		var full := Hud.make_fullscreen_button()
 		full.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -80,6 +88,7 @@ func switch_language() -> void:
 
 func open() -> void:
 	visible = true
+	Sfx.music("menu")
 	refresh()
 
 
@@ -201,7 +210,9 @@ func _build_left(parent: Control) -> void:
 
 
 func _on_core_clicked(id: String) -> void:
-	var changed := Meta.select_core(id) if Meta.is_core_unlocked(id) else Meta.buy_core(id)
+	var owned := Meta.is_core_unlocked(id)
+	var changed := Meta.select_core(id) if owned else Meta.buy_core(id)
+	Sfx.play(("click" if owned else "coin") if changed else "deny")
 	if changed:
 		refresh()
 
@@ -237,8 +248,9 @@ func _build_center(parent: Control) -> void:
 
 
 func _on_tile_clicked(kind: String) -> void:
-	var changed := Meta.toggle_loadout(kind) if Meta.is_tile_unlocked(kind) \
-			else Meta.buy_tile(kind)
+	var owned := Meta.is_tile_unlocked(kind)
+	var changed := Meta.toggle_loadout(kind) if owned else Meta.buy_tile(kind)
+	Sfx.play(("click" if owned else "coin") if changed else "deny")
 	if changed:
 		refresh()
 
@@ -340,6 +352,7 @@ func _upgrade_row(u: Dictionary) -> Control:
 	b.tooltip_text = "" if cost < 0 else Loc.t("Buy level %d for %d shards") % [lv + 1, cost]
 	b.pressed.connect(func() -> void:
 		if Meta.buy_upgrade(id):
+			Sfx.play("coin")
 			refresh())
 	row.add_child(b)
 	return row
