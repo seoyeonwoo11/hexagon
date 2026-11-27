@@ -5,6 +5,8 @@ extends Node2D
 ## 종류(kind)별 모양과 능력은 EnemyDefs 참고. armor는 받는 피해 감소 비율(0~1).
 
 signal died(enemy: Enemy, reward: int)
+## 보스가 부하를 부를 때. Game이 받아서 enemy 주변에 kind를 count마리 만든다.
+signal summoned(enemy: Enemy, kind: String, count: int)
 
 const GROUP := &"enemies"
 
@@ -29,6 +31,17 @@ var melee := false
 var hit_interval := 1.0
 var _hit_cd := 0.0
 var _lunge := 0.0
+## 보스 (BOSS, OVERLORD): NOVA 스킬이 덜 아프고 위에 체력 막대가 뜬다
+var is_boss := false
+## 부하 소환 (OVERLORD)
+var summon_kind := ""
+var summon_count := 0
+var summon_every := 0.0
+var _summon_cd := 0.0
+## 분노: 체력이 enrage_at 비율 아래면 enrage_speed배 빨라지고 두 배 자주 부른다
+var enrage_at := 0.0
+var enrage_speed := 1.0
+var enraged := false
 ## 처치당해 죽었는지 (타일에 부딪혀 사라지면 false)
 var killed := false
 
@@ -42,6 +55,8 @@ var _burn_source: HexTile
 ## 마지막으로 피해를 준 타일
 var _last_source: HexTile
 var _crit_flash := 0.0
+## 코어 스킬 FREEZE: 남은 정지 시간. 그동안 움직이지도 때리지도 않는다.
+var _freeze_timer := 0.0
 ## 성능: 도는 몸체는 자식 노드로 그리고 회전은 rotation으로. 색/모양이 바뀔 때만 다시 그린다.
 var _body: _Body
 
@@ -65,6 +80,13 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: f
 	split_count = def.get("split_count", 0)
 	melee = def.get("melee", false)
 	hit_interval = def.get("hit_interval", 1.0)
+	is_boss = def.get("is_boss", false)
+	summon_kind = def.get("summon", "")
+	summon_count = def.get("summon_count", 0)
+	summon_every = def.get("summon_every", 0.0)
+	_summon_cd = summon_every
+	enrage_at = def.get("enrage_at", 0.0)
+	enrage_speed = def.get("enrage_speed", 1.0)
 
 
 func _ready() -> void:
@@ -90,6 +112,17 @@ func _process(delta: float) -> void:
 		take_damage(_burn_dps * delta, src)
 		if _dead:
 			return
+	if _freeze_timer > 0.0:
+		_freeze_timer -= delta
+		if _body != null:
+			_body.sync()
+		return
+	if summon_kind != "":
+		_summon_cd -= delta
+		if _summon_cd <= 0.0:
+			_summon_cd = summon_every * (0.5 if enraged else 1.0)
+			_lunge = 1.0
+			summoned.emit(self, summon_kind, summon_count)
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -122,8 +155,24 @@ func _update_body(delta: float) -> void:
 	_body.sync()
 
 
-## 몸체 색: 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
+## 코어 스킬 FREEZE: duration초 동안 멈춘다.
+func freeze(duration: float) -> void:
+	_freeze_timer = maxf(_freeze_timer, duration)
+	if _body != null:
+		_body.sync()
+
+
+func is_frozen() -> bool:
+	return _freeze_timer > 0.0
+
+
+## 몸체 색: 정지(하얀 얼음), 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
 func body_color() -> Color:
+	if is_frozen():
+		return Color(0.8, 0.95, 1.0)
+	if enraged and _crit_flash <= 0.0:
+		# 분노: 붉게 맥동
+		return color.lerp(Color(1.0, 0.15, 0.2), 0.55 + 0.35 * sin(_spin * 4.0))
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
 	if _crit_flash > 0.0:
 		c = Color.WHITE
@@ -180,8 +229,11 @@ func take_damage(amount: float, source: HexTile = null) -> void:
 	hp -= amount * (1.0 - armor)
 	if hp <= 0.0:
 		_die(true)
-	else:
-		queue_redraw()
+		return
+	if enrage_at > 0.0 and not enraged and hp < max_hp * enrage_at:
+		enraged = true
+		speed *= enrage_speed
+	queue_redraw()
 
 
 func _die(was_killed: bool) -> void:
@@ -231,7 +283,20 @@ class _Body extends Node2D:
 	func _draw() -> void:
 		var pts := enemy.shape_points()
 		var c := _drawn_color
-		NeonDraw.polyline(self, pts, c, 1.0, 3.5 if enemy.kind == "boss" else 2.5)
+		NeonDraw.polyline(self, pts, c, 1.0, 3.5 if enemy.is_boss else 2.5)
+		if enemy.summon_kind != "":
+			# 최종 보스: 바깥 왕관 고리 (별 끝마다 작은 삼각형)
+			var ring := PackedVector2Array()
+			var r := enemy.radius * 1.3
+			for i in 33:
+				ring.append(Vector2.from_angle(TAU * i / 32.0) * r)
+			NeonDraw.polyline(self, ring, c, 0.6, 2.0)
+			for i in enemy.sides:
+				var a := TAU * i / enemy.sides + PI / enemy.sides
+				var d := Vector2.from_angle(a)
+				var n := d.orthogonal() * 7.0
+				var tip := PackedVector2Array([d * r + n, d * (r + 14.0), d * r - n])
+				NeonDraw.polyline(self, tip, c, 0.9, 2.0)
 		if enemy.armor > 0.0:
 			# 장갑: 안쪽에 같은 모양을 한 겹 더
 			var inner := PackedVector2Array()

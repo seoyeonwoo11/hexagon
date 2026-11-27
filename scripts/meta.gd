@@ -20,7 +20,7 @@ const UPGRADES := [
 
 ## 처음부터 쓸 수 있는 타일과 SHARD로 사야 하는 타일 (가격).
 const STARTER_TILES: Array[String] = ["laser", "frost", "bank"]
-const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "drone": 25}
+const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "prism": 20, "drone": 25}
 ## 한 판에 들고 갈 수 있는 타일 종류 수 (출정 타일). 카드에는 이 타일들만 나온다.
 const MAX_LOADOUT := 6
 
@@ -36,11 +36,19 @@ static var shards := 0
 static var best_wave := 0
 static var levels := {}
 static var unlocked: Array[String] = []
+## 고른 코어 종류 (CoreDefs)와 산 코어들
+static var core_type := "core"
+static var unlocked_cores: Array[String] = []
 ## 출정 타일 (최대 MAX_LOADOUT개)
 static var loadout: Array[String] = ["laser", "frost", "booster", "bank"]
 ## 마지막 판 결과 (시작 화면 안내용). wave가 0이면 아직 끝난 판이 없음.
 static var last_run_wave := 0
 static var last_run_shards := 0
+## 마지막 판이 최종 보스를 잡았는지, 최종 보스를 잡은 횟수
+static var last_run_victory := false
+static var clears := 0
+## 최종 보스를 잡으면 웨이브 몫에 더해 받는 SHARD
+const VICTORY_BONUS := 30
 
 
 ## 버틴 웨이브(다 처리한 웨이브 수)만큼 SHARD. 보스 웨이브(10, 20, ...)는 +5.
@@ -50,12 +58,28 @@ static func shards_for_run(reached_wave: int) -> int:
 
 
 ## 판이 끝났을 때 한 번 호출. 받은 SHARD를 더하고 저장한다.
-static func finish_run(reached_wave: int) -> int:
-	var earned := shards_for_run(reached_wave)
+## 클리어 뒤 무한 모드였다면 banked(이미 계산된 웨이브 몫)는 빼고 주고,
+## prior(클리어 때 받은 SHARD)는 결과 안내에만 합쳐 보여 준다.
+static func finish_run(reached_wave: int, banked := 0, prior := 0) -> int:
+	var earned := maxi(shards_for_run(reached_wave) - banked, 0)
 	shards += earned
 	best_wave = maxi(best_wave, reached_wave)
 	last_run_wave = reached_wave
+	last_run_shards = earned + prior
+	last_run_victory = prior > 0
+	save_data()
+	return earned
+
+
+## 최종 보스를 잡았을 때 한 번 호출: 웨이브 몫 + VICTORY_BONUS.
+static func finish_victory() -> int:
+	var earned := shards_for_run(EnemyDefs.FINAL_WAVE + 1) + VICTORY_BONUS
+	shards += earned
+	clears += 1
+	best_wave = maxi(best_wave, EnemyDefs.FINAL_WAVE)
+	last_run_wave = EnemyDefs.FINAL_WAVE
 	last_run_shards = earned
+	last_run_victory = true
 	save_data()
 	return earned
 
@@ -102,6 +126,31 @@ static func buy_tile(kind: String) -> bool:
 	# 자리가 있으면 바로 출정 타일에 넣는다
 	if loadout.size() < MAX_LOADOUT:
 		loadout.append(kind)
+	save_data()
+	return true
+
+
+static func is_core_unlocked(id: String) -> bool:
+	return CoreDefs.get_def(id)["price"] == 0 or unlocked_cores.has(id)
+
+
+## 코어 구매. 사면 바로 그 코어를 고른다.
+static func buy_core(id: String) -> bool:
+	var price: int = CoreDefs.get_def(id)["price"]
+	if is_core_unlocked(id) or shards < price:
+		return false
+	shards -= price
+	unlocked_cores.append(id)
+	core_type = id
+	save_data()
+	return true
+
+
+## 판에 쓸 코어를 고른다 (산 코어만).
+static func select_core(id: String) -> bool:
+	if not is_core_unlocked(id) or core_type == id:
+		return false
+	core_type = id
 	save_data()
 	return true
 
@@ -167,17 +216,24 @@ static func reset() -> void:
 	levels = {}
 	unlocked = []
 	loadout = default_loadout()
+	core_type = "core"
+	unlocked_cores = []
 	last_run_wave = 0
 	last_run_shards = 0
+	last_run_victory = false
+	clears = 0
 
 
 static func save_data() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("meta", "shards", shards)
 	cfg.set_value("meta", "best_wave", best_wave)
+	cfg.set_value("meta", "clears", clears)
 	cfg.set_value("meta", "levels", levels)
 	cfg.set_value("meta", "unlocked", Array(unlocked))
 	cfg.set_value("meta", "loadout", Array(loadout))
+	cfg.set_value("meta", "core", core_type)
+	cfg.set_value("meta", "cores", Array(unlocked_cores))
 	cfg.save(save_path)
 
 
@@ -198,6 +254,7 @@ static func load_data() -> void:
 		return
 	shards = cfg.get_value("meta", "shards", 0)
 	best_wave = cfg.get_value("meta", "best_wave", 0)
+	clears = cfg.get_value("meta", "clears", 0)
 	levels = cfg.get_value("meta", "levels", {})
 	for kind in cfg.get_value("meta", "unlocked", []):
 		unlocked.append(String(kind))
@@ -209,3 +266,8 @@ static func load_data() -> void:
 				loadout.append(String(kind))
 	if loadout.is_empty():
 		loadout = default_loadout()
+	for id in cfg.get_value("meta", "cores", []):
+		if CoreDefs.DEFS.has(String(id)):
+			unlocked_cores.append(String(id))
+	var saved_core := String(cfg.get_value("meta", "core", "core"))
+	core_type = saved_core if CoreDefs.DEFS.has(saved_core) and is_core_unlocked(saved_core) else "core"

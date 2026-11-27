@@ -3,7 +3,7 @@ extends RefCounted
 ## 타일 종류별 기본 능력치. 새 타일 종류는 여기에 추가한다.
 ## attack: "laser" (가장 가까운 적 1명), "spark" (적 사이를 튕기는 번개), "frost" (전체 감속 + 약한 피해),
 ##         "orbit" (타일 주위를 도는 구체가 닿은 적에게 피해), "drone" (드론이 쫓아가 들이받음),
-##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "none" (공격 안 함)
+##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "none" (공격 안 함. BOOSTER, PRISM, BANK)
 
 const DEFS := {
 	"core": {
@@ -19,7 +19,7 @@ const DEFS := {
 	},
 	"spark": {
 		"name": "SPARK", "color": Color(1.0, 0.85, 0.1), "attack": "spark",
-		"max_hp": 60.0, "damage": 5.0, "range": 260.0, "interval": 1.2, "income": 0,
+		"max_hp": 60.0, "damage": 8.0, "range": 300.0, "interval": 1.0, "income": 0,
 		"bounces": 3, "bounce_range": 220.0,
 		"desc": "Fires a bolt that bounces between nearby enemies.",
 	},
@@ -30,7 +30,7 @@ const DEFS := {
 	},
 	"orbit": {
 		"name": "ORBIT", "color": Color(1.0, 0.3, 0.9), "attack": "orbit",
-		"max_hp": 60.0, "damage": 14.0, "range": 145.0, "interval": 0.35, "income": 0,
+		"max_hp": 60.0, "damage": 17.0, "range": 145.0, "interval": 0.35, "income": 0,
 		"orbs": 3,
 		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
 	},
@@ -43,8 +43,14 @@ const DEFS := {
 	"archer": {
 		"name": "ARCHER", "color": Color(0.2, 1.0, 0.7), "attack": "archer",
 		"max_hp": 60.0, "damage": 12.0, "range": 360.0, "interval": 0.7, "income": 0,
-		"pack": 0.4,
+		"pack": 0.35,
 		"desc": "Long-range arrows. +40% damage for every ARCHER touching it.",
+	},
+	"prism": {
+		"name": "PRISM", "color": Color(0.92, 0.88, 1.0), "attack": "none",
+		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
+		"split": 0.6,
+		"desc": "Splits the shots of touching LASER and ARCHER tiles into 3 rays, fired away from the shooter.",
 	},
 	"booster": {
 		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",
@@ -54,13 +60,13 @@ const DEFS := {
 	},
 	"bank": {
 		"name": "BANK", "color": Color(0.8, 0.45, 1.0), "attack": "none",
-		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 9,
+		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 12,
 		"desc": "Earns money after every wave, plus interest on your savings.",
 	},
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer", "prism"]
 
 
 static func get_def(kind: String) -> Dictionary:

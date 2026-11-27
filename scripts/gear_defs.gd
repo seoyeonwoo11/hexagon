@@ -21,12 +21,12 @@ const DEFS := {
 	},
 	"crit": {
 		"name": "CRIT LENS", "color": Color(1.0, 0.3, 0.6),
-		"desc": "20% chance to deal triple damage.",
+		"desc": "25% chance to deal 3.5x damage.",
 		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
-		"desc": "Enemies it kills explode, hurting enemies nearby.",
+		"desc": "Every hit explodes, dealing 45% of it to enemies nearby.",
 		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 }
@@ -34,11 +34,12 @@ const DEFS := {
 const SCOPE_RANGE_MULT := 1.4
 const IGNITE_DPS_RATIO := 0.4
 const IGNITE_TIME := 3.0
-const CRIT_CHANCE := 0.2
-const CRIT_MULT := 3.0
-## 폭발: 처치한 적 위치에서 반경 안 적들에게 (그 타일 공격력 × 비율) 피해
-const DETONATE_RADIUS := 100.0
-const DETONATE_RATIO := 0.8
+const CRIT_CHANCE := 0.25
+const CRIT_MULT := 3.5
+## 폭발: 맞힌 적 위치에서 반경 안 다른 적들에게 (맞힌 피해 × 비율) 피해
+const DETONATE_RADIUS := 90.0
+const DETONATE_RATIO := 0.45
+const DETONATE_FX_GAP := 0.08
 
 
 static func get_def(id: String) -> Dictionary:

@@ -33,6 +33,10 @@ const MAX_DRONES := 6
 const DRONE_LEVELS: Array[int] = [3, 5, 7]
 ## ARCHER: 강화마다 맞닿은 ARCHER 1개당 공격력 보너스 +10%p
 const UPG_PACK := 0.10
+## PRISM: 굴절된 세 갈래 사이 각도, 강화마다 갈래 피해 비율 +10%p, 굴절 광선 색 (빨강, 초록, 파랑)
+const PRISM_SPREAD := 0.42
+const UPG_SPLIT := 0.10
+const PRISM_RAY_COLORS: Array[Color] = [Color(1.0, 0.35, 0.5), Color(0.4, 1.0, 0.55), Color(0.4, 0.6, 1.0)]
 ## FROST: 강화마다 감속이 강해진다 (남는 속도 비율 ×0.88, 최저 0.25)
 const FROST_SLOW_STEP := 0.88
 const FROST_SLOW_MIN := 0.25
@@ -63,8 +67,12 @@ var focus_step := 0.0
 var focus_max := 0
 ## DRONE HIVE: 띄우는 드론 수
 var drones := 0
+## CORE: 코어 종류 (CoreDefs). 가운데 모양만 달라진다.
+var core_type := "core"
 ## ARCHER: 맞닿은 ARCHER 1개당 공격력 보너스 (0.4 = +40%)
 var pack_bonus := 0.0
+## PRISM: 굴절된 갈래 하나가 원래 공격의 몇 배 피해인지 (0.4 = 40%)
+var split := 0.0
 ## FROST: 감속 시 남는 속도 비율 (낮을수록 강함)
 var frost_slow := FROST_SLOW
 ## BOOSTER: 맞닿은 타일에 주는 공격 속도 보너스 (0.25 = 25% 빠르게)
@@ -125,6 +133,7 @@ func setup(tile_kind: String) -> void:
 	focus_max = def.get("focus_max", 0)
 	drones = def.get("drones", 0)
 	pack_bonus = def.get("pack", 0.0)
+	split = def.get("split", 0.0)
 	if attack == "frost" and _frost_field == null:
 		_frost_field = FrostField.new()
 		_frost_field.tile = self
@@ -137,7 +146,7 @@ func setup(tile_kind: String) -> void:
 
 ## 전체 강화 배율까지 반영한 실제 공격력.
 func damage() -> float:
-	var d := base_damage * (board.damage_mult if board != null else 1.0)
+	var d := base_damage * (board.damage_mult * board.skill_damage_mult if board != null else 1.0)
 	if pack_bonus > 0.0:
 		d *= 1.0 + pack_bonus * linked_archers()
 	return d
@@ -255,6 +264,10 @@ func orb_position(i: int) -> Vector2:
 	return Vector2(cos(a), sin(a)) * effective_range()
 
 
+## DETONATOR 폭발 그림을 마지막으로 띄운 시각 (ms)
+var _last_blast_ms := -100000
+
+
 ## 장비 장착. 이미 있으면 교체한다.
 func equip(gear_id: String) -> void:
 	gear = gear_id
@@ -266,30 +279,35 @@ func apply_hit(enemy: Enemy, amount: float) -> void:
 	if gear == "crit" and randf() < GearDefs.CRIT_CHANCE:
 		amount *= GearDefs.CRIT_MULT
 		enemy.flash_crit()
-	var was_alive := enemy.is_alive()
+	var pos := enemy.global_position
 	enemy.take_damage(amount, self)
-	if gear == "detonator" and was_alive and not enemy.is_alive():
-		_detonate(enemy.global_position)
+	if gear == "detonator":
+		_detonate(pos, amount, enemy)
 	match gear:
 		"igniter":
 			enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
 
 
-## DETONATOR: pos(전역)에서 폭발. 폭발 피해로는 다시 폭발하지 않는다.
-func _detonate(pos: Vector2) -> void:
+## DETONATOR: 맞힌 자리 pos(전역)에서 폭발해 주변의 다른 적에게 (맞힌 피해 × 비율).
+## 폭발 피해로는 다시 폭발하지 않는다. 성능: 폭발 그림은 타일마다 DETONATE_FX_GAP초에 1번만.
+func _detonate(pos: Vector2, amount: float, hit: Enemy) -> void:
 	if board == null:
 		return
-	var color: Color = GearDefs.get_def("detonator")["color"]
-	var fx := Explosion.new()
-	fx.color = color
-	fx.radius = GearDefs.DETONATE_RADIUS
-	board.enemy_layer.add_child(fx)
-	fx.global_position = pos
+	var now := Time.get_ticks_msec()
+	if now - _last_blast_ms >= GearDefs.DETONATE_FX_GAP * 1000.0:
+		_last_blast_ms = now
+		var fx := Explosion.new()
+		fx.color = GearDefs.get_def("detonator")["color"]
+		fx.radius = GearDefs.DETONATE_RADIUS
+		board.enemy_layer.add_child(fx)
+		fx.global_position = pos
+	var splash := amount * GearDefs.DETONATE_RATIO
+	var r2 := GearDefs.DETONATE_RADIUS * GearDefs.DETONATE_RADIUS
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var other := node as Enemy
-		if other != null and other.is_alive() \
-				and pos.distance_to(other.global_position) <= GearDefs.DETONATE_RADIUS:
-			other.take_damage(damage() * GearDefs.DETONATE_RATIO, self)
+		if other != null and other != hit and other.is_alive() \
+				and pos.distance_squared_to(other.global_position) <= r2:
+			other.take_damage(splash, self)
 
 
 func upgrade_cost() -> int:
@@ -320,6 +338,8 @@ func upgrade() -> void:
 				drones = mini(drones + 1, MAX_DRONES)
 		"archer":
 			pack_bonus += UPG_PACK
+		"prism":
+			split += UPG_SPLIT
 		"laser", "core":
 			if EXTRA_BEAM_LEVELS.has(level) and not pierce:
 				extra_beams += 1
@@ -355,6 +375,9 @@ func upgrade_preview() -> Array[String]:
 		"archer":
 			lines.append("PACK +%d%% > +%d%% PER ARCHER" % [roundi(pack_bonus * 100.0),
 					roundi((pack_bonus + UPG_PACK) * 100.0)])
+		"prism":
+			lines.append("SPLIT %d%% > %d%% PER RAY" % [roundi(split * 100.0),
+					roundi((split + UPG_SPLIT) * 100.0)])
 		"frost":
 			lines.append("SLOW %d%% > %d%%" % [roundi((1.0 - frost_slow) * 100.0),
 					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
@@ -398,7 +421,8 @@ func _process(delta: float) -> void:
 ## 광선, 피격 깜빡임, BOOSTER 화살표는 움직이는 동안만 매 프레임 그린다.
 func _redraw_if_needed() -> void:
 	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
-	var state := [level, hp, max_hp, gear, focus_stacks(), linked_archers(),
+	var state := [level, hp, max_hp, gear, focus_stacks(), linked_archers(), prism_sources().size(),
+			board != null and board.skill_damage_mult > 1.0, color,
 			effective_range() if selected else 0.0]
 	if anim or _anim_active or state != _drawn_state:
 		_drawn_state = state
@@ -468,6 +492,8 @@ func _fire() -> void:
 					arrow.source = self
 					board.enemy_layer.add_child(arrow)
 					arrow.launch(global_position, enemy)
+				for p in adjacent_prisms():
+					p.refract(self, damage())
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
@@ -513,6 +539,9 @@ func _fire_laser() -> void:
 		var e: Enemy = h[0]
 		if e.is_alive():
 			apply_hit(e, h[1])
+	if kind == "laser":
+		for p in adjacent_prisms():
+			p.refract(self, damage())
 
 
 ## 선분 a-b에 닿는 살아있는 적들 (전역 좌표).
@@ -526,6 +555,69 @@ func enemies_on_line(a: Vector2, b: Vector2) -> Array[Enemy]:
 		if p.distance_to(enemy.global_position) <= BEAM_HALF_WIDTH + enemy.radius:
 			result.append(enemy)
 	return result
+
+
+## 면이 맞닿은 PRISM들.
+func adjacent_prisms() -> Array[HexTile]:
+	var result: Array[HexTile] = []
+	if board == null:
+		return result
+	for n in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(n)
+		if t != null and t != self and is_instance_valid(t) and t.split > 0.0:
+			result.append(t)
+	return result
+
+
+## PRISM: 굴절시킬 맞닿은 LASER/ARCHER들.
+func prism_sources() -> Array[HexTile]:
+	var result: Array[HexTile] = []
+	if board == null or split <= 0.0:
+		return result
+	for n in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(n)
+		if t != null and is_instance_valid(t) and (t.kind == "laser" or t.kind == "archer"):
+			result.append(t)
+	return result
+
+
+## PRISM: 쏜 타일에서 이 PRISM을 지나는 방향으로, 가운데와 좌우 PRISM_SPREAD만큼 벌어진 세 갈래.
+## (놓는 위치가 화력 방향을 정한다)
+func prism_directions(src: HexTile) -> Array[Vector2]:
+	var base := src.position.direction_to(position)
+	return [base.rotated(-PRISM_SPREAD), base, base.rotated(PRISM_SPREAD)]
+
+
+## PRISM: src가 쏠 때마다 불린다. LASER는 관통 광선 세 줄, ARCHER는 곧게 나는 화살 세 개.
+## 갈래마다 피해 = 원래 공격력 × split. 굴절된 공격은 다른 PRISM에서 다시 갈라지지 않는다.
+func refract(src: HexTile, src_damage: float) -> void:
+	if board == null or not is_inside_tree():
+		return
+	var dmg := src_damage * split
+	var reach := src.effective_range()
+	if src.kind == "laser":
+		_shot_targets.clear()
+		_shot_focus.clear()
+		_shot_hits.clear()
+		_shot_time = BEAM_TIME
+		var hits: Array[Enemy] = []
+		for d in prism_directions(src):
+			var end := global_position + d * reach
+			_shot_targets.append(to_local(end))
+			for e in enemies_on_line(global_position, end):
+				hits.append(e)
+				_shot_hits.append(to_local(e.global_position))
+		for e in hits:
+			if e.is_alive():
+				apply_hit(e, dmg)
+	else:
+		for d in prism_directions(src):
+			var arrow := Arrow.new()
+			arrow.color = src.color.lerp(Color.WHITE, 0.3)
+			arrow.damage = dmg
+			arrow.source = self
+			board.enemy_layer.add_child(arrow)
+			arrow.launch_straight(global_position, d, reach)
 
 
 ## LASER: 지금 가장 많이 쌓인 집중 횟수.
@@ -595,7 +687,7 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32,
 				Color(c, 0.8), 2.0, true)
 	if _shot_time > 0.0:
-		if pierce:
+		if pierce or split > 0.0:
 			_draw_beams(c)
 		else:
 			for target in _shot_targets:
@@ -607,6 +699,8 @@ func _draw() -> void:
 		_draw_boost_links(c)
 	if pack_bonus > 0.0:
 		_draw_pack_links(c)
+	if split > 0.0:
+		_draw_prism_rays()
 	if gear != "":
 		_draw_gear_badge()
 
@@ -617,6 +711,8 @@ func _draw_beams(c: Color) -> void:
 	for i in _shot_targets.size():
 		var f: float = _shot_focus[i] if i < _shot_focus.size() else 0.0
 		var bc := c.lerp(Color.WHITE, 0.45 * f)
+		if split > 0.0:
+			bc = PRISM_RAY_COLORS[i % PRISM_RAY_COLORS.size()]
 		var w := (3.0 + 0.8 * (level - 1) + 7.0 * f) * (0.4 + 0.6 * t)
 		var line := PackedVector2Array([Vector2.ZERO, _shot_targets[i]])
 		NeonDraw.polyline(self, line, bc, t, w)
@@ -654,6 +750,16 @@ func _draw_boost_links(c: Color) -> void:
 		NeonDraw.polyline(self, chev, c, 0.9 * (1.0 - flow * 0.6), 2.0)
 
 
+## PRISM: 굴절 방향 미리보기. 맞닿은 LASER/ARCHER마다 바깥쪽으로 흐린 세 갈래 짧은 선.
+func _draw_prism_rays() -> void:
+	for src in prism_sources():
+		var dirs := prism_directions(src)
+		for i in dirs.size():
+			var d := dirs[i]
+			NeonDraw.polyline(self, PackedVector2Array([d * size * 0.55, d * size * 1.25]),
+					PRISM_RAY_COLORS[i], 0.45, 1.5)
+
+
 ## ARCHER: 맞닿은 ARCHER와 공유하는 변에 밝은 연결 막대. (두 타일이 같은 막대를 겹쳐 그림)
 func _draw_pack_links(c: Color) -> void:
 	if board == null:
@@ -682,7 +788,13 @@ func _draw_gear_badge() -> void:
 
 ## 종류마다 가운데 모양을 다르게 그린다.
 func _draw_glyph(c: Color, intensity: float) -> void:
-	draw_glyph(self, kind, size * 0.3, c, intensity)
+	var glyph := kind
+	if kind == "core" and core_type != "core":
+		glyph = "core_" + core_type
+	draw_glyph(self, glyph, size * 0.3, c, intensity)
+	# OVERDRIVE 중인 공격 타일: 바깥 테두리가 하나 더
+	if board != null and board.skill_damage_mult > 1.0 and attack != "none":
+		NeonDraw.hexagon(self, Vector2.ZERO, size * 1.0, Color(1.0, 0.95, 0.6), 0.8, 2.0)
 
 
 ## 타일 종류별 아이콘. canvas의 원점에 반지름 r 크기로 그린다 (상점 화면에서도 사용).
@@ -691,6 +803,21 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 	match kind:
 		"core":
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+		"core_cryo":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			for i in 3:
+				var d := Vector2.from_angle(PI * i / 3.0) * r * 0.6
+				canvas.draw_line(-d, d, Color(c, intensity), 1.5, true)
+		"core_aegis":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			canvas.draw_line(Vector2(0, -r * 0.55), Vector2(0, r * 0.55), Color(c, intensity), 2.5, true)
+			canvas.draw_line(Vector2(-r * 0.55, 0), Vector2(r * 0.55, 0), Color(c, intensity), 2.5, true)
+		"core_nova":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			canvas.draw_circle(Vector2.ZERO, r * 0.22, Color(c, intensity))
+			for i in 6:
+				var d := Vector2.from_angle(TAU * i / 6.0 + PI / 6.0)
+				canvas.draw_line(d * r * 0.35, d * r * 0.7, Color(c, intensity), 1.5, true)
 		"laser":
 			var tri := PackedVector2Array()
 			for i in 4:
@@ -729,6 +856,18 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 					c, intensity * 0.8, 2.0)
 			NeonDraw.polyline(canvas, PackedVector2Array([Vector2(r * 0.65, -r * 0.3),
 					Vector2(r, 0), Vector2(r * 0.65, r * 0.3)]), c, intensity * 0.8, 2.0)
+		"prism":
+			# 삼각형 프리즘 + 왼쪽에서 들어온 빛이 오른쪽으로 세 갈래
+			var tri := PackedVector2Array()
+			for i in 4:
+				var a := -PI / 2.0 + TAU * i / 3.0
+				tri.append(Vector2(cos(a), sin(a)) * r * 0.75)
+			NeonDraw.polyline(canvas, tri, c, intensity * 0.8, 2.0)
+			canvas.draw_line(Vector2(-r * 1.1, r * 0.1), Vector2(-r * 0.2, 0), Color(c, intensity), 1.5, true)
+			for i in 3:
+				var end := Vector2(r * 1.15, (i - 1) * r * 0.45)
+				canvas.draw_line(Vector2(r * 0.2, 0), end,
+						Color(PRISM_RAY_COLORS[i], intensity), 1.5, true)
 		"booster":
 			# 위로 향한 겹 화살표 두 개
 			for k in 2:
