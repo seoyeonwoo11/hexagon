@@ -307,7 +307,8 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	if enemy.killed and enemy.splits_into != "" and not is_over:
 		for i in enemy.split_count:
 			var offset := Vector2.from_angle(TAU * i / enemy.split_count) * 18.0
-			spawn_enemy(enemy.splits_into, enemy.global_position + offset)
+			var child := spawn_enemy(enemy.splits_into, enemy.global_position + offset)
+			child.inherit_slow(enemy)
 
 
 func _on_core_destroyed() -> void:

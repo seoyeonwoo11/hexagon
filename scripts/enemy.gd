@@ -105,6 +105,12 @@ func apply_burn(dps: float, duration: float, source: HexTile = null) -> void:
 	_burn_timer = maxf(_burn_timer, duration)
 
 
+## 분열로 태어난 적이 부모의 감속(빙결) 상태를 남은 시간 그대로 이어받는다.
+func inherit_slow(parent: Enemy) -> void:
+	if parent.is_slowed():
+		apply_slow(parent._slow_factor, parent._slow_timer)
+
+
 func is_burning() -> bool:
 	return _burn_timer > 0.0
 

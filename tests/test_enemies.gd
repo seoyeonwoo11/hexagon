@@ -71,6 +71,28 @@ func _run() -> void:
 			runners += 1
 	_check(runners == 2, "two runners near splitter (got %d)" % runners)
 
+	# 빙결(감속) 상태에서 분열하면 갈라진 적도 같은 감속을 남은 시간만큼 이어받음
+	var frozen := _game.spawn_enemy("splitter", Vector2(-2000, -400))
+	frozen.apply_slow(0.5, 0.6)
+	frozen.take_damage(99999.0)
+	var kids: Array[Enemy] = []
+	for node in get_nodes_in_group(Enemy.GROUP):
+		var e := node as Enemy
+		if e.kind == "runner" and e.global_position.distance_to(Vector2(-2000, -400)) < 40.0:
+			kids.append(e)
+	_check(kids.size() == 2 and kids.all(func(k: Enemy) -> bool:
+			return k.is_slowed() and k._slow_factor == 0.5 and absf(k._slow_timer - 0.6) < 0.01),
+			"split children keep parent's slow")
+	var plain := _game.spawn_enemy("splitter", Vector2(-2000, -700))
+	plain.take_damage(99999.0)
+	var plain_kids := 0
+	for node in get_nodes_in_group(Enemy.GROUP):
+		var e := node as Enemy
+		if e.kind == "runner" and e.global_position.distance_to(Vector2(-2000, -700)) < 40.0 \
+				and not e.is_slowed():
+			plain_kids += 1
+	_check(plain_kids == 2, "children of unslowed splitter are not slowed")
+
 	# 타일에 부딪혀 사라지면 분열하지 않음
 	var splitter2 := _game.spawn_enemy("splitter", Vector2(-2000, 600))
 	var alive2 := _game.alive_enemies()
