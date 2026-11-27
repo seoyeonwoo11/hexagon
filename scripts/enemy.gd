@@ -9,6 +9,8 @@ signal died(enemy: Enemy, reward: int)
 signal summoned(enemy: Enemy, kind: String, count: int)
 
 const GROUP := &"enemies"
+## 화상 피해를 몰아서 주는 간격(초). 매 프레임 주면 불붙은 적이 많을 때 체력 막대를 계속 다시 그려 렉이 걸린다.
+const BURN_TICK := 0.25
 
 @export var color := Color(1.0, 0.3, 0.35)
 
@@ -52,6 +54,9 @@ var _slow_timer := 0.0
 var _burn_dps := 0.0
 var _burn_timer := 0.0
 var _burn_source: HexTile
+var _burn_acc := 0.0
+## BURN 타일의 불: 맞닿은 적에게 몇 번 더 옮겨붙을 수 있는지 (0이면 안 옮겨붙음)
+var burn_spread := 0
 ## 마지막으로 피해를 준 타일
 var _last_source: HexTile
 var _crit_flash := 0.0
@@ -106,12 +111,16 @@ func _process(delta: float) -> void:
 		if _slow_timer <= 0.0:
 			_slow_factor = 1.0
 	if _burn_timer > 0.0:
+		var dt := minf(delta, _burn_timer)
 		_burn_timer -= delta
-		# 불을 붙인 타일이 이미 부서졌을 수 있다
-		var src: HexTile = _burn_source if is_instance_valid(_burn_source) else null
-		take_damage(_burn_dps * delta, src)
-		if _dead:
-			return
+		_burn_acc += dt
+		if _burn_acc >= BURN_TICK - 0.001 or _burn_timer <= 0.0:
+			# 불을 붙인 타일이 이미 부서졌을 수 있다
+			var src: HexTile = _burn_source if is_instance_valid(_burn_source) else null
+			take_damage(_burn_dps * _burn_acc, src)
+			_burn_acc = 0.0
+			if _dead:
+				return
 	if _freeze_timer > 0.0:
 		_freeze_timer -= delta
 		if _body != null:
@@ -188,11 +197,25 @@ func apply_slow(factor: float, duration: float) -> void:
 
 
 ## 화상: duration초 동안 초당 dps 피해. 더 센 화상으로 덮어쓴다.
-func apply_burn(dps: float, duration: float, source: HexTile = null) -> void:
+## spread: BURN 타일의 불이면 맞닿은 적에게 옮겨붙을 수 있는 남은 횟수.
+func apply_burn(dps: float, duration: float, source: HexTile = null, spread := 0) -> void:
 	if dps >= _burn_dps or _burn_timer <= 0.0:
 		_burn_dps = dps
 		_burn_source = source
+		burn_spread = spread
 	_burn_timer = maxf(_burn_timer, duration)
+
+
+## 지금 화상의 초당 피해 (안 타고 있으면 0).
+func burn_dps() -> float:
+	return _burn_dps if _burn_timer > 0.0 else 0.0
+
+
+## 화상을 붙인 타일 (안 타고 있거나 그 타일이 부서졌으면 null).
+func burn_source() -> HexTile:
+	if _burn_timer <= 0.0 or not is_instance_valid(_burn_source):
+		return null
+	return _burn_source
 
 
 ## 분열로 태어난 적이 부모의 감속(빙결) 상태를 남은 시간 그대로 이어받는다.

@@ -3,7 +3,8 @@ extends RefCounted
 ## 타일 종류별 기본 능력치. 새 타일 종류는 여기에 추가한다.
 ## attack: "laser" (CORE: 가까운 적에게 번쩍이는 광선, LASER: 한 적에게 꽂는 지속 광선), "spark" (적 사이를 튕기는 번개), "frost" (전체 감속 + 약한 피해),
 ##         "orbit" (타일 주위를 도는 구체가 닿은 적에게 피해), "drone" (드론이 쫓아가 들이받음),
-##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "none" (공격 안 함. BOOSTER, BANK)
+##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "burn" (가까운 적 쪽으로 부채꼴 불길, 화상),
+##         "none" (공격 안 함. BOOSTER, BANK)
 
 const DEFS := {
 	"core": {
@@ -46,6 +47,12 @@ const DEFS := {
 		"pack": 0.35,
 		"desc": "Long-range arrows. +40% damage for every ARCHER touching it.",
 	},
+	"burn": {
+		"name": "BURN", "color": Color(1.0, 0.42, 0.12), "attack": "burn",
+		"max_hp": 60.0, "damage": 3.0, "range": 190.0, "interval": 0.2, "income": 0,
+		"cone": 0.5, "burn_time": 2.5,
+		"desc": "Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.",
+	},
 	"booster": {
 		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",
 		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
@@ -60,7 +67,7 @@ const DEFS := {
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer", "burn"]
 
 
 static func get_def(kind: String) -> Dictionary:

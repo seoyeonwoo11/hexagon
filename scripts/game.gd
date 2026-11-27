@@ -109,6 +109,7 @@ static var _skip_hub_once := false
 
 
 func _ready() -> void:
+	Loc.ensure_loaded()
 	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)
@@ -150,6 +151,7 @@ func start_run() -> void:
 		return
 	started = true
 	shop.close()
+	Sfx.music("battle")
 	board.stats.reset()
 	stage = Meta.stage
 	hud.stage = stage
@@ -165,7 +167,7 @@ func start_run() -> void:
 	_apply_core_type(Meta.core_type)
 	move_charges = MOVES_PER_WAVE
 	_update_actions()
-	hud.show_banner("%s  -  READY" % StageDefs.title(stage), StageDefs.color(stage))
+	hud.show_banner(Loc.t("%s  -  READY") % StageDefs.title(stage), StageDefs.color(stage))
 
 
 ## 코어 종류를 코어 타일에 입힌다 (색, 이름, 가운데 모양). 스킬은 바로 쓸 수 있는 상태로 시작.
@@ -225,6 +227,7 @@ func use_skill() -> bool:
 					# 장갑과 상관없이 최대 체력의 일정 비율
 					e.take_damage(e.max_hp * frac / maxf(1.0 - e.armor, 0.01), core)
 	skill_cooldown = skill_cooldown_max()
+	Sfx.play("skill_" + def["skill"])
 	var fx := SkillFx.new()
 	fx.color = def["color"]
 	fx.radius = fx_radius
@@ -249,6 +252,7 @@ func can_move() -> bool:
 
 
 func _on_move_finished(_tile: HexTile) -> void:
+	Sfx.play("place")
 	move_charges = maxi(move_charges - 1, 0)
 	_update_actions()
 
@@ -328,9 +332,11 @@ func try_upgrade(tile: HexTile) -> bool:
 		return false
 	var cost := tile.upgrade_cost()
 	if money < cost:
+		Sfx.play("deny")
 		return false
 	add_money(-cost)
 	tile.upgrade()
+	Sfx.play("levelup")
 	return true
 
 
@@ -346,10 +352,10 @@ func make_options() -> Array:
 				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
-					"title": def["name"], "desc": def["desc"], "color": def["color"]})
+					"title": def["name"], "desc": Loc.t(def["desc"]), "color": def["color"]})
 	for boost in BOOSTS:
 		var opt: Dictionary = boost.duplicate()
-		opt["desc"] = (opt["desc"] as String).replace("{v}", "%d" % roundi(boost_value(opt["id"])))
+		opt["desc"] = Loc.t(opt["desc"]).replace("{v}", "%d" % roundi(boost_value(opt["id"])))
 		opt["type"] = "boost"
 		opt["tag"] = CARD_TAG_BOOST
 		pool.append(opt)
@@ -363,7 +369,7 @@ func make_options() -> Array:
 			continue
 		var gdef := GearDefs.get_def(id)
 		pool.append({"type": "gear", "gear": id, "tag": CARD_TAG_GEAR,
-				"title": gdef["name"], "desc": gdef["desc"], "color": gdef["color"]})
+				"title": gdef["name"], "desc": Loc.t(gdef["desc"]), "color": gdef["color"]})
 		added += 1
 	pool.shuffle()
 	return pool.slice(0, 3)
@@ -374,15 +380,16 @@ func choose_option(index: int) -> void:
 		return
 	var opt: Dictionary = current_options[index]
 	current_options = []
+	Sfx.play("card")
 	hud.hide_choices()
 	if opt["type"] == "tile":
 		state = State.PLACING
 		board.begin_placement(opt["kind"])
-		hud.show_banner("PLACE %s" % opt["title"], opt["color"])
+		hud.show_banner(Loc.t("PLACE %s") % opt["title"], opt["color"])
 	elif opt["type"] == "gear":
 		state = State.EQUIPPING
 		board.begin_equip(opt["gear"])
-		hud.show_banner("EQUIP %s - CLICK A TILE" % opt["title"], opt["color"])
+		hud.show_banner(Loc.t("EQUIP %s - CLICK A TILE") % opt["title"], opt["color"])
 	else:
 		_apply_boost(opt["id"])
 		_start_intermission()
@@ -412,11 +419,13 @@ func _apply_boost(id: String) -> void:
 
 
 func _on_placement_finished(_tile: HexTile) -> void:
+	Sfx.play("place")
 	if state == State.PLACING:
 		_start_intermission()
 
 
 func _on_equip_finished(_tile: HexTile) -> void:
+	Sfx.play("equip")
 	if state == State.EQUIPPING:
 		_start_intermission()
 
@@ -424,7 +433,7 @@ func _on_equip_finished(_tile: HexTile) -> void:
 func _start_intermission() -> void:
 	state = State.INTERMISSION
 	_intermission = INTERMISSION
-	hud.show_banner("GET READY", Hud.NEON_CYAN)
+	hud.show_banner(Loc.t("GET READY"), Hud.NEON_CYAN)
 
 
 ## earned: 결과창의 GOLD EARNED에 셀지 (시작 돈은 안 셈)
@@ -447,7 +456,7 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_overlay("PAUSED", Hud.resume_hint(), Hud.NEON_CYAN, board.stats)
+		hud.show_overlay(Loc.t("PAUSED"), Hud.resume_hint(), Hud.NEON_CYAN, board.stats)
 	else:
 		hud.hide_overlay()
 
@@ -505,12 +514,14 @@ func _begin_wave() -> void:
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)
 	_spawn_timer = 0.0
 	hud.set_wave(wave, endless)
+	Sfx.play("wave")
+	Sfx.music("boss" if _boss_pending else "battle")
 	if _boss_pending and wave == EnemyDefs.FINAL_WAVE:
-		hud.show_banner("FINAL WAVE  -  OVERLORD", EnemyDefs.get_def("overlord")["color"])
+		hud.show_banner(Loc.t("FINAL WAVE  -  OVERLORD"), EnemyDefs.get_def("overlord")["color"])
 	elif _boss_pending:
-		hud.show_banner("WAVE %d  -  BOSS" % wave, EnemyDefs.get_def("boss")["color"])
+		hud.show_banner(Loc.t("WAVE %d  -  BOSS") % wave, EnemyDefs.get_def("boss")["color"])
 	else:
-		hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
+		hud.show_banner(Loc.t("WAVE %d") % wave, Hud.NEON_CYAN)
 	get_tree().create_timer(1.2, false).timeout.connect(_hide_wave_message.bind(wave))
 	wave_started.emit(wave)
 
@@ -522,6 +533,7 @@ func _hide_wave_message(for_wave: int) -> void:
 
 func _on_wave_cleared() -> void:
 	wave_cleared.emit(wave)
+	Sfx.play("wave_clear")
 	# RESONANCE는 더하기로 쌓인다 (곱하면 후반에 끝없이 불어남)
 	if resonance > 0.0:
 		board.damage_mult += resonance
@@ -590,6 +602,7 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	_alive -= 1
 	if enemy.killed:
 		kills[enemy.kind] = kills.get(enemy.kind, 0) + 1
+		Sfx.play("boss_kill" if enemy.is_boss else "kill")
 	if reward > 0:
 		add_money(reward)
 	# SPLITTER: 처치되면 작은 적으로 갈라진다
@@ -604,6 +617,7 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 func _spawn_boss() -> Enemy:
 	var kind := EnemyDefs.boss_kind(wave)
 	var boss := spawn_enemy(kind, _random_spawn_point())
+	Sfx.play("overlord" if kind == "overlord" else "boss_appear")
 	if kind == "overlord":
 		final_boss = boss
 		hud.show_boss_bar(EnemyDefs.get_def(kind)["name"], boss.color)
@@ -631,6 +645,8 @@ func _on_victory() -> void:
 	hud.hide_boss_bar()
 	hud.show_tile_panel(null, 0)
 	get_tree().paused = true
+	Sfx.music("")
+	Sfx.play("victory")
 	hud.show_victory(wave, victory_shards, Meta.clears, stage, Meta.last_unlocks)
 	victory.emit()
 
@@ -644,6 +660,7 @@ func continue_endless() -> void:
 	hud.hide_victory()
 	get_tree().paused = false
 	hud.set_wave(wave, endless)
+	Sfx.music("battle")
 	_on_wave_cleared()
 
 
@@ -675,6 +692,8 @@ func _on_core_destroyed() -> void:
 	else:
 		Meta.finish_run(wave, 0, 0, stage)
 	get_tree().paused = true
+	Sfx.music("")
+	Sfx.play("gameover")
 	_show_results()
 	game_over.emit()
 

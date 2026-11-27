@@ -46,7 +46,7 @@ func _run() -> void:
 	_check(not EnemyDefs.DEFS["overlord"]["weight"] > 0.0, "overlord never picked randomly")
 
 	_game.hud.set_wave(12)
-	_check(_game.hud._wave_label.text == "WAVE 12 / %d" % final, "wave label shows the goal")
+	_check(_game.hud._wave_label.text == Loc.t("WAVE %d / %d") % [12, final], "wave label shows the goal")
 
 	_game.wave = final - 1
 	_game._begin_wave()
@@ -114,7 +114,7 @@ func _run() -> void:
 	_check(_game.endless and not _game.get_tree().paused, "endless resumes the game")
 	_check(not _game.hud.is_victory_visible() and _game.hud.is_choosing(), "endless offers cards")
 	_check(_game.state == Game.State.CHOOSING, "endless starts in choosing")
-	_check(_game.hud._wave_label.text.ends_with("ENDLESS"), "wave label shows endless")
+	_check(_game.hud._wave_label.text == Loc.t("WAVE %d  ENDLESS") % _game.wave, "wave label shows endless")
 	_game.continue_endless()
 	_check(_game.endless, "second continue is a no-op")
 

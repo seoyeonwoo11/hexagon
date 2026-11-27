@@ -18,6 +18,13 @@ Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행�
 - 직접 내보내기: Godot 에디터의 Project > Export에서 "Web" 프리셋 (스레드 끔, 그래서 특별한 서버 설정 없이 동작)
 - 터치: 탭이 왼쪽 클릭. 오른쪽 클릭 대신 정보 창의 CLOSE 버튼이나 빈 곳 탭, 옮기기 취소는 MOVE 버튼, 스킬은 왼쪽 아래 버튼, FULL 버튼으로 전체 화면
 
+## 언어
+
+- 한국어(기본)와 영어. 시작 화면 오른쪽 위 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
+- 번역표는 `scripts/loc.gd` 한 곳. 화면 글자는 영어 원문을 키로 `Loc.t("PAUSE")`, 숫자가 들어가면 `Loc.t("WAVE %d") % wave`. 표에 없으면 영어 그대로 나옴
+- 타일, 장비, 적, 코어, 스킬, 카드 이름(LASER, SCOPE, OVERLORD ...)은 고유 이름이라 영어 그대로
+- 한글 폰트: Orbit (`assets/fonts/Orbit-Regular.ttf`, SIL OFL). Orbitron에 없는 한글을 대체 폰트로 그림
+
 ## 테스트
 
 ```
@@ -28,6 +35,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
+godot --headless --path . -s res://tests/test_loc.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_burn.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_sound.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 ```
 
@@ -38,6 +48,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - R: 게임 오버 후 재시작 (결과창에서도 됨)
 - Q: 코어 스킬 (왼쪽 아래 버튼, 막대가 차면 다시 쓸 수 있음)
 - M: 타일 옮기기. 웨이브마다 1번 (쌓이지 않음). 옮길 타일을 클릭한 뒤 갈 칸을 클릭. 다른 타일을 클릭하면 자리 바꾸기. 빈 칸은 다른 타일과 맞닿아 있어야 함. 코어는 제자리. 오른쪽 클릭으로 취소
+- N: 소리 끄기 / 켜기. 오른쪽 위 SOUND 버튼으로 소리 설정 창 (배경음/효과음 볼륨, 음소거)
 - F11: 전체 화면 (웹/터치 화면에서는 오른쪽 위 FULL 버튼)
 - 타일 왼쪽 클릭: 정보 창 (돈으로 UPGRADE), 오른쪽 클릭: 창 닫기
 - 웨이브 클리어: 카드 3장 중 하나 선택 (타일, 강화, 장비가 무작위로 섞여 나옴). 타일 카드는 표시된 맞닿은 칸을 클릭해 배치, 장비 카드는 깜빡이는 타일을 클릭해 장착
@@ -47,8 +58,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - 칸이 꽉 찬 타일에 새 장비를 달면 가장 먼저 단 장비가 빠짐. 같은 장비는 한 타일에 1개만
 
 - SCOPE: 사거리 +40%
-- SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1, DRONE HIVE는 드론 +1 (FROST에는 못 닮)
-- IGNITER: 맞은 적에게 3초 화상
+- SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1, DRONE HIVE는 드론 +1, BURN은 불길 +1 (FROST에는 못 닮)
+- IGNITER: 맞은 적에게 3초 화상 (BURN에는 못 닮)
 - CRIT LENS: 25% 확률로 3.5배 피해
 - DETONATOR: 맞힐 때마다 그 자리에서 폭발해 반경 90 안 다른 적에게 맞힌 피해의 45%
 - BANK에는 장비를 달 수 없음
@@ -74,14 +85,14 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 | --- | --- | --- | --- | --- |
 | 1 | x1 | x1 | x1 | 2스테이지, 강화 상한 +3, 새 영구 강화 BOUNTY (처치 보상 +8%/레벨, 5레벨) |
 | 2 | x1.9 | x1.2 | x1.5 | 3스테이지, 상한 +3, 새 코어 WARP CORE 구매 가능 (30) |
-| 3 | x2.7 | x1.35 | x2 | 4스테이지, 상한 +3, 출정 타일 칸 +1 (7종) |
-| 4 | x3.3 | x1.5 | x2.5 | 5스테이지, 상한 +3, 새 영구 강화 SKILL TUNING (스킬 쿨다운 -7%/레벨, 5레벨) |
+| 3 | x2.4 | x1.35 | x2 | 4스테이지, 상한 +3, 출정 타일 칸 +1 (7종) |
+| 4 | x2.95 | x1.5 | x2.5 | 5스테이지, 상한 +3, 새 영구 강화 SKILL TUNING (스킬 쿨다운 -7%/레벨, 5레벨) |
 | 5 | x4 | x1.65 | x3 | 상한 +3 |
 
 - 클리어 화면에 새로 풀린 것이 나오고, 결과창에서 CONTINUE를 누르면 시작 화면이 다음 스테이지를 골라 둠 (RETRY는 같은 스테이지)
 - 왼쪽 위 웨이브 표시 위에 지금 스테이지, 시작 화면의 스테이지 칸 아래에 CLEAR / 최고 웨이브 / LOCKED
 - 스테이지가 생기기 전 저장 파일은 클리어 기록이 있으면 1스테이지를 깬 것으로 바뀜
-- 수치는 `scripts/stage_defs.gd`. 자동 플레이 봇(무작위 카드) 60판 기준으로, 스테이지에 처음 들어갔을 때의 강화 상한을 다 채우면 클리어 약 50~60%, 앞 스테이지 상한 그대로면 약 15~35%
+- 수치는 `scripts/stage_defs.gd`. 자동 플레이 봇(무작위 카드) 40~60판 기준으로, 스테이지 상한까지 강화를 다 채우면 클리어 약 45~60% (1스테이지 강화 5레벨은 약 65%), 앞 스테이지 상한 그대로면 약 20~35%
 
 ## 클리어와 무한 모드
 
@@ -99,8 +110,19 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도(반지름 145)를 돌며 닿은 적에게 피해 17 (레벨마다 구체 +1, 최대 6개)
 - DRONE HIVE: 드론 2기가 벌집 주위를 돌다가 사거리(330) 안 적을 쫓아가 들이받음. 드론마다 다른 적을 노림
 - ARCHER: 긴 사거리(360) 화살. 면이 맞닿은 ARCHER 1개당 공격력 +35% (가운데 끼면 최대 +210%). 연결된 변에 밝은 막대
+- BURN: 화염방사기. 가장 가까운 적 쪽으로 작은 육각형 불씨가 쏟아지는 부채꼴 불길(약 57°, 사거리 190)을 뿜어 불길 안 모든 적에게 0.2초마다 피해 3, 그리고 화상 (초당 피해 = 1번 피해 × 1.2, 2.5초). 불길은 적을 따라 돌아감. 불붙은 적이 다른 적과 맞닿으면 불이 옮겨붙음 (60% 세기, 최대 2번 건너감). 강화마다 화상 +0.5초
 - BOOSTER: 공격하지 않는 대신 면이 맞닿은 타일들의 공격 속도 +25% (강화마다 +10%p, 여러 개면 더해짐). 장비 불가
 - BANK: 웨이브를 넘길 때마다 돈 $12 (강화마다 +$6), 그리고 가진 돈의 4% 이자 (강화마다 +1%p, 최대 수입 × 3)
+
+## 소리
+
+- 효과음 31종과 배경음 3곡 (시작 화면, 전투, 보스 웨이브). 전부 `tools/gen_sounds.py`가 코드로 합성한 것이라 외부 음원이나 저작권 걱정이 없음
+- 배경음: 시작 화면은 잔잔한 패드, 판이 시작되면 전투 곡, 보스 웨이브(10, 20, 30)에는 빠르고 어두운 보스 곡으로 천천히 바뀜. 일시정지 중에는 작게, 게임 오버와 클리어 때는 멈추고 짧은 곡
+- 효과음: 타일 공격마다 (LASER, CORE, SPARK, ARCHER, FROST, ORBIT, DRONE, BURN, 폭발, 치명타), 적 처치, 보스 처치, 타일 피격과 파괴, 보스/OVERLORD 등장, 웨이브 시작과 클리어, 카드 선택, 배치, 장착, 강화, 코어 스킬 4종, 상점 구매, 버튼 딸깍, 돈이 모자랄 때
+- 설정: 오른쪽 위 SOUND 버튼 (시작 화면에서는 FULL 아래). MUSIC, EFFECTS 볼륨 막대와 MUTE. 창이 열려 있는 동안은 게임이 멈춤. N 키는 바로 음소거. 음소거면 버튼이 MUTED로 바뀜
+- 저장: `user://settings.cfg` (SHARD 저장 파일과 따로)
+- 렉 방지: 효과음 재생기 14개를 미리 만들어 돌려 씀. 소리마다 동시에 울리는 수와 최소 간격(실제 시간 기준이라 2배속이어도 안 쌓임)이 있고, 전투 소리는 다 합쳐 7개까지. 자리가 없으면 중요한 소리(보스, 파괴, 스킬)가 전투 소리를 끊고 울림
+- 소리 다시 만들기: `pip install numpy scipy` 후 `python3 tools/gen_sounds.py` (배경음 인코딩에 ffmpeg 필요). 소리 이름과 볼륨은 `scripts/sfx.gd`의 SOUNDS
 
 ## 결과창
 
@@ -123,14 +145,14 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
   - WARP CORE (30, 2스테이지를 깨야 살 수 있음): WARP, 모든 적을 코어 반대쪽으로 380 날려 보냄 (보스 150), 쿨다운 30초
 - 영구 강화 (처음엔 각 5레벨, 스테이지를 처음 깰 때마다 +3레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
 - 스테이지 보상 강화 (5레벨 고정): BOUNTY 처치 보상 +8% (1스테이지 클리어), SKILL TUNING 코어 스킬 쿨다운 -7% (4스테이지 클리어)
-- 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), DRONE HIVE(25)는 SHARD로 사야 함 (예전에 PRISM을 샀다면 PRISM이 빠지면서 SHARD 20개를 돌려받음)
+- 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), BURN(20), DRONE HIVE(25)는 SHARD로 사야 함 (예전에 PRISM을 샀다면 PRISM이 빠지면서 SHARD 20개를 돌려받음)
 - 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 
 ## 강화 (타일 정보 창의 UPGRADE)
 
 - 1번마다 공격력 ×1.5, 공격 속도 +11%, 사거리 +20, 체력 +20. 비용은 $25에서 레벨마다 1.8배
-- 타일별 추가 효과: CORE는 3, 5레벨에 광선 +1, LASER는 집중 +3%p, DRONE HIVE는 3, 5, 7레벨에 드론 +1, ARCHER는 연결 보너스 +10%p, SPARK는 튕김 +1, FROST는 감속 강화, ORBIT은 구체 +1, BANK는 수입 +$6
+- 타일별 추가 효과: CORE는 3, 5레벨에 광선 +1, LASER는 집중 +3%p, DRONE HIVE는 3, 5, 7레벨에 드론 +1, ARCHER는 연결 보너스 +10%p, SPARK는 튕김 +1, FROST는 감속 강화, ORBIT은 구체 +1, BURN은 화상 +0.5초, BANK는 수입 +$6
 - 정보 창의 NEXT LEVEL에 다음 강화로 바뀌는 수치가 나옴. 레벨이 오르면 타일이 더 밝고 두꺼워짐
 
 ## 후반 밸런스
@@ -149,6 +171,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 
 - 타일과 적은 모양이 바뀔 때만 다시 그림 (밝기 맥동은 투명도, 회전은 노드 rotation)
 - ORBIT 구체, FROST 눈금, 적 몸체는 자식 노드를 돌려서 표현
+- BURN 불길: 작은 네온 정육각형 입자들이 쏟아져 나감. 입자는 노드가 아니라 배열 하나(타일마다 최대 80개)이고 전부 합쳐 그리기 3번 + 밑에 옅은 빛 부채꼴 1번. 피해 판정은 입자와 상관없이 부채꼴. 옮겨붙기 검사는 0.25초에 1번
+- 화상 피해는 매 프레임이 아니라 0.25초마다 몰아서 들어감 (체력 막대 다시 그리기 줄임)
 - 배경 격자는 선분 묶음 하나로 그림. 네온 번짐 층은 2겹
 - 37타일, 35웨이브 부하 측정에서 프레임당 그리기 호출 약 9,900 → 2,600
 
@@ -165,6 +189,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - `scripts/orbit_ring.gd`: ORBIT 타일의 도는 구체 그리기
 - `scripts/level_up_fx.gd`: 강화 순간 연출 (퍼지는 고리와 LV 글자)
 - `scripts/frost_field.gd`: FROST 감속 범위와 냉기 파동
+- `scripts/flame_jet.gd`: BURN 타일의 화염방사기 (불길 조준, 피해와 화상, 옮겨붙기, 불길 그림)
 - `scripts/drone.gd`, `scripts/arrow.gd`: DRONE HIVE의 드론, ARCHER의 화살
 - `scripts/damage_stats.gd`, `scripts/stats_panel.gd`: 타일별 웨이브 피해 기록과 일시정지 화면 표
 - `scripts/results_screen.gd`: 판이 끝났을 때 결과창
@@ -175,4 +200,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
 - `scripts/shop.gd`: 시작 화면 겸 상점
 - `scripts/hud.gd`: 화면 위 정보와 버튼
+- `scripts/sfx.gd`: 효과음과 배경음 (`Sfx.play("kill")`, `Sfx.music("battle")`), 볼륨 설정
+- `scripts/sound_panel.gd`: 소리 설정 창과 SOUND 버튼
+- `assets/sounds/`: 합성한 효과음(wav)과 배경음(ogg). `tools/gen_sounds.py`로 만듦
 - `scenes/main.tscn`: 메인 화면 (글로우, 카메라, 보드, HUD)

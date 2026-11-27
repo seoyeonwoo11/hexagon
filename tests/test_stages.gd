@@ -82,7 +82,7 @@ func _meta_rules() -> void:
 	_check(Meta.upgrade_max("bounty") == 5, "fixed upgrades do not grow")
 	_check(Meta.is_upgrade_unlocked("bounty") and Meta.buy_upgrade("bounty"), "bounty unlocked")
 	_check(is_equal_approx(Meta.bounty_mult(), 1.0 + Meta.BOUNTY_PER_LV), "bounty multiplier")
-	_check(Meta.last_unlocks.size() == 3 and Meta.last_unlocks[0].contains("STAGE 2")
+	_check(Meta.last_unlocks.size() == 3 and Meta.last_unlocks[0].contains(StageDefs.title(2))
 			and Meta.last_unlocks[2].contains("BOUNTY"), "unlock list for the clear screen")
 	_check(Meta.stage == 1, "stage not switched until leaving the results")
 	Meta.advance_after_clear()
@@ -116,7 +116,7 @@ func _meta_rules() -> void:
 	Meta.finish_victory(n)
 	_check(Meta.stage_cleared == n and Meta.upgrade_max("damage") == 5 + Meta.CAP_PER_STAGE * n,
 			"last stage raises the cap too")
-	_check(not Meta.last_unlocks[0].contains("STAGE %d" % (n + 1)), "no stage after the last")
+	_check(not Meta.last_unlocks[0].contains(StageDefs.title(n + 1)), "no stage after the last")
 	Meta.advance_after_clear()
 	_check(Meta.stage <= n, "stage stays in range")
 
@@ -162,12 +162,12 @@ func _in_game() -> void:
 	picker.stage_clicked.emit(2)
 	_check(Meta.stage == 2, "stage 2 picked")
 	shop._show_caption("stage:3")
-	_check(shop._caption_body.text.contains("Clear STAGE 2"), "locked stage explains how to open it")
+	_check(shop._caption_body.text.contains(Loc.t("Clear %s to unlock.") % StageDefs.title(2)), "locked stage explains how to open it")
 	shop._show_caption("core:warp")
-	_check(shop._caption_body.text.contains("Clear STAGE 2"), "warp core explains how to open it")
+	_check(shop._caption_body.text.contains(StageDefs.title(2)), "warp core explains how to open it")
 
 	_game.start_run()
-	_check(_game.stage == 2 and _game.hud._stage_label.text == "STAGE 2", "run uses the picked stage")
+	_check(_game.stage == 2 and _game.hud._stage_label.text == StageDefs.title(2), "run uses the picked stage")
 	_game.wave = 5
 	var grunt := _game.spawn_enemy("grunt", Vector2(-3000, 0))
 	_check(is_equal_approx(grunt.max_hp, _game.wave_enemy_hp(5) * StageDefs.hp_mult(2)),
@@ -176,6 +176,10 @@ func _in_game() -> void:
 			"enemy damage scaled by stage")
 	_check(grunt.reward == maxi(1, roundi(_game.wave_enemy_reward(5) * Meta.bounty_mult())),
 			"reward uses bounty, not stage")
+
+	# 코어 스킬마다 효과음이 있다
+	for id in CoreDefs.DEFS:
+		_check(Sfx.SOUNDS.has("skill_" + CoreDefs.DEFS[id]["skill"]), "sound for %s skill" % id)
 
 	# WARP: 모든 적을 코어에서 멀리
 	Meta.unlocked_cores.append("warp")
@@ -201,10 +205,10 @@ func _in_game() -> void:
 	_game._on_victory()
 	_check(Meta.stage_cleared == 2 and _game.hud._victory_unlocks.visible
 			and _game.hud._victory_unlocks.text.contains("WARP CORE"), "clear screen lists unlocks")
-	_check(_game.hud._victory_tag.text.begins_with("STAGE 2"), "clear screen names the stage")
+	_check(_game.hud._victory_tag.text.begins_with(StageDefs.title(2)), "clear screen names the stage")
 	_check(_game.victory_shards == Meta.shards_for_victory(2), "stage 2 victory shards")
 	_game.end_run_after_victory()
-	_check(_game.results.data["stage"] == 2 and _game.results._tag.text.begins_with("STAGE 2"),
+	_check(_game.results.data["stage"] == 2 and _game.results._tag.text.begins_with(StageDefs.title(2)),
 			"results show the stage")
 	_game.results.continue_pressed.emit()
 	_check(_game.shop.is_open() and Meta.stage == 3, "start screen moves on to stage 3")

@@ -16,9 +16,9 @@ const STAGES := [
 			"unlock": "upgrade:bounty"},
 	{"hp": 1.9, "damage": 1.2, "shards": 1.5, "color": Color(0.4, 1.0, 0.3),
 			"unlock": "core:warp"},
-	{"hp": 2.7, "damage": 1.35, "shards": 2.0, "color": Color(1.0, 0.85, 0.1),
+	{"hp": 2.4, "damage": 1.35, "shards": 2.0, "color": Color(1.0, 0.85, 0.1),
 			"unlock": "loadout"},
-	{"hp": 3.3, "damage": 1.5, "shards": 2.5, "color": Color(1.0, 0.5, 0.1),
+	{"hp": 2.95, "damage": 1.5, "shards": 2.5, "color": Color(1.0, 0.5, 0.1),
 			"unlock": "upgrade:tuning"},
 	{"hp": 4.0, "damage": 1.65, "shards": 3.0, "color": Color(1.0, 0.15, 0.6),
 			"unlock": ""},
@@ -51,23 +51,23 @@ static func color(n: int) -> Color:
 
 
 static func title(n: int) -> String:
-	return "STAGE %d" % n
+	return Loc.t("STAGE %d") % n
 
 
-## 스테이지 n을 처음 깼을 때 풀리는 것들의 짧은 이름 (클리어 화면, 시작 화면 안내).
+## 스테이지 n을 처음 깼을 때 풀리는 것들의 짧은 이름 (클리어 화면, 시작 화면 안내). 번역된 글.
 ## 다음 스테이지 해금과 강화 상한 증가가 먼저, 그 뒤에 unlock.
 static func reward_lines(n: int) -> Array[String]:
 	var lines: Array[String] = []
 	if n < count():
-		lines.append("%s unlocked" % title(n + 1))
-	lines.append("Upgrade limit +%d" % Meta.CAP_PER_STAGE)
+		lines.append(Loc.t("%s unlocked") % title(n + 1))
+	lines.append(Loc.t("Upgrade limit +%d") % Meta.CAP_PER_STAGE)
 	var unlock: String = get_def(n)["unlock"]
 	if unlock.begins_with("upgrade:"):
-		lines.append("New upgrade: %s" % Meta.get_upgrade(unlock.substr(8))["title"])
+		lines.append(Loc.t("New upgrade: %s") % Meta.get_upgrade(unlock.substr(8))["title"])
 	elif unlock.begins_with("core:"):
-		lines.append("New core: %s" % CoreDefs.get_def(unlock.substr(5))["name"])
+		lines.append(Loc.t("New core: %s") % CoreDefs.get_def(unlock.substr(5))["name"])
 	elif unlock == "loadout":
-		lines.append("Loadout +1 slot")
+		lines.append(Loc.t("Loadout +1 slot"))
 	return lines
 
 

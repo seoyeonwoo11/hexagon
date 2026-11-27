@@ -86,15 +86,15 @@ func _ready() -> void:
 	row.position = Vector2(0, 950)
 	row.size = Vector2(W, 72)
 	frame.add_child(row)
-	_retry = Hud.make_neon_button("RETRY  (R)", Hud.NEON_PINK)
+	_retry = Hud.make_neon_button(Loc.t("RETRY  (R)"), Hud.NEON_PINK)
 	_retry.custom_minimum_size = Vector2(300, 72)
 	_retry.add_theme_font_size_override("font_size", 26)
-	_retry.tooltip_text = "Start a new run right away with the same setup."
+	_retry.tooltip_text = Loc.t("Start a new run right away with the same setup.")
 	_retry.pressed.connect(func() -> void: retry_pressed.emit())
-	_continue = Hud.make_neon_button("CONTINUE  (ENTER)", Hud.NEON_CYAN)
+	_continue = Hud.make_neon_button(Loc.t("CONTINUE  (ENTER)"), Hud.NEON_CYAN)
 	_continue.custom_minimum_size = Vector2(380, 72)
 	_continue.add_theme_font_size_override("font_size", 26)
-	_continue.tooltip_text = "Go to the start screen to spend shards."
+	_continue.tooltip_text = Loc.t("Go to the start screen to spend shards.")
 	_continue.pressed.connect(func() -> void: continue_pressed.emit())
 	row.add_child(_retry)
 	row.add_child(_continue)
@@ -109,13 +109,13 @@ func show_results(d: Dictionary) -> void:
 	var won: bool = d.get("victory", false)
 	var color := _accent()
 	if won and d.get("endless", false):
-		_tag.text = "ENDLESS RUN OVER  -  OVERLORD DEFEATED"
+		_tag.text = Loc.t("ENDLESS RUN OVER  -  OVERLORD DEFEATED")
 	elif won:
-		_tag.text = "OVERLORD DEFEATED"
+		_tag.text = Loc.t("OVERLORD DEFEATED")
 	else:
-		_tag.text = "CORE DESTROYED"
+		_tag.text = Loc.t("CORE DESTROYED")
 	_tag.text = "%s  -  %s" % [StageDefs.title(d.get("stage", 1)), _tag.text]
-	_title.text = "VICTORY" if won else "GAME OVER"
+	_title.text = Loc.t("VICTORY") if won else Loc.t("GAME OVER")
 	_set_color(_tag, Color(color, 0.75))
 	_set_color(_title, color)
 	visible = true
@@ -217,17 +217,17 @@ class _Body extends Control:
 		var best_note := ""
 		var best_color := DIM
 		if d.get("new_best", false):
-			best_note = "NEW BEST"
+			best_note = Loc.t("NEW BEST")
 			best_color = ResultsScreen.GOLD_COLOR
 		elif d.get("best_wave", 0) > 0:
-			best_note = "BEST  %d" % d["best_wave"]
+			best_note = Loc.t("BEST  %d") % d["best_wave"]
 		var cards := [
-			["WAVE", "%d" % roundi(wave * t), Hud.NEON_CYAN, best_note, best_color],
-			["KILLS", "%d" % roundi(screen.total_kills() * t), Color(1.0, 0.35, 0.45), "", DIM],
-			["TIME", ResultsScreen.format_time(d.get("time", 0.0) * t), Color(0.75, 0.6, 1.0),
+			[Loc.t("WAVE"), "%d" % roundi(wave * t), Hud.NEON_CYAN, best_note, best_color],
+			[Loc.t("KILLS"), "%d" % roundi(screen.total_kills() * t), Color(1.0, 0.35, 0.45), "", DIM],
+			[Loc.t("TIME"), ResultsScreen.format_time(d.get("time", 0.0) * t), Color(0.75, 0.6, 1.0),
 					"", DIM],
-			["GOLD EARNED", "%d" % roundi(d.get("gold", 0) * t), ResultsScreen.GOLD_COLOR, "", DIM],
-			["SHARDS", "+%d" % roundi(d.get("shards", 0) * t), ResultsScreen.SHARD_COLOR, "", DIM],
+			[Loc.t("GOLD EARNED"), "%d" % roundi(d.get("gold", 0) * t), ResultsScreen.GOLD_COLOR, "", DIM],
+			[Loc.t("SHARDS"), "+%d" % roundi(d.get("shards", 0) * t), ResultsScreen.SHARD_COLOR, "", DIM],
 		]
 		var cw := (ResultsScreen.CONTENT_W - ResultsScreen.CARD_GAP * 4) / 5.0
 		for i in cards.size():
@@ -253,16 +253,16 @@ class _Body extends Control:
 		var x := ResultsScreen.LEFT
 		var w := ResultsScreen.DAMAGE_W
 		var y := ResultsScreen.LIST_Y
-		_text(Vector2(x, y), "DAMAGE BY TILE", 18, DIM, _bold)
+		_text(Vector2(x, y), Loc.t("DAMAGE BY TILE"), 18, DIM, _bold)
 		var ids: Array = [] if stats == null else stats.ranked_ids()
 		var grand := 0.0
 		for id in ids:
 			grand += stats.total(id)
-		_text_r(Vector2(x + w, y), "TOTAL  " + DamageStats.short(grand * t), 18, INK, _bold)
+		_text_r(Vector2(x + w, y), Loc.t("TOTAL  ") + DamageStats.short(grand * t), 18, INK, _bold)
 		var top := y + 26.0
 		draw_line(Vector2(x, top), Vector2(x + w, top), RULE, 1.0)
 		if ids.is_empty():
-			_text(Vector2(x + 14, top + ResultsScreen.ROW_H * 0.6), "No damage dealt", 18, DIM,
+			_text(Vector2(x + 14, top + ResultsScreen.ROW_H * 0.6), Loc.t("No damage dealt"), 18, DIM,
 					_font)
 			return
 		var shown := ids.slice(0, ResultsScreen.TILE_ROWS)
@@ -297,7 +297,7 @@ class _Body extends Control:
 					Color(DIM, a), _font)
 		if ids.size() > shown.size():
 			_text(Vector2(x + 82, top + ResultsScreen.ROW_H * (shown.size() + 0.45)),
-					"+%d more" % (ids.size() - shown.size()), 15, DIM, _font)
+					Loc.t("+%d more") % (ids.size() - shown.size()), 15, DIM, _font)
 
 	# ------------------------------------------------------------ 적 처치
 
@@ -305,12 +305,12 @@ class _Body extends Control:
 		var x := ResultsScreen.KILLS_X
 		var w := ResultsScreen.LEFT + ResultsScreen.CONTENT_W - x
 		var y := ResultsScreen.LIST_Y
-		_text(Vector2(x, y), "ENEMIES KILLED", 18, DIM, _bold)
+		_text(Vector2(x, y), Loc.t("ENEMIES KILLED"), 18, DIM, _bold)
 		var top := y + 26.0
 		draw_line(Vector2(x, top), Vector2(x + w, top), RULE, 1.0)
 		var kinds := screen.ranked_kills()
 		if kinds.is_empty():
-			_text(Vector2(x + 14, top + ResultsScreen.ROW_H * 0.6), "None", 18, DIM, _font)
+			_text(Vector2(x + 14, top + ResultsScreen.ROW_H * 0.6), Loc.t("None"), 18, DIM, _font)
 			return
 		var kills: Dictionary = screen.data["kills"]
 		var shown := kinds.slice(0, ResultsScreen.KILL_ROWS)

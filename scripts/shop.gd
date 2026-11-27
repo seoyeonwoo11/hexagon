@@ -46,6 +46,14 @@ func _ready() -> void:
 	_build_center(bg)
 	_build_top(bg)
 	_build_right(bg)
+	# 소리 설정 버튼: 오른쪽 위 줄(FULL, 언어) 바로 아래, 오른쪽 끝에 맞춤
+	var sound := SoundPanel.make_button()
+	sound.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	sound.offset_left = -40 - 150
+	sound.offset_right = -40
+	sound.offset_top = 116
+	sound.offset_bottom = 176
+	bg.add_child(sound)
 	if Hud.wants_fullscreen_button():
 		var full := Hud.make_fullscreen_button()
 		full.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -54,11 +62,36 @@ func _ready() -> void:
 		full.offset_top = 40
 		full.offset_bottom = 100
 		bg.add_child(full)
+	_build_language_button(bg)
 	refresh()
+
+
+## 오른쪽 위 언어 전환 버튼 (한국어 <-> ENGLISH). 누르면 씬을 다시 불러와 모든 글자를 바꾼다.
+func _build_language_button(parent: Control) -> void:
+	var b := Hud.make_neon_button(Loc.other_lang_name(), Color(1, 1, 1, 0.75))
+	b.name = "LanguageButton"
+	b.custom_minimum_size = Vector2(170, 60)
+	b.add_theme_font_size_override("font_size", 22)
+	b.tooltip_text = "Language / 언어"
+	var right := -40.0 - (130.0 + 16.0 if Hud.wants_fullscreen_button() else 0.0)
+	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	b.offset_left = right - 170.0
+	b.offset_right = right
+	b.offset_top = 40
+	b.offset_bottom = 100
+	b.pressed.connect(switch_language)
+	parent.add_child(b)
+
+
+func switch_language() -> void:
+	Loc.toggle()
+	if is_inside_tree():
+		get_tree().reload_current_scene()
 
 
 func open() -> void:
 	visible = true
+	Sfx.music("menu")
 	refresh()
 
 
@@ -76,19 +109,19 @@ func refresh() -> void:
 	_shards_value.set_value(Meta.shards)
 	var last := StageDefs.title(Meta.last_run_stage)
 	if Meta.last_run_victory and Meta.last_run_wave > EnemyDefs.FINAL_WAVE:
-		_result_label.text = "%s cleared! Endless until wave %d\n+%d shards" \
+		_result_label.text = Loc.t("%s cleared! Endless until wave %d\n+%d shards") \
 				% [last, Meta.last_run_wave, Meta.last_run_shards]
 	elif Meta.last_run_victory:
-		_result_label.text = "%s cleared!\n+%d shards" % [last, Meta.last_run_shards]
+		_result_label.text = Loc.t("%s cleared!\n+%d shards") % [last, Meta.last_run_shards]
 	elif Meta.last_run_wave > 0:
-		_result_label.text = "%s ended on wave %d\n+%d shards" \
+		_result_label.text = Loc.t("%s ended on wave %d\n+%d shards") \
 				% [last, Meta.last_run_wave, Meta.last_run_shards]
 	else:
-		_result_label.text = "Beat the OVERLORD on wave %d\nto open the next stage." % EnemyDefs.FINAL_WAVE
+		_result_label.text = Loc.t("Beat the OVERLORD on wave %d\nto open the next stage.") % EnemyDefs.FINAL_WAVE
 	var best := Meta.stage_best_wave(Meta.stage)
-	_best_label.text = "%s best wave  %d" % [StageDefs.title(Meta.stage), best] if best > 0 else ""
+	_best_label.text = Loc.t("%s best wave  %d") % [StageDefs.title(Meta.stage), best] if best > 0 else ""
 	if Meta.clears > 0:
-		_best_label.text += "    Clears  %d" % Meta.clears
+		_best_label.text += Loc.t("    Clears  %d") % Meta.clears
 	_honeycomb.queue_redraw()
 	if _core_picker != null:
 		_core_picker.queue_redraw()
@@ -169,15 +202,15 @@ func _build_left(parent: Control) -> void:
 		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
 		plus.custom_minimum_size = Vector2(96, 56)
 		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		plus.tooltip_text = "Test only: +%d shards" % DEBUG_SHARD_AMOUNT
+		plus.tooltip_text = Loc.t("Test only: +%d shards") % DEBUG_SHARD_AMOUNT
 		plus.pressed.connect(add_debug_shards)
 		shard_row.add_child(plus)
 	var unit := Hud.make_label(SHARD_COLOR, 26, 600)
-	unit.text = "shards to spend"
+	unit.text = Loc.t("shards to spend")
 	col.add_child(unit)
 	col.add_child(_spacer(44))
 	var core_head := Hud.make_label(INK_DIM, 22, 600)
-	core_head.text = "Core and skill"
+	core_head.text = Loc.t("Core and skill")
 	col.add_child(core_head)
 	col.add_child(_spacer(10))
 	_core_picker = CorePicker.new()
@@ -188,7 +221,9 @@ func _build_left(parent: Control) -> void:
 
 
 func _on_core_clicked(id: String) -> void:
-	var changed := Meta.select_core(id) if Meta.is_core_unlocked(id) else Meta.buy_core(id)
+	var owned := Meta.is_core_unlocked(id)
+	var changed := Meta.select_core(id) if owned else Meta.buy_core(id)
+	Sfx.play(("click" if owned else "coin") if changed else "deny")
 	if changed:
 		refresh()
 
@@ -242,8 +277,9 @@ func _build_center(parent: Control) -> void:
 
 
 func _on_tile_clicked(kind: String) -> void:
-	var changed := Meta.toggle_loadout(kind) if Meta.is_tile_unlocked(kind) \
-			else Meta.buy_tile(kind)
+	var owned := Meta.is_tile_unlocked(kind)
+	var changed := Meta.toggle_loadout(kind) if owned else Meta.buy_tile(kind)
+	Sfx.play(("click" if owned else "coin") if changed else "deny")
 	if changed:
 		refresh()
 
@@ -253,9 +289,9 @@ func _show_caption(kind: String) -> void:
 	if _caption_title == null:
 		return
 	if kind == "":
-		_caption_title.text = "Start a run"
+		_caption_title.text = Loc.t("Start a run")
 		_set_color(_caption_title, Hud.NEON_CYAN)
-		_caption_body.text = "Click the core or press Enter."
+		_caption_body.text = Loc.t("Click the core or press Enter.")
 		return
 	if kind.begins_with("core:"):
 		var id := kind.substr(5)
@@ -264,61 +300,61 @@ func _show_caption(kind: String) -> void:
 		_set_color(_caption_title, cdef["color"])
 		var how := ""
 		if Meta.core_type == id:
-			how = "Selected. Press Q in a run to use the skill (%ds cooldown)." % int(cdef["cooldown"])
+			how = Loc.t("Selected. Press Q in a run to use the skill (%ds cooldown).") % int(cdef["cooldown"])
 		elif Meta.is_core_unlocked(id):
-			how = "Click to use this core."
+			how = Loc.t("Click to use this core.")
 		elif not Meta.is_core_available(id):
-			how = "Clear %s to unlock (then %d shards)." \
+			how = Loc.t("Clear %s to unlock (then %d shards).") \
 					% [StageDefs.title(StageDefs.stage_for_unlock("core:" + id)), cdef["price"]]
 		elif Meta.shards >= cdef["price"]:
-			how = "Click to unlock for %d shards." % cdef["price"]
+			how = Loc.t("Click to unlock for %d shards.") % cdef["price"]
 		else:
-			how = "Unlock for %d shards (%d more needed)." % [cdef["price"], cdef["price"] - Meta.shards]
-		_caption_body.text = "%s\n%s" % [cdef["desc"], how]
+			how = Loc.t("Unlock for %d shards (%d more needed).") % [cdef["price"], cdef["price"] - Meta.shards]
+		_caption_body.text = "%s\n%s" % [Loc.t(cdef["desc"]), how]
 		return
 	if kind.begins_with("stage:"):
 		var n := int(kind.substr(6))
 		_caption_title.text = StageDefs.title(n)
 		_set_color(_caption_title, StageDefs.color(n))
-		var info := "Enemies x%s HP, x%s damage. Shards x%s." % [_num(StageDefs.hp_mult(n)),
+		var info := Loc.t("Enemies x%s HP, x%s damage. Shards x%s.") % [_num(StageDefs.hp_mult(n)),
 				_num(StageDefs.damage_mult(n)), _num(StageDefs.shard_mult(n))]
 		if n == 1:
-			info = "Base difficulty."
-		var reward := "First clear: %s." % ", ".join(StageDefs.reward_lines(n))
+			info = Loc.t("Base difficulty.")
+		var reward := Loc.t("First clear: %s.") % ", ".join(StageDefs.reward_lines(n))
 		if Meta.is_stage_cleared(n):
-			reward = "Cleared."
+			reward = Loc.t("Cleared.")
 		var how := ""
 		if not Meta.is_stage_unlocked(n):
-			how = "Clear %s to unlock." % StageDefs.title(n - 1)
+			how = Loc.t("Clear %s to unlock.") % StageDefs.title(n - 1)
 		elif Meta.stage == n:
-			how = "Selected."
+			how = Loc.t("Selected.")
 		else:
-			how = "Click to select."
+			how = Loc.t("Click to select.")
 		_caption_body.text = "%s\n%s\n%s" % [info, reward, how]
 		return
 	if kind == "none":
-		_caption_title.text = "Pick your tiles"
+		_caption_title.text = Loc.t("Pick your tiles")
 		_set_color(_caption_title, Color.WHITE)
-		_caption_body.text = "Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it." % Meta.max_loadout()
+		_caption_body.text = Loc.t("Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it.") % Meta.max_loadout()
 		return
 	var def := TileDefs.get_def(kind)
 	_caption_title.text = def["name"]
 	_set_color(_caption_title, def["color"])
 	var action := ""
 	if Meta.in_loadout(kind):
-		action = "In your loadout. Click to remove." if Meta.loadout.size() > 1 \
-				else "In your loadout (you need at least one)."
+		action = Loc.t("In your loadout. Click to remove.") if Meta.loadout.size() > 1 \
+				else Loc.t("In your loadout (you need at least one).")
 	elif Meta.is_tile_unlocked(kind):
-		action = "Loadout full (%d/%d). Remove a tile first." % [Meta.loadout.size(), Meta.max_loadout()] \
-				if Meta.loadout_full() else "Click to add to your loadout (%d/%d)." \
+		action = Loc.t("Loadout full (%d/%d). Remove a tile first.") % [Meta.loadout.size(), Meta.max_loadout()] \
+				if Meta.loadout_full() else Loc.t("Click to add to your loadout (%d/%d).") \
 				% [Meta.loadout.size(), Meta.max_loadout()]
 	else:
 		var price: int = Meta.TILE_PRICES[kind]
 		if Meta.shards >= price:
-			action = "Click to unlock for %d shards" % price
+			action = Loc.t("Click to unlock for %d shards") % price
 		else:
-			action = "Unlock for %d shards (%d more needed)" % [price, price - Meta.shards]
-	_caption_body.text = "%s\n%s" % [def["desc"], action]
+			action = Loc.t("Unlock for %d shards (%d more needed)") % [price, price - Meta.shards]
+	_caption_body.text = "%s\n%s" % [Loc.t(def["desc"]), action]
 
 
 # ---------------------------------------------------------------- 오른쪽
@@ -334,7 +370,7 @@ func _build_right(parent: Control) -> void:
 	col.add_theme_constant_override("separation", 18)
 	parent.add_child(col)
 	var heading := Hud.make_label(INK_DIM, 22, 600)
-	heading.text = "Permanent upgrades"
+	heading.text = Loc.t("Permanent upgrades")
 	col.add_child(heading)
 	_upgrade_list = VBoxContainer.new()
 	# 스테이지 보상 강화까지 7줄이라 촘촘하게
@@ -357,20 +393,21 @@ func _upgrade_row(u: Dictionary) -> Control:
 	var name_label := Hud.make_label(u["color"], 24, 800)
 	name_label.text = u["title"]
 	var desc := Hud.make_label(INK, 17, 500)
-	desc.text = u["desc"]
+	desc.text = Loc.t(u["desc"])
 	var pips := LevelPips.new()
 	pips.level = lv
 	pips.max_level = Meta.upgrade_max(id)
 	pips.color = u["color"]
 	for c in [name_label, desc, pips]:
 		text.add_child(c)
-	var b := Hud.make_neon_button("Maxed" if cost < 0 else "%d" % cost, SHARD_COLOR)
+	var b := Hud.make_neon_button(Loc.t("Maxed") if cost < 0 else "%d" % cost, SHARD_COLOR)
 	b.custom_minimum_size = Vector2(110, 50)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = cost < 0 or Meta.shards < cost
-	b.tooltip_text = "" if cost < 0 else "Buy level %d for %d shards" % [lv + 1, cost]
+	b.tooltip_text = "" if cost < 0 else Loc.t("Buy level %d for %d shards") % [lv + 1, cost]
 	b.pressed.connect(func() -> void:
 		if Meta.buy_upgrade(id):
+			Sfx.play("coin")
 			refresh())
 	row.add_child(b)
 	return row
@@ -387,16 +424,16 @@ func _locked_upgrade_row(u: Dictionary) -> Control:
 	var name_label := Hud.make_label(LOCKED_COLOR, 24, 800)
 	name_label.text = u["title"]
 	var desc := Hud.make_label(INK_DIM, 17, 500)
-	desc.text = u["desc"]
+	desc.text = Loc.t(u["desc"])
 	for c in [name_label, desc]:
 		text.add_child(c)
 	var need := StageDefs.stage_for_unlock(u["unlock"])
-	var b := Hud.make_neon_button("CLEAR %d" % need, LOCKED_COLOR)
+	var b := Hud.make_neon_button(Loc.t("CLEAR %d") % need, LOCKED_COLOR)
 	b.custom_minimum_size = Vector2(110, 48)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = true
 	b.add_theme_font_size_override("font_size", 17)
-	b.tooltip_text = "Clear %s to unlock." % StageDefs.title(need)
+	b.tooltip_text = Loc.t("Clear %s to unlock.") % StageDefs.title(need)
 	row.add_child(b)
 	return row
 
@@ -425,8 +462,9 @@ class Honeycomb extends Control:
 	signal hover_changed(kind: String)
 
 	const R := 76.0
-	## 둘레 6칸 다음에 놓을 칸 (가로 양 끝). 타일 종류가 늘면 여기에 추가
-	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(-1, 2)]
+	## 둘레 6칸 다음에 놓을 칸 (오른쪽 위, 왼쪽 아래, 위, 오른쪽 아래). 타일 종류가 늘면 여기에 추가.
+	## 바로 아래 칸은 LOADOUT 글자 자리라 비워 둔다.
+	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(1, 1)]
 
 	var hovered := "none"
 	var _time := 0.0
@@ -483,9 +521,9 @@ class Honeycomb extends Control:
 
 	func _draw() -> void:
 		var c0 := _center()
-		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째 타일 자리)
+		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째, 오른쪽 아래 칸은 10번째 타일 자리)
 		var full := Meta.loadout_full()
-		_text(c0 + Vector2(0, R * 3.05), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.max_loadout()],
+		_text(c0 + Vector2(0, R * 3.05), Loc.t("LOADOUT  %d / %d") % [Meta.loadout.size(), Meta.max_loadout()],
 				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
 		for cell in _cells:
 			var kind: String = _cells[cell]
@@ -511,7 +549,7 @@ class Honeycomb extends Control:
 		var tri := PackedVector2Array([pos + Vector2(-10, -38), pos + Vector2(14, -26),
 				pos + Vector2(-10, -14)])
 		draw_colored_polygon(tri, ink)
-		_text(pos + Vector2(0, 10), "START", 30, ink)
+		_text(pos + Vector2(0, 10), Loc.t("START"), 30, ink)
 		_text(pos + Vector2(0, 40), StageDefs.title(Meta.stage), 15, Color(ink, 0.75))
 
 	func _draw_tile(pos: Vector2, kind: String) -> void:
@@ -543,7 +581,7 @@ class Honeycomb extends Control:
 			# 출정 표시: 위쪽 꼭짓점 근처 작은 꽉 찬 육각형
 			NeonDraw.hexagon(self, pos + Vector2(0, -R * 0.6), 5.0, c, 1.0, 1.0, 1.0)
 		else:
-			_text(pos + Vector2(0, 44), "OFF", 13, Color(c, 0.5))
+			_text(pos + Vector2(0, 44), Loc.t("OFF"), 13, Color(c, 0.5))
 
 	## pos를 글자 가운데(기준선 근처)로 하여 쓴다.
 	func _text(pos: Vector2, s: String, font_size: int, color: Color) -> void:
@@ -686,7 +724,7 @@ class CorePicker extends Control:
 					else (SHARD_COLOR if Meta.shards >= def["price"] else Color(SHARD_COLOR, 0.45))
 			if not owned and not available:
 				# 스테이지를 깨야 살 수 있다
-				label = "CLEAR %d" % StageDefs.stage_for_unlock("core:" + id)
+				label = Loc.t("CLEAR %d") % StageDefs.stage_for_unlock("core:" + id)
 				lc = Color(LOCKED_COLOR, 0.9)
 			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 			draw_string(_font, pos + Vector2(-w / 2.0, R + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT,
@@ -746,7 +784,7 @@ class StagePicker extends Control:
 			queue_redraw()
 
 	func _draw() -> void:
-		_text(Vector2(size.x / 2.0, 6.0), "STAGE", 18, INK_DIM, _font)
+		_text(Vector2(size.x / 2.0, 6.0), Loc.t("STAGE"), 18, INK_DIM, _font)
 		for i in StageDefs.count():
 			var n := i + 1
 			var pos := _center(i)
@@ -761,14 +799,14 @@ class StagePicker extends Control:
 			var below := ""
 			var bc := Color(c, 0.75)
 			if not open:
-				below = "LOCKED"
+				below = Loc.t("LOCKED")
 			elif Meta.is_stage_cleared(n):
-				below = "CLEAR"
+				below = Loc.t("CLEAR")
 				bc = c
 			elif Meta.stage_best_wave(n) > 0:
-				below = "BEST %d" % Meta.stage_best_wave(n)
+				below = Loc.t("BEST %d") % Meta.stage_best_wave(n)
 			else:
-				below = "NEW"
+				below = Loc.t("NEW")
 			_text(pos + Vector2(0, R + 16.0), below, 13, bc, _font)
 
 	func _text(pos: Vector2, s: String, font_size: int, color: Color, font: Font) -> void:
