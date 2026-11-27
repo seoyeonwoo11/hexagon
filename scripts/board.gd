@@ -4,6 +4,10 @@ extends Node2D
 ## 배치 규칙: 비어 있고, 이미 놓인 타일과 면이 맞닿은 칸에만 놓을 수 있다.
 
 signal tile_placed(tile: HexTile)
+signal tile_destroyed(tile: HexTile)
+signal core_destroyed
+
+const CORE := Vector2i.ZERO
 
 @export var hex_size := 48.0
 @export var grid_radius := 5
@@ -12,13 +16,21 @@ signal tile_placed(tile: HexTile)
 @export var hover_color := Color(1.0, 1.0, 1.0)
 
 var tiles: Dictionary[Vector2i, HexTile] = {}
+## 적은 이 레이어에 추가한다 (보드와 같은 좌표계, 타일 위에 그려짐).
+var enemy_layer: Node2D
 
 var _hover := Vector2i.ZERO
 var _has_hover := false
 
 
 func _ready() -> void:
-	place_tile(Vector2i.ZERO)
+	enemy_layer = Node2D.new()
+	enemy_layer.name = "Enemies"
+	enemy_layer.z_index = 1
+	add_child(enemy_layer)
+	var core := place_tile(CORE)
+	core.max_hp = 100.0
+	core.hp = core.max_hp
 
 
 func _process(_delta: float) -> void:
@@ -61,11 +73,38 @@ func place_tile(coord: Vector2i, color := Color(0.0, 0.95, 1.0)) -> HexTile:
 	tile.size = hex_size
 	tile.color = color
 	tile.position = HexGrid.axial_to_pixel(coord, hex_size)
+	tile.destroyed.connect(_on_tile_destroyed)
 	add_child(tile)
 	tiles[coord] = tile
 	queue_redraw()
 	tile_placed.emit(tile)
 	return tile
+
+
+func core_tile() -> HexTile:
+	return tiles.get(CORE)
+
+
+## 전역 좌표 기준으로 가장 가까운 타일.
+func nearest_tile(global_point: Vector2) -> HexTile:
+	var best: HexTile = null
+	var best_dist := INF
+	for tile in tiles.values():
+		var d := global_point.distance_squared_to(tile.global_position)
+		if d < best_dist:
+			best = tile
+			best_dist = d
+	return best
+
+
+func _on_tile_destroyed(tile: HexTile) -> void:
+	if tile.coord == CORE:
+		core_destroyed.emit()
+		return
+	tiles.erase(tile.coord)
+	tile.queue_free()
+	queue_redraw()
+	tile_destroyed.emit(tile)
 
 
 func _draw() -> void:
