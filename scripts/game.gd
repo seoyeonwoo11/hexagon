@@ -204,7 +204,7 @@ func wave_enemy_hp(n: int) -> float:
 
 
 func wave_enemy_reward(n: int) -> int:
-	return 2 + n / 4
+	return 1 + n / 8
 
 
 func _begin_wave() -> void:

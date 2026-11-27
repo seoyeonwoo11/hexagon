@@ -27,7 +27,7 @@ const DEFS := {
 	},
 	"bank": {
 		"name": "BANK", "color": Color(0.8, 0.45, 1.0), "attack": "none",
-		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 12,
+		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 6,
 		"desc": "Earns money after every wave.",
 	},
 }

@@ -64,7 +64,7 @@ func interval() -> float:
 
 
 func upgrade_cost() -> int:
-	return roundi(15.0 * pow(1.6, level - 1))
+	return roundi(20.0 * pow(1.7, level - 1))
 
 
 func upgrade() -> void:
@@ -76,7 +76,7 @@ func upgrade() -> void:
 	max_hp += 15.0
 	hp = minf(hp + 15.0, max_hp)
 	if kind == "bank":
-		income += 8
+		income += 4
 	queue_redraw()
 
 
