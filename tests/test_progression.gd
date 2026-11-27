@@ -50,6 +50,17 @@ func _run() -> void:
 	_check(_game.money == 5, "money deducted")
 	_check(core.damage() > dmg_before, "damage increased")
 	_check(core.upgrade_cost() > cost, "next upgrade costs more")
+	_check(absf(core.damage() / dmg_before - HexTile.UPG_DAMAGE) < 0.01, "upgrade damage x1.5")
+	_check(core.upgrade_preview().has("+1 BEAM"), "preview shows beam at next level")
+	core.upgrade()
+	_check(core.target_count() == 2, "laser/core gets extra beam at lv 3")
+	var frost := HexTile.new()
+	frost.setup("frost")
+	var slow_before := frost.frost_slow
+	frost.upgrade()
+	_check(frost.frost_slow < slow_before, "frost upgrade slows more")
+	frost.free()
+	_game.add_money(-_game.money)
 
 	# 타일 선택
 	board.select_tile(core)
@@ -171,7 +182,7 @@ func _run() -> void:
 
 	# 장비 교체
 	core.equip("splitter")
-	_check(core.gear == "splitter" and core.target_count() == 2, "splitter replaces scope")
+	_check(core.gear == "splitter" and core.target_count() == 2 + core.extra_beams, "splitter replaces scope")
 	_check(core.effective_range() == core.attack_range, "scope bonus gone after replace")
 	_check(not board.tiles.values().any(func(t: HexTile) -> bool:
 			return t.kind == "bank" and GearDefs.ids().any(func(id: String) -> bool:

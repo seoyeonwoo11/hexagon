@@ -228,7 +228,7 @@ func wave_enemy_count(n: int) -> int:
 
 
 func wave_enemy_hp(n: int) -> float:
-	return 6.0 * pow(1.2, n - 1) + n
+	return 6.0 * pow(1.23, n - 1) + n
 
 
 func wave_enemy_reward(n: int) -> int:

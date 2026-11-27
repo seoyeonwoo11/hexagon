@@ -14,6 +14,17 @@ const FROST_SLOW_TIME := 0.6
 const ORBIT_SPEED := 3.5
 const ORB_RADIUS := 12.0
 const MAX_ORBS := 6
+## 강화 1번마다: 공격력 ×1.5, 공격 간격 ×0.9 (초당 피해 약 1.67배), 사거리 +20, 최대 체력 +20
+const UPG_DAMAGE := 1.5
+const UPG_INTERVAL := 0.9
+const UPG_RANGE := 20.0
+const UPG_HP := 20.0
+const UPG_INCOME := 6
+## LASER/CORE: 이 레벨에 도달하면 광선 +1
+const EXTRA_BEAM_LEVELS: Array[int] = [3, 5]
+## FROST: 강화마다 감속이 강해진다 (남는 속도 비율 ×0.88, 최저 0.25)
+const FROST_SLOW_STEP := 0.88
+const FROST_SLOW_MIN := 0.25
 
 var kind := "laser"
 var display_name := "LASER"
@@ -30,6 +41,10 @@ var bounces := 0
 var bounce_range := 0.0
 ## ORBIT: 도는 구체 수
 var orbs := 0
+## LASER/CORE: 레벨로 얻은 추가 광선 수
+var extra_beams := 0
+## FROST: 감속 시 남는 속도 비율 (낮을수록 강함)
+var frost_slow := FROST_SLOW
 var level := 1
 var selected := false
 ## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
@@ -90,7 +105,7 @@ func effective_range() -> float:
 
 ## 한 번 공격할 때 노리는 대상 수 (SPLITTER면 +1).
 func target_count() -> int:
-	return 2 if gear == "splitter" else 1
+	return 1 + extra_beams + (1 if gear == "splitter" else 0)
 
 
 ## ORBIT: 실제로 도는 구체 수 (SPLITTER면 +1).
@@ -144,24 +159,67 @@ func _detonate(pos: Vector2) -> void:
 
 
 func upgrade_cost() -> int:
-	return roundi(20.0 * pow(1.7, level - 1))
+	return roundi(25.0 * pow(2.0, level - 1))
 
 
 func upgrade() -> void:
 	level += 1
-	base_damage *= 1.35
+	base_damage *= UPG_DAMAGE
 	if attack_range > 0.0:
-		attack_range += 15.0
-	fire_interval *= 0.92
-	max_hp += 15.0
-	hp = minf(hp + 15.0, max_hp)
-	if kind == "bank":
-		income += 5
-	if kind == "spark":
-		bounces += 1
-	if kind == "orbit":
-		orbs = mini(orbs + 1, MAX_ORBS)
+		attack_range += UPG_RANGE
+	fire_interval *= UPG_INTERVAL
+	max_hp += UPG_HP
+	hp = minf(hp + UPG_HP, max_hp)
+	match kind:
+		"bank":
+			income += UPG_INCOME
+		"spark":
+			bounces += 1
+		"orbit":
+			orbs = mini(orbs + 1, MAX_ORBS)
+		"frost":
+			frost_slow = maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)
+		"laser", "core":
+			if EXTRA_BEAM_LEVELS.has(level):
+				extra_beams += 1
+	_show_level_up()
 	queue_redraw()
+
+
+## 다음 강화로 무엇이 좋아지는지 한 줄씩 (정보 창 미리보기용).
+func upgrade_preview() -> Array[String]:
+	var lines: Array[String] = []
+	var mult := board.damage_mult if board != null else 1.0
+	if attack != "none":
+		lines.append("DMG %.1f > %.1f" % [damage(), base_damage * UPG_DAMAGE * mult])
+		lines.append("RANGE +%d    SPEED +%d%%" % [roundi(UPG_RANGE),
+				roundi((1.0 / UPG_INTERVAL - 1.0) * 100.0)])
+	match kind:
+		"bank":
+			lines.append("INCOME $%d > $%d" % [income, income + UPG_INCOME])
+		"spark":
+			lines.append("+1 BOUNCE")
+		"orbit":
+			if orbs < MAX_ORBS:
+				lines.append("+1 ORB")
+		"frost":
+			lines.append("SLOW %d%% > %d%%" % [roundi((1.0 - frost_slow) * 100.0),
+					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
+		"laser", "core":
+			if EXTRA_BEAM_LEVELS.has(level + 1):
+				lines.append("+1 BEAM")
+	lines.append("HP +%d" % roundi(UPG_HP))
+	return lines
+
+
+func _show_level_up() -> void:
+	if not is_inside_tree():
+		return
+	var fx := LevelUpFx.new()
+	fx.color = color
+	fx.radius = size
+	fx.level = level
+	add_child(fx)
 
 
 func _process(delta: float) -> void:
@@ -234,7 +292,7 @@ func _fire() -> void:
 			var targets := enemies_in_range()
 			_cooldown = interval()
 			for enemy in targets:
-				enemy.apply_slow(FROST_SLOW, FROST_SLOW_TIME)
+				enemy.apply_slow(frost_slow, FROST_SLOW_TIME)
 				apply_hit(enemy, damage())
 
 
@@ -280,7 +338,12 @@ func _draw() -> void:
 	if selected:
 		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5, true)
 		NeonDraw.hexagon(self, Vector2.ZERO, size * 0.98, Color.WHITE, 0.9, 2.0)
-	NeonDraw.hexagon(self, Vector2.ZERO, size * 0.9, c, pulse, 3.0, 0.10)
+	var lv := level - 1
+	NeonDraw.hexagon(self, Vector2.ZERO, size * 0.9, c, minf(pulse + 0.08 * lv, 1.4),
+			minf(3.0 + 0.5 * lv, 6.0), minf(0.10 + 0.04 * lv, 0.35))
+	# 레벨 3, 5, 7...: 안쪽 테두리가 하나씩 늘어난다
+	for i in range(lv / 2):
+		NeonDraw.hexagon(self, Vector2.ZERO, size * (0.78 - 0.08 * i), c, 0.5, 1.5)
 	_draw_glyph(c, pulse)
 	# 레벨 표시: 위쪽에 작은 점
 	for i in range(level - 1):
@@ -294,7 +357,7 @@ func _draw() -> void:
 	if _shot_time > 0.0:
 		for target in _shot_targets:
 			NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, target]), c,
-					_shot_time / SHOT_TIME, 2.0)
+					_shot_time / SHOT_TIME, minf(2.0 + 0.8 * (level - 1), 6.0))
 	if attack == "frost":
 		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
 	if attack == "orbit" and _orbit_ring != null:

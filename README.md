@@ -55,6 +55,12 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도를 돌며 닿은 적에게 피해 (레벨마다 구체 +1, 최대 6개)
 - BANK: 웨이브를 넘길 때마다 돈
 
+## 강화 (타일 정보 창의 UPGRADE)
+
+- 1번마다 공격력 ×1.5, 공격 속도 +11%, 사거리 +20, 체력 +20. 비용은 $25에서 레벨마다 2배
+- 타일별 추가 효과: LASER/CORE는 3, 5레벨에 광선 +1, SPARK는 튕김 +1, FROST는 감속 강화, ORBIT은 구체 +1, BANK는 수입 +$6
+- 정보 창의 NEXT LEVEL에 다음 강화로 바뀌는 수치가 나옴. 레벨이 오르면 타일이 더 밝고 두꺼워짐
+
 ## 구조
 
 - `scripts/hex_grid.gd`: 육각형 좌표 계산 (pointy-top, axial 좌표)
@@ -66,6 +72,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - `scripts/explosion.gd`: DETONATOR 폭발 효과
 - `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
 - `scripts/orbit_ring.gd`: ORBIT 타일의 도는 구체 그리기
+- `scripts/level_up_fx.gd`: 강화 순간 연출 (퍼지는 고리와 LV 글자)
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
