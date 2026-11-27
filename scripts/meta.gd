@@ -20,7 +20,9 @@ const UPGRADES := [
 
 ## 처음부터 쓸 수 있는 타일과 SHARD로 사야 하는 타일 (가격).
 const STARTER_TILES: Array[String] = ["laser", "frost", "bank"]
-const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "prism": 20, "burn": 20, "drone": 25}
+const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "burn": 20, "drone": 25}
+## 게임에서 빠진 타일과 그때 가격. 예전 저장 파일에서 산 적이 있으면 SHARD로 돌려준다.
+const REMOVED_TILES := {"prism": 20}
 ## 한 판에 들고 갈 수 있는 타일 종류 수 (출정 타일). 카드에는 이 타일들만 나온다.
 const MAX_LOADOUT := 6
 
@@ -256,8 +258,14 @@ static func load_data() -> void:
 	best_wave = cfg.get_value("meta", "best_wave", 0)
 	clears = cfg.get_value("meta", "clears", 0)
 	levels = cfg.get_value("meta", "levels", {})
+	var refunded := false
 	for kind in cfg.get_value("meta", "unlocked", []):
-		unlocked.append(String(kind))
+		var k := String(kind)
+		if REMOVED_TILES.has(k):
+			shards += REMOVED_TILES[k]
+			refunded = true
+		elif not unlocked.has(k):
+			unlocked.append(k)
 	# 예전 저장 파일에는 출정 타일이 없다 -> 기본값
 	if cfg.has_section_key("meta", "loadout"):
 		loadout.clear()
@@ -271,3 +279,5 @@ static func load_data() -> void:
 			unlocked_cores.append(String(id))
 	var saved_core := String(cfg.get_value("meta", "core", "core"))
 	core_type = saved_core if CoreDefs.DEFS.has(saved_core) and is_core_unlocked(saved_core) else "core"
+	if refunded:
+		save_data()

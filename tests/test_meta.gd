@@ -92,6 +92,20 @@ func _run() -> void:
 	_check(Meta.in_loadout("drone") and not Meta.in_loadout("spark") and Meta.loadout.size() == 6,
 			"loadout saved (%s)" % [Meta.loadout])
 
+	# 게임에서 빠진 PRISM을 산 저장 파일: SHARD 20개를 돌려주고 목록에서 뺀다 (한 번만)
+	var cfg := ConfigFile.new()
+	cfg.load(Meta.save_path)
+	cfg.set_value("meta", "unlocked", Array(Meta.unlocked) + ["prism"])
+	cfg.set_value("meta", "loadout", Array(Meta.loadout) + ["prism"])
+	cfg.save(Meta.save_path)
+	Meta.load_data()
+	_check(Meta.shards == shards + 20 and not Meta.unlocked.has("prism") and not Meta.loadout.has("prism"),
+			"removed prism refunded (%d -> %d)" % [shards, Meta.shards])
+	Meta.load_data()
+	_check(Meta.shards == shards + 20, "refund only once")
+	Meta.shards = shards
+	Meta.save_data()
+
 	# START: 영구 강화가 판에 적용된다
 	_game.shop.start_pressed.emit()
 	var core := _game.board.core_tile()
