@@ -48,16 +48,16 @@ func _draw() -> void:
 	var waves := _waves()
 	var ids := stats.ranked_ids().slice(0, MAX_ROWS)
 	# 머리줄
-	_text(Vector2(14, HEAD_H * 0.55), "DAMAGE BY WAVE", 15, DIM, _bold)
+	_text(Vector2(14, HEAD_H * 0.55), Loc.t("DAMAGE BY WAVE"), 15, DIM, _bold)
 	for i in waves.size():
 		var w := waves[i]
 		var label := "W%d" % w
 		_text_c(Vector2(NAME_W + COL_W * (i + 0.5), HEAD_H * 0.55), label, 15,
 				Hud.NEON_CYAN if w == stats.current_wave else DIM, _bold)
-	_text(Vector2(NAME_W + COL_W * WAVE_COLS + 14, HEAD_H * 0.55), "TOTAL", 15, DIM, _bold)
+	_text(Vector2(NAME_W + COL_W * WAVE_COLS + 14, HEAD_H * 0.55), Loc.t("TOTAL"), 15, DIM, _bold)
 	draw_line(Vector2(0, HEAD_H), Vector2(size.x, HEAD_H), Color(1, 1, 1, 0.15), 1.0)
 	if ids.is_empty():
-		_text(Vector2(14, HEAD_H + ROW_H * 0.55), "No damage yet", 17, DIM, _font)
+		_text(Vector2(14, HEAD_H + ROW_H * 0.55), Loc.t("No damage yet"), 17, DIM, _font)
 		return
 	var best_total := maxf(stats.total(ids[0]), 1.0)
 	for r in ids.size():

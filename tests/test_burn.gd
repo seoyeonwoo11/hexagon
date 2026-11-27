@@ -84,7 +84,7 @@ func _run() -> void:
 	_check(not e.is_burning() and absf((hp0 - e.hp) - 20.0) < 0.6, "burn ends after its time (%.2f)" % (hp0 - e.hp))
 
 	# 강화: 화상 시간 +0.5초
-	_check(burn.upgrade_preview().has("BURN 2.5 S > 3.0 S"), "preview shows burn time")
+	_check(burn.upgrade_preview().has(Loc.t("BURN %.1f S > %.1f S") % [2.5, 3.0]), "preview shows burn time")
 	burn.upgrade()
 	_check(is_equal_approx(burn.burn_time, 3.0), "upgrade adds burn time")
 

@@ -18,6 +18,13 @@ Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행�
 - 직접 내보내기: Godot 에디터의 Project > Export에서 "Web" 프리셋 (스레드 끔, 그래서 특별한 서버 설정 없이 동작)
 - 터치: 탭이 왼쪽 클릭. 오른쪽 클릭 대신 정보 창의 CLOSE 버튼이나 빈 곳 탭, 옮기기 취소는 MOVE 버튼, 스킬은 왼쪽 아래 버튼, FULL 버튼으로 전체 화면
 
+## 언어
+
+- 한국어(기본)와 영어. 시작 화면 오른쪽 위 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
+- 번역표는 `scripts/loc.gd` 한 곳. 화면 글자는 영어 원문을 키로 `Loc.t("PAUSE")`, 숫자가 들어가면 `Loc.t("WAVE %d") % wave`. 표에 없으면 영어 그대로 나옴
+- 타일, 장비, 적, 코어, 스킬, 카드 이름(LASER, SCOPE, OVERLORD ...)은 고유 이름이라 영어 그대로
+- 한글 폰트: Orbit (`assets/fonts/Orbit-Regular.ttf`, SIL OFL). Orbitron에 없는 한글을 대체 폰트로 그림
+
 ## 테스트
 
 ```
@@ -28,6 +35,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
+godot --headless --path . -s res://tests/test_loc.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_burn.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_sound.gd
 ```

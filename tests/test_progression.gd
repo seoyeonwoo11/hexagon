@@ -56,7 +56,7 @@ func _run() -> void:
 	_check(core.damage() > dmg_before, "damage increased")
 	_check(core.upgrade_cost() > cost, "next upgrade costs more")
 	_check(absf(core.damage() / dmg_before - HexTile.UPG_DAMAGE) < 0.01, "upgrade damage x1.5")
-	_check(core.upgrade_preview().has("+1 BEAM"), "preview shows beam at next level")
+	_check(core.upgrade_preview().has(Loc.t("+1 BEAM")), "preview shows beam at next level")
 	core.upgrade()
 	_check(core.target_count() == 2, "laser/core gets extra beam at lv 3")
 	var frost := HexTile.new()
@@ -203,10 +203,10 @@ func _run() -> void:
 	while slot_tile.level < GearDefs.SECOND_SLOT_LEVEL - 1:
 		slot_tile.upgrade()
 	_check(slot_tile.gear_slots() == 1, "still one slot below unlock level")
-	_check(slot_tile.upgrade_preview().has("+1 GEAR SLOT"), "preview shows gear slot unlock")
+	_check(slot_tile.upgrade_preview().has(Loc.t("+1 GEAR SLOT")), "preview shows gear slot unlock")
 	slot_tile.upgrade()
 	_check(slot_tile.gear_slots() == 2 and slot_tile.gears == ["igniter"], "second slot unlocks, gear kept")
-	_check(not slot_tile.upgrade_preview().has("+1 GEAR SLOT"), "preview mentions slot only once")
+	_check(not slot_tile.upgrade_preview().has(Loc.t("+1 GEAR SLOT")), "preview mentions slot only once")
 	slot_tile.equip("scope")
 	_check(slot_tile.gears == ["igniter", "scope"], "second gear fills empty slot")
 	_check(slot_tile.has_gear("igniter") and slot_tile.effective_range() > slot_tile.attack_range,
@@ -217,7 +217,7 @@ func _run() -> void:
 	var bank_preview := bank_tile
 	while bank_preview.level < GearDefs.SECOND_SLOT_LEVEL - 1:
 		bank_preview.upgrade()
-	_check(not bank_preview.upgrade_preview().has("+1 GEAR SLOT"), "no slot preview on gearless tile")
+	_check(not bank_preview.upgrade_preview().has(Loc.t("+1 GEAR SLOT")), "no slot preview on gearless tile")
 	slot_tile.take_damage(1e9)
 
 	# CRIT LENS: 평균 피해가 늘어난다 (25% 확률로 3.5배 → 기대값 1.625배)

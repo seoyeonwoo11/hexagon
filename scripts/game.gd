@@ -107,6 +107,7 @@ static var _skip_hub_once := false
 
 
 func _ready() -> void:
+	Loc.ensure_loaded()
 	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)
@@ -161,7 +162,7 @@ func start_run() -> void:
 	_apply_core_type(Meta.core_type)
 	move_charges = MOVES_PER_WAVE
 	_update_actions()
-	hud.show_banner("READY", Hud.NEON_CYAN)
+	hud.show_banner(Loc.t("READY"), Hud.NEON_CYAN)
 
 
 ## 코어 종류를 코어 타일에 입힌다 (색, 이름, 가운데 모양). 스킬은 바로 쓸 수 있는 상태로 시작.
@@ -330,10 +331,10 @@ func make_options() -> Array:
 				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
-					"title": def["name"], "desc": def["desc"], "color": def["color"]})
+					"title": def["name"], "desc": Loc.t(def["desc"]), "color": def["color"]})
 	for boost in BOOSTS:
 		var opt: Dictionary = boost.duplicate()
-		opt["desc"] = (opt["desc"] as String).replace("{v}", "%d" % roundi(boost_value(opt["id"])))
+		opt["desc"] = Loc.t(opt["desc"]).replace("{v}", "%d" % roundi(boost_value(opt["id"])))
 		opt["type"] = "boost"
 		opt["tag"] = CARD_TAG_BOOST
 		pool.append(opt)
@@ -347,7 +348,7 @@ func make_options() -> Array:
 			continue
 		var gdef := GearDefs.get_def(id)
 		pool.append({"type": "gear", "gear": id, "tag": CARD_TAG_GEAR,
-				"title": gdef["name"], "desc": gdef["desc"], "color": gdef["color"]})
+				"title": gdef["name"], "desc": Loc.t(gdef["desc"]), "color": gdef["color"]})
 		added += 1
 	pool.shuffle()
 	return pool.slice(0, 3)
@@ -363,11 +364,11 @@ func choose_option(index: int) -> void:
 	if opt["type"] == "tile":
 		state = State.PLACING
 		board.begin_placement(opt["kind"])
-		hud.show_banner("PLACE %s" % opt["title"], opt["color"])
+		hud.show_banner(Loc.t("PLACE %s") % opt["title"], opt["color"])
 	elif opt["type"] == "gear":
 		state = State.EQUIPPING
 		board.begin_equip(opt["gear"])
-		hud.show_banner("EQUIP %s - CLICK A TILE" % opt["title"], opt["color"])
+		hud.show_banner(Loc.t("EQUIP %s - CLICK A TILE") % opt["title"], opt["color"])
 	else:
 		_apply_boost(opt["id"])
 		_start_intermission()
@@ -411,7 +412,7 @@ func _on_equip_finished(_tile: HexTile) -> void:
 func _start_intermission() -> void:
 	state = State.INTERMISSION
 	_intermission = INTERMISSION
-	hud.show_banner("GET READY", Hud.NEON_CYAN)
+	hud.show_banner(Loc.t("GET READY"), Hud.NEON_CYAN)
 
 
 ## earned: 결과창의 GOLD EARNED에 셀지 (시작 돈은 안 셈)
@@ -434,7 +435,7 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_overlay("PAUSED", Hud.resume_hint(), Hud.NEON_CYAN, board.stats)
+		hud.show_overlay(Loc.t("PAUSED"), Hud.resume_hint(), Hud.NEON_CYAN, board.stats)
 	else:
 		hud.hide_overlay()
 
@@ -495,11 +496,11 @@ func _begin_wave() -> void:
 	Sfx.play("wave")
 	Sfx.music("boss" if _boss_pending else "battle")
 	if _boss_pending and wave == EnemyDefs.FINAL_WAVE:
-		hud.show_banner("FINAL WAVE  -  OVERLORD", EnemyDefs.get_def("overlord")["color"])
+		hud.show_banner(Loc.t("FINAL WAVE  -  OVERLORD"), EnemyDefs.get_def("overlord")["color"])
 	elif _boss_pending:
-		hud.show_banner("WAVE %d  -  BOSS" % wave, EnemyDefs.get_def("boss")["color"])
+		hud.show_banner(Loc.t("WAVE %d  -  BOSS") % wave, EnemyDefs.get_def("boss")["color"])
 	else:
-		hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
+		hud.show_banner(Loc.t("WAVE %d") % wave, Hud.NEON_CYAN)
 	get_tree().create_timer(1.2, false).timeout.connect(_hide_wave_message.bind(wave))
 	wave_started.emit(wave)
 
