@@ -19,6 +19,8 @@ var board: Board
 
 var _dead := false
 var _spin := 0.0
+var _slow_factor := 1.0
+var _slow_timer := 0.0
 
 
 func _ready() -> void:
@@ -29,6 +31,10 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _dead or board == null:
 		return
+	if _slow_timer > 0.0:
+		_slow_timer -= delta
+		if _slow_timer <= 0.0:
+			_slow_factor = 1.0
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -37,9 +43,19 @@ func _process(delta: float) -> void:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
-	global_position += to_target.normalized() * speed * delta
+	global_position += to_target.normalized() * speed * _slow_factor * delta
 	_spin += delta * 3.0
 	queue_redraw()
+
+
+## factor 배 속도로 duration초 동안 느려진다 (여러 번 걸리면 가장 강한 감속 유지).
+func apply_slow(factor: float, duration: float) -> void:
+	_slow_factor = minf(_slow_factor, factor)
+	_slow_timer = maxf(_slow_timer, duration)
+
+
+func is_slowed() -> bool:
+	return _slow_timer > 0.0
 
 
 func is_alive() -> bool:
@@ -68,7 +84,8 @@ func _draw() -> void:
 	for i in 4:
 		var a := _spin + TAU * i / 3.0
 		pts.append(Vector2(cos(a), sin(a)) * radius)
-	NeonDraw.polyline(self, pts, color, 1.0, 2.5)
+	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
+	NeonDraw.polyline(self, pts, c, 1.0, 2.5)
 	if hp < max_hp:
 		var w := radius * 2.0
 		var y := radius + 6.0

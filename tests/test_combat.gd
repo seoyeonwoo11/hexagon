@@ -27,6 +27,7 @@ func _process(_delta: float) -> bool:
 		_game = current_scene as Game
 		_check(_game != null, "main scene uses Game script")
 		_game.wave_cleared.connect(func(_w: int) -> void: _cleared += 1)
+		_game.choices_offered.connect(_auto_choose)
 		# 일시정지/배속 토글
 		_game.toggle_speed()
 		_check(Engine.time_scale == 2.0, "2x speed")
@@ -54,3 +55,14 @@ func _process(_delta: float) -> bool:
 			print("ALL TESTS PASSED")
 		quit(1 if _failures > 0 else 0)
 	return false
+
+
+## 카드가 나오면 첫 번째를 고르고, 타일 카드면 놓을 수 있는 첫 칸에 배치한다.
+func _auto_choose(_options: Array) -> void:
+	_game.choose_option.call_deferred(0)
+	_place_if_needed.call_deferred()
+
+
+func _place_if_needed() -> void:
+	if _game.state == Game.State.PLACING:
+		_game.board.try_place(_game.board.placeable_cells()[0])
