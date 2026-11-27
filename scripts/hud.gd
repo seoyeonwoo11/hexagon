@@ -36,6 +36,7 @@ var _tile_panel: PanelContainer
 var _tile_title: Label
 var _tile_stats: Label
 var _tile_gear: Label
+var _tile_next: Label
 var _upgrade_button: Button
 
 
@@ -184,9 +185,18 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 	var lines: Array[String] = []
 	if tile.attack != "none":
 		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.effective_range())])
-		lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+		if tile.attack == "orbit":
+			lines.append("ORBS %d    HIT EVERY %.2f S" % [tile.orb_count(), tile.interval()])
+		else:
+			lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
+	if tile.attack == "laser" and tile.target_count() > 1:
+		lines.append("BEAMS %d" % tile.target_count())
+	if tile.attack == "spark":
+		lines.append("BOUNCES %d" % tile.bounces)
+	if tile.attack == "frost":
+		lines.append("SLOW %d%%" % roundi((1.0 - tile.frost_slow) * 100.0))
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
 	if tile.gear != "":
@@ -196,6 +206,7 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		_tile_gear.visible = true
 	else:
 		_tile_gear.visible = false
+	_tile_next.text = "NEXT LEVEL\n" + "\n".join(tile.upgrade_preview())
 	var cost := tile.upgrade_cost()
 	_upgrade_button.text = "UPGRADE  $%d" % cost
 	_upgrade_button.disabled = money < cost
@@ -215,13 +226,14 @@ func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_title = _make_label(NEON_CYAN, 30, 800)
 	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
 	_tile_gear = _make_label(Color.WHITE, 20, 700)
+	_tile_next = _make_label(Color(0.45, 1.0, 0.5), 18, 600)
 	var hint := _make_label(Color(1, 1, 1, 0.4), 15, 500)
 	hint.text = "RIGHT CLICK TO CLOSE"
 	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
 	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
 	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
 	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
-	for c in [_tile_title, _tile_stats, _tile_gear, _upgrade_button, hint]:
+	for c in [_tile_title, _tile_stats, _tile_gear, _tile_next, _upgrade_button, hint]:
 		box.add_child(c)
 
 

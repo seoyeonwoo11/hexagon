@@ -228,7 +228,7 @@ func wave_enemy_count(n: int) -> int:
 
 
 func wave_enemy_hp(n: int) -> float:
-	return 6.0 * pow(1.2, n - 1) + n
+	return 6.0 * pow(1.23, n - 1) + n
 
 
 func wave_enemy_reward(n: int) -> int:
@@ -307,7 +307,8 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	if enemy.killed and enemy.splits_into != "" and not is_over:
 		for i in enemy.split_count:
 			var offset := Vector2.from_angle(TAU * i / enemy.split_count) * 18.0
-			spawn_enemy(enemy.splits_into, enemy.global_position + offset)
+			var child := spawn_enemy(enemy.splits_into, enemy.global_position + offset)
+			child.inherit_slow(enemy)
 
 
 func _on_core_destroyed() -> void:

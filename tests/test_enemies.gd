@@ -71,6 +71,28 @@ func _run() -> void:
 			runners += 1
 	_check(runners == 2, "two runners near splitter (got %d)" % runners)
 
+	# 빙결(감속) 상태에서 분열하면 갈라진 적도 같은 감속을 남은 시간만큼 이어받음
+	var frozen := _game.spawn_enemy("splitter", Vector2(-2000, -400))
+	frozen.apply_slow(0.5, 0.6)
+	frozen.take_damage(99999.0)
+	var kids: Array[Enemy] = []
+	for node in get_nodes_in_group(Enemy.GROUP):
+		var e := node as Enemy
+		if e.kind == "runner" and e.global_position.distance_to(Vector2(-2000, -400)) < 40.0:
+			kids.append(e)
+	_check(kids.size() == 2 and kids.all(func(k: Enemy) -> bool:
+			return k.is_slowed() and k._slow_factor == 0.5 and absf(k._slow_timer - 0.6) < 0.01),
+			"split children keep parent's slow")
+	var plain := _game.spawn_enemy("splitter", Vector2(-2000, -700))
+	plain.take_damage(99999.0)
+	var plain_kids := 0
+	for node in get_nodes_in_group(Enemy.GROUP):
+		var e := node as Enemy
+		if e.kind == "runner" and e.global_position.distance_to(Vector2(-2000, -700)) < 40.0 \
+				and not e.is_slowed():
+			plain_kids += 1
+	_check(plain_kids == 2, "children of unslowed splitter are not slowed")
+
 	# 타일에 부딪혀 사라지면 분열하지 않음
 	var splitter2 := _game.spawn_enemy("splitter", Vector2(-2000, 600))
 	var alive2 := _game.alive_enemies()
@@ -87,6 +109,28 @@ func _run() -> void:
 	burner.free()
 	burning._process(0.5)
 	_check(burning.hp < 1000.0, "burn continues after source freed")
+
+	# 보스는 타일에 닿아도 죽지 않고 계속 때린다. 타일이 부서지면 다음 타일로 간다
+	var board := _game.board
+	var weak := board.place_tile(Vector2i(1, 0), "laser")
+	weak.hp = 15.0
+	var boss := _game.spawn_enemy("boss", weak.global_position + Vector2(60, 0))
+	boss.contact_damage = 10.0
+	var core := board.core_tile()
+	var core_hp := core.hp
+	var dist_before := boss.global_position.distance_to(core.global_position)
+	for i in 150:
+		boss._process(1.0 / 60.0)
+	_check(boss.is_alive(), "boss survives hitting a tile")
+	_check(not board.tiles.has(Vector2i(1, 0)), "boss destroyed the weak tile")
+	_check(core.hp == core_hp, "boss hit only the tile it was touching")
+	_check(boss.global_position.distance_to(core.global_position) < dist_before,
+			"boss moves on to the next tile")
+	var bumper := _game.spawn_enemy("grunt", core.global_position + Vector2(30, 0))
+	bumper._process(1.0 / 60.0)
+	_check(not bumper.is_alive(), "normal enemy still dies on contact")
+	boss.queue_free()
+	core.hp = core.max_hp
 
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6

@@ -50,6 +50,17 @@ func _run() -> void:
 	_check(_game.money == 5, "money deducted")
 	_check(core.damage() > dmg_before, "damage increased")
 	_check(core.upgrade_cost() > cost, "next upgrade costs more")
+	_check(absf(core.damage() / dmg_before - HexTile.UPG_DAMAGE) < 0.01, "upgrade damage x1.5")
+	_check(core.upgrade_preview().has("+1 BEAM"), "preview shows beam at next level")
+	core.upgrade()
+	_check(core.target_count() == 2, "laser/core gets extra beam at lv 3")
+	var frost := HexTile.new()
+	frost.setup("frost")
+	var slow_before := frost.frost_slow
+	frost.upgrade()
+	_check(frost.frost_slow < slow_before, "frost upgrade slows more")
+	frost.free()
+	_game.add_money(-_game.money)
 
 	# 타일 선택
 	board.select_tile(core)
@@ -129,6 +140,32 @@ func _run() -> void:
 	for e in [e1, e2, e3, far]:
 		e.queue_free()
 
+	# ORBIT: 도는 구체가 궤도 위의 적을 때리고, 궤도 밖의 적은 건드리지 않는다
+	# 다른 타일 사거리 밖에 보드 규칙 없이 직접 놓는다
+	var orbit := HexTile.new()
+	orbit.setup("orbit")
+	orbit.board = board
+	orbit.position = Vector2(0, -600)
+	board.add_child(orbit)
+	_check(orbit.orb_count() == 3, "orbit starts with 3 orbs")
+	var on_path := _spawn_enemy_at(orbit.position + Vector2(orbit.effective_range(), 0))
+	var off_path := _spawn_enemy_at(orbit.position + Vector2(orbit.effective_range() + 90.0, 0))
+	var inside := _spawn_enemy_at(orbit.position + Vector2(30, 0))
+	for i in 120:
+		orbit._process_orbit(1.0 / 60.0)
+	var hits := roundi((on_path.max_hp - on_path.hp) / orbit.damage())
+	_check(hits >= 2 and hits <= 5, "orbs hit enemy on orbit path (hits %d)" % hits)
+	_check(off_path.hp == off_path.max_hp, "enemy outside orbit untouched")
+	_check(inside.hp == inside.max_hp, "enemy inside orbit untouched")
+	orbit.equip("splitter")
+	_check(orbit.orb_count() == 4, "splitter adds an orb")
+	orbit.upgrade()
+	_check(orbit.orb_count() == 5, "upgrade adds an orb")
+	_check(GearDefs.can_equip("detonator", orbit), "orbit takes attack gear")
+	for e in [on_path, off_path, inside]:
+		e.queue_free()
+	orbit.queue_free()
+
 	# 장비: 카드 -> 장착 모드 -> 맞지 않는 타일은 실패 -> 맞는 타일에 장착
 	var bank_tile := board.place_tile(Vector2i(-1, 0), "bank")
 	_game.state = Game.State.CHOOSING
@@ -145,7 +182,7 @@ func _run() -> void:
 
 	# 장비 교체
 	core.equip("splitter")
-	_check(core.gear == "splitter" and core.target_count() == 2, "splitter replaces scope")
+	_check(core.gear == "splitter" and core.target_count() == 2 + core.extra_beams, "splitter replaces scope")
 	_check(core.effective_range() == core.attack_range, "scope bonus gone after replace")
 	_check(not board.tiles.values().any(func(t: HexTile) -> bool:
 			return t.kind == "bank" and GearDefs.ids().any(func(id: String) -> bool:
