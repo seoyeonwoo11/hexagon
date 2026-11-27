@@ -4,6 +4,8 @@
 
 검은 배경 위 네온 육각형 타일로 하는 2D 디펜스 게임입니다. Godot 4.7로 만듭니다.
 
+목표: 30웨이브의 최종 보스 OVERLORD를 잡으면 클리어. 클리어 뒤에는 원하면 무한 모드로 이어서 할 수 있습니다.
+
 ## 실행
 
 Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행합니다.
@@ -17,6 +19,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 ```
 
 ## 조작
@@ -47,6 +50,14 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
 - SPLITTER (연두 오각형, 웨이브 6~): 처치하면 RUNNER 2마리로 갈라짐
 - ARMORED (회색 이중 육각형, 웨이브 8~): 받는 피해 30% 감소
 - BOSS (분홍 별, 10웨이브마다 1마리): 체력 매우 많음, 피해 20% 감소, 보상 큼. 타일에 닿아도 사라지지 않고 1초마다 때리며, 타일을 부수면 다음 타일로 이동
+- OVERLORD (금색 왕관 별, 30웨이브 마지막): 최종 보스. BOSS의 2.5배 체력, 피해 30% 감소. 5초마다 RUNNER 3마리를 부름. 체력이 절반 아래로 떨어지면 붉게 맥동하며 1.6배 빨라지고 2.5초마다 부름. 화면 위에 체력 막대. 잡으면 클리어
+
+## 클리어와 무한 모드
+
+- 왼쪽 위 웨이브 표시는 "WAVE 12 / 30"
+- OVERLORD를 포함해 30웨이브 적을 다 잡으면 VICTORY 화면. 그 자리에서 SHARD 75개 (30웨이브 몫 45 + 클리어 보너스 30)를 바로 받음
+- CONTINUE ENDLESS: 같은 판을 카드 3장부터 이어서 진행 ("WAVE 31 ENDLESS"). 끝나면 31웨이브부터 버틴 만큼 SHARD를 더 받음
+- END RUN: 시작 화면으로. 시작 화면에 클리어 횟수(Clears) 표시
 
 ## 타일 종류
 

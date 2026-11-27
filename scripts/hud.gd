@@ -15,6 +15,8 @@ signal option_chosen(index: int)
 signal upgrade_pressed
 signal skill_pressed
 signal move_pressed
+signal endless_pressed
+signal end_run_pressed
 
 const NEON_CYAN := Color(0.0, 0.95, 1.0)
 const NEON_PINK := Color(1.0, 0.2, 0.8)
@@ -48,6 +50,15 @@ var _tile_stats: Label
 var _tile_gear: Label
 var _tile_next: Label
 var _upgrade_button: Button
+## 위 가운데: 최종 보스 체력 막대
+var _boss_box: VBoxContainer
+var _boss_label: Label
+var _boss_bar: ProgressBar
+var _boss_color := Color(0, 0, 0, 0)
+var _boss_name := ""
+## 최종 보스 클리어 화면
+var _victory: ColorRect
+var _victory_sub: Label
 
 
 func _ready() -> void:
@@ -99,6 +110,7 @@ func _ready() -> void:
 	_banner_label.visible = false
 	root.add_child(_banner_label)
 
+	_build_boss_bar(root)
 	_build_tile_panel(root)
 	_build_actions(root)
 	_build_choice_overlay()
@@ -127,14 +139,118 @@ func _ready() -> void:
 	_stats_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_stats_panel.visible = false
 	center.add_child(_stats_panel)
+	_build_victory()
 
 
 func set_money(value: int) -> void:
 	_money_label.text = "$ %d" % value
 
 
-func set_wave(value: int) -> void:
-	_wave_label.text = "WAVE %d" % value
+## 목표(FINAL_WAVE)까지는 "WAVE 12 / 30", 무한 모드에서는 "WAVE 31  ENDLESS".
+func set_wave(value: int, endless := false) -> void:
+	if endless:
+		_wave_label.text = "WAVE %d  ENDLESS" % value
+	else:
+		_wave_label.text = "WAVE %d / %d" % [value, EnemyDefs.FINAL_WAVE]
+
+
+func _build_boss_bar(root: MarginContainer) -> void:
+	_boss_box = VBoxContainer.new()
+	_boss_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_boss_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_box.add_theme_constant_override("separation", 8)
+	_boss_box.visible = false
+	root.add_child(_boss_box)
+
+
+func show_boss_bar(boss_name: String, color: Color) -> void:
+	if not color.is_equal_approx(_boss_color):
+		_boss_color = color
+		for c in _boss_box.get_children():
+			c.queue_free()
+		_boss_label = _make_label(color, 30, 800, 0.25)
+		_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_boss_box.add_child(_boss_label)
+		_boss_bar = _make_bar(color)
+		_boss_bar.custom_minimum_size = Vector2(720, 18)
+		_boss_box.add_child(_boss_bar)
+	_boss_name = boss_name
+	_boss_label.text = boss_name
+	_boss_box.visible = true
+
+
+## enraged: 체력 절반 아래 (이름 옆에 ENRAGED)
+func set_boss_hp(hp: float, max_hp: float, enraged := false) -> void:
+	if _boss_bar == null:
+		return
+	_boss_bar.max_value = max_hp
+	_boss_bar.value = hp
+	_boss_label.text = "%s  -  ENRAGED" % _boss_name if enraged else _boss_name
+
+
+func hide_boss_bar() -> void:
+	_boss_box.visible = false
+
+
+func is_boss_bar_visible() -> bool:
+	return _boss_box.visible
+
+
+func _build_victory() -> void:
+	var gold := EnemyDefs.get_def("overlord")["color"] as Color
+	_victory = ColorRect.new()
+	_victory.color = Color(0, 0, 0, 0.75)
+	_victory.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_victory.mouse_filter = Control.MOUSE_FILTER_STOP
+	_victory.visible = false
+	add_child(_victory)
+	var center := VBoxContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	center.grow_vertical = Control.GROW_DIRECTION_BOTH
+	center.alignment = BoxContainer.ALIGNMENT_CENTER
+	center.add_theme_constant_override("separation", 22)
+	_victory.add_child(center)
+	var tag := _make_label(Color(gold, 0.75), 26, 600)
+	tag.text = "OVERLORD DEFEATED"
+	var title := _make_label(gold, 120, 900, 0.4)
+	title.text = "VICTORY"
+	_victory_sub = _make_label(Color(1, 1, 1, 0.9), 30, 500)
+	_victory_sub.label_settings.line_spacing = 10
+	for l in [tag, title, _victory_sub]:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		center.add_child(l)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 32)
+	center.add_child(row)
+	var endless := make_neon_button("CONTINUE  ENDLESS", gold)
+	endless.custom_minimum_size = Vector2(380, 72)
+	endless.add_theme_font_size_override("font_size", 26)
+	endless.tooltip_text = "Keep this run going. Every wave after %d adds shards." \
+			% EnemyDefs.FINAL_WAVE
+	endless.pressed.connect(func() -> void: endless_pressed.emit())
+	var end := make_neon_button("END RUN", NEON_CYAN)
+	end.custom_minimum_size = Vector2(300, 72)
+	end.add_theme_font_size_override("font_size", 26)
+	end.pressed.connect(func() -> void: end_run_pressed.emit())
+	row.add_child(endless)
+	row.add_child(end)
+
+
+## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수.
+func show_victory(wave: int, shards: int, clears: int) -> void:
+	_victory_sub.text = "All %d waves cleared   -   +%d shards\nClears  %d" % [wave, shards, clears]
+	_victory.visible = true
+
+
+func hide_victory() -> void:
+	_victory.visible = false
+
+
+func is_victory_visible() -> bool:
+	return _victory.visible
 
 
 func set_core(hp: float, max_hp: float) -> void:

@@ -36,8 +36,21 @@ const DEFS := {
 		"name": "BOSS", "color": Color(1.0, 0.15, 0.6), "sides": 6, "star": true,
 		"radius": 34.0, "hp": 18.0, "speed": 0.45, "reward": 20.0, "contact": 2.0,
 		"armor": 0.2, "from_wave": 10, "weight": 0.0, "melee": true, "hit_interval": 1.0,
+		"is_boss": true,
+	},
+	## 최종 보스 (FINAL_WAVE). summon_every초마다 summon을 summon_count마리 부르고,
+	## 체력이 enrage_at 아래로 떨어지면 enrage_speed배 빨라지고 두 배 자주 부른다.
+	"overlord": {
+		"name": "OVERLORD", "color": Color(1.0, 0.82, 0.25), "sides": 8, "star": true,
+		"radius": 46.0, "hp": 45.0, "speed": 0.35, "reward": 60.0, "contact": 2.5,
+		"armor": 0.3, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.8,
+		"is_boss": true, "summon": "runner", "summon_count": 3, "summon_every": 5.0,
+		"enrage_at": 0.5, "enrage_speed": 1.6,
 	},
 }
+
+## 이 웨이브의 마지막 적이 최종 보스. 잡으면 클리어 (그 뒤는 고르면 무한 모드).
+const FINAL_WAVE := 30
 
 ## 이 웨이브마다 마지막에 보스 1마리 추가
 const BOSS_EVERY := 10
@@ -64,3 +77,8 @@ static func pick_kind(wave: int) -> String:
 
 static func is_boss_wave(wave: int) -> bool:
 	return wave > 0 and wave % BOSS_EVERY == 0
+
+
+## 웨이브 마지막에 나오는 보스 종류. FINAL_WAVE는 OVERLORD, 그 밖의 보스 웨이브는 BOSS.
+static func boss_kind(wave: int) -> String:
+	return "overlord" if wave == FINAL_WAVE else "boss"

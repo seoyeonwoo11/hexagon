@@ -15,6 +15,8 @@ signal wave_started(wave: int)
 signal wave_cleared(wave: int)
 signal choices_offered(options: Array)
 signal game_over
+## FINAL_WAVE를 깼을 때 (클리어 화면이 뜬 순간)
+signal victory
 
 enum State { INTERMISSION, WAVE, CHOOSING, PLACING, EQUIPPING }
 
@@ -80,6 +82,12 @@ var _skill_active := 0.0
 const MOVES_PER_WAVE := 1
 var move_charges := 0
 var shop: Shop
+## 최종 보스와 클리어: endless면 FINAL_WAVE 뒤로 계속 (무한 모드).
+## victory_shards: 클리어 때 이미 받은 SHARD (무한 모드에서 끝나면 그 뒤 웨이브 몫만 더 준다)
+var endless := false
+var victory_shards := 0
+var final_boss: Enemy
+var _victory_open := false
 
 ## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
 static var hub_enabled := true
@@ -101,6 +109,8 @@ func _ready() -> void:
 	hud.skill_pressed.connect(use_skill)
 	hud.move_pressed.connect(toggle_move)
 	board.move_finished.connect(_on_move_finished)
+	hud.endless_pressed.connect(continue_endless)
+	hud.end_run_pressed.connect(end_run_after_victory)
 	hud.set_money(money)
 	hud.set_wave(wave)
 	hud.set_speed(speed_multiplier)
@@ -178,7 +188,7 @@ func use_skill() -> bool:
 			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 				var e := node as Enemy
 				if e.is_alive() and e.global_position.distance_to(core.global_position) <= fx_radius:
-					var frac := CoreDefs.NOVA_BOSS_POWER if e.kind == "boss" else power
+					var frac := CoreDefs.NOVA_BOSS_POWER if e.is_boss else power
 					# 장갑과 상관없이 최대 체력의 일정 비율
 					e.take_damage(e.max_hp * frac / maxf(1.0 - e.armor, 0.01), core)
 	skill_cooldown = def["cooldown"]
@@ -232,6 +242,12 @@ func _process(delta: float) -> void:
 	if core != null:
 		hud.set_core(core.hp, core.max_hp)
 	hud.show_tile_panel(board.selected_tile, money)
+	if final_boss != null:
+		if is_instance_valid(final_boss) and final_boss.is_alive():
+			hud.set_boss_hp(final_boss.hp, final_boss.max_hp, final_boss.enraged)
+		else:
+			final_boss = null
+			hud.hide_boss_bar()
 	if skill_cooldown > 0.0 or _skill_active > 0.0:
 		skill_cooldown = maxf(skill_cooldown - delta, 0.0)
 		if _skill_active > 0.0:
@@ -253,11 +269,14 @@ func _process(delta: float) -> void:
 						spawn_enemy(EnemyDefs.pick_kind(wave), _random_spawn_point())
 						_to_spawn -= 1
 					else:
-						spawn_enemy("boss", _random_spawn_point())
+						_spawn_boss()
 						_boss_pending = false
 					_spawn_timer = _spawn_interval
 			elif _alive == 0:
-				_on_wave_cleared()
+				if wave == EnemyDefs.FINAL_WAVE and not endless:
+					_on_victory()
+				else:
+					_on_wave_cleared()
 
 
 ## 선택된 타일을 강화한다. 돈이 모자라면 false.
@@ -377,7 +396,7 @@ func alive_enemies() -> int:
 
 
 func toggle_pause() -> void:
-	if is_over or not started:
+	if is_over or not started or _victory_open:
 		return
 	var tree := get_tree()
 	tree.paused = not tree.paused
@@ -428,8 +447,10 @@ func _begin_wave() -> void:
 	_boss_pending = EnemyDefs.is_boss_wave(wave)
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)
 	_spawn_timer = 0.0
-	hud.set_wave(wave)
-	if _boss_pending:
+	hud.set_wave(wave, endless)
+	if _boss_pending and wave == EnemyDefs.FINAL_WAVE:
+		hud.show_banner("FINAL WAVE  -  OVERLORD", EnemyDefs.get_def("overlord")["color"])
+	elif _boss_pending:
 		hud.show_banner("WAVE %d  -  BOSS" % wave, EnemyDefs.get_def("boss")["color"])
 	else:
 		hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
@@ -476,6 +497,8 @@ func spawn_enemy(kind: String, pos: Vector2) -> Enemy:
 	enemy.setup(kind, wave_enemy_hp(wave), minf(55.0 + wave * 2.5, 140.0),
 			wave_enemy_reward(wave), 10.0 + wave * 0.5)
 	enemy.died.connect(_on_enemy_died)
+	if enemy.summon_kind != "":
+		enemy.summoned.connect(_on_enemy_summoned)
 	board.enemy_layer.add_child(enemy)
 	enemy.global_position = pos
 	_alive += 1
@@ -512,6 +535,65 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 			child.inherit_slow(enemy)
 
 
+## 웨이브 마지막 보스. FINAL_WAVE의 OVERLORD는 화면 위에 체력 막대를 띄운다.
+func _spawn_boss() -> Enemy:
+	var kind := EnemyDefs.boss_kind(wave)
+	var boss := spawn_enemy(kind, _random_spawn_point())
+	if kind == "overlord":
+		final_boss = boss
+		hud.show_boss_bar(EnemyDefs.get_def(kind)["name"], boss.color)
+	return boss
+
+
+## OVERLORD가 부하를 부른다: 주변에 둥글게.
+func _on_enemy_summoned(enemy: Enemy, kind: String, count: int) -> void:
+	if is_over:
+		return
+	for i in count:
+		var offset := Vector2.from_angle(TAU * (i + randf() * 0.5) / count) * (enemy.radius + 30.0)
+		spawn_enemy(kind, enemy.global_position + offset)
+
+
+## FINAL_WAVE 클리어: SHARD를 바로 받고(앱을 꺼도 남음) 클리어 화면.
+## 화면에서 ENDLESS를 고르면 continue_endless, END RUN이면 end_run_after_victory.
+func _on_victory() -> void:
+	state = State.CHOOSING
+	if board.moving:
+		board.cancel_move()
+	_victory_open = true
+	victory_shards = Meta.finish_victory()
+	hud.hide_banner()
+	hud.hide_boss_bar()
+	hud.show_tile_panel(null, 0)
+	get_tree().paused = true
+	hud.show_victory(wave, victory_shards, Meta.clears)
+	victory.emit()
+
+
+## 클리어 뒤 계속: 무한 모드. 평소처럼 카드 3장부터.
+func continue_endless() -> void:
+	if not _victory_open:
+		return
+	_victory_open = false
+	endless = true
+	hud.hide_victory()
+	get_tree().paused = false
+	hud.set_wave(wave, endless)
+	_on_wave_cleared()
+
+
+## 클리어 뒤 그만두기: 시작 화면으로 (SHARD는 이미 받음).
+func end_run_after_victory() -> void:
+	if not _victory_open:
+		return
+	_victory_open = false
+	is_over = true
+	hud.hide_victory()
+	hud.show_tile_panel(null, 0)
+	shop.open()
+	game_over.emit()
+
+
 func _on_core_destroyed() -> void:
 	if is_over:
 		return
@@ -520,7 +602,12 @@ func _on_core_destroyed() -> void:
 	hud.hide_banner()
 	hud.hide_choices()
 	hud.show_tile_panel(null, 0)
-	Meta.finish_run(wave)
+	hud.hide_boss_bar()
+	if endless:
+		# 클리어 때 받은 몫은 빼고 그 뒤 웨이브만큼 더
+		Meta.finish_run(wave, Meta.shards_for_run(EnemyDefs.FINAL_WAVE + 1), victory_shards)
+	else:
+		Meta.finish_run(wave)
 	get_tree().paused = true
 	shop.open()
 	game_over.emit()

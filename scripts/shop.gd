@@ -63,12 +63,19 @@ func refresh() -> void:
 	if _shards_value == null:
 		return
 	_shards_value.set_value(Meta.shards)
-	if Meta.last_run_wave > 0:
+	if Meta.last_run_victory and Meta.last_run_wave > EnemyDefs.FINAL_WAVE:
+		_result_label.text = "Cleared! Endless until wave %d\n+%d shards" \
+				% [Meta.last_run_wave, Meta.last_run_shards]
+	elif Meta.last_run_victory:
+		_result_label.text = "OVERLORD defeated!\n+%d shards" % Meta.last_run_shards
+	elif Meta.last_run_wave > 0:
 		_result_label.text = "Run ended on wave %d\n+%d shards" \
 				% [Meta.last_run_wave, Meta.last_run_shards]
 	else:
-		_result_label.text = "Clear waves to earn shards.\nSpend them here between runs."
+		_result_label.text = "Beat the OVERLORD on wave %d.\nClear waves to earn shards." % EnemyDefs.FINAL_WAVE
 	_best_label.text = "Best wave  %d" % Meta.best_wave if Meta.best_wave > 0 else ""
+	if Meta.clears > 0:
+		_best_label.text += "    Clears  %d" % Meta.clears
 	_honeycomb.queue_redraw()
 	if _core_picker != null:
 		_core_picker.queue_redraw()
