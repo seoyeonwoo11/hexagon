@@ -264,6 +264,10 @@ func orb_position(i: int) -> Vector2:
 	return Vector2(cos(a), sin(a)) * effective_range()
 
 
+## DETONATOR 폭발 그림을 마지막으로 띄운 시각 (ms)
+var _last_blast_ms := -100000
+
+
 ## 장비 장착. 이미 있으면 교체한다.
 func equip(gear_id: String) -> void:
 	gear = gear_id
@@ -275,30 +279,35 @@ func apply_hit(enemy: Enemy, amount: float) -> void:
 	if gear == "crit" and randf() < GearDefs.CRIT_CHANCE:
 		amount *= GearDefs.CRIT_MULT
 		enemy.flash_crit()
-	var was_alive := enemy.is_alive()
+	var pos := enemy.global_position
 	enemy.take_damage(amount, self)
-	if gear == "detonator" and was_alive and not enemy.is_alive():
-		_detonate(enemy.global_position)
+	if gear == "detonator":
+		_detonate(pos, amount, enemy)
 	match gear:
 		"igniter":
 			enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
 
 
-## DETONATOR: pos(전역)에서 폭발. 폭발 피해로는 다시 폭발하지 않는다.
-func _detonate(pos: Vector2) -> void:
+## DETONATOR: 맞힌 자리 pos(전역)에서 폭발해 주변의 다른 적에게 (맞힌 피해 × 비율).
+## 폭발 피해로는 다시 폭발하지 않는다. 성능: 폭발 그림은 타일마다 DETONATE_FX_GAP초에 1번만.
+func _detonate(pos: Vector2, amount: float, hit: Enemy) -> void:
 	if board == null:
 		return
-	var color: Color = GearDefs.get_def("detonator")["color"]
-	var fx := Explosion.new()
-	fx.color = color
-	fx.radius = GearDefs.DETONATE_RADIUS
-	board.enemy_layer.add_child(fx)
-	fx.global_position = pos
+	var now := Time.get_ticks_msec()
+	if now - _last_blast_ms >= GearDefs.DETONATE_FX_GAP * 1000.0:
+		_last_blast_ms = now
+		var fx := Explosion.new()
+		fx.color = GearDefs.get_def("detonator")["color"]
+		fx.radius = GearDefs.DETONATE_RADIUS
+		board.enemy_layer.add_child(fx)
+		fx.global_position = pos
+	var splash := amount * GearDefs.DETONATE_RATIO
+	var r2 := GearDefs.DETONATE_RADIUS * GearDefs.DETONATE_RADIUS
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var other := node as Enemy
-		if other != null and other.is_alive() \
-				and pos.distance_to(other.global_position) <= GearDefs.DETONATE_RADIUS:
-			other.take_damage(damage() * GearDefs.DETONATE_RATIO, self)
+		if other != null and other != hit and other.is_alive() \
+				and pos.distance_squared_to(other.global_position) <= r2:
+			other.take_damage(splash, self)
 
 
 func upgrade_cost() -> int:

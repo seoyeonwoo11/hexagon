@@ -38,15 +38,19 @@ const BOOSTS := [
 			"color": Color(1.0, 0.35, 0.45)},
 	{"id": "rate", "title": "OVERCLOCK", "desc": "All tiles attack {v}% faster.",
 			"color": Color(0.3, 1.0, 0.85)},
-	{"id": "repair", "title": "REINFORCE", "desc": "Core +{v} max HP and repairs half its HP.",
+	{"id": "repair", "title": "REINFORCE",
+			"desc": "Core +{v} max HP, other tiles +15% max HP. Repairs all tiles.",
 			"color": Color(0.0, 0.95, 1.0)},
 	{"id": "resonance", "title": "RESONANCE",
 			"desc": "From now on, all tiles gain +{v}% damage after every wave.",
 			"color": Color(1.0, 0.55, 0.95)},
 ]
-## 강화 카드 효과: 기본값 + 웨이브당 증가량 (후반 카드일수록 강하다)
-const BOOST_BASE := {"damage": 10.0, "rate": 8.0, "repair": 15.0, "resonance": 2.0}
-const BOOST_PER_WAVE := {"damage": 0.3, "rate": 0.2, "repair": 2.0, "resonance": 0.0}
+## 강화 카드 효과: 기본값 + 웨이브당 증가량 (후반 카드일수록 강하다).
+## OVERCHARGE/OVERCLOCK/RESONANCE는 모두 더하기로 쌓인다 (곱하면 몰아 먹을 때 끝없이 불어남).
+const BOOST_BASE := {"damage": 10.0, "rate": 10.0, "repair": 25.0, "resonance": 1.0}
+const BOOST_PER_WAVE := {"damage": 0.3, "rate": 0.3, "repair": 4.0, "resonance": 0.0}
+## REINFORCE: 코어 말고 지금 있는 타일들의 최대 체력 증가 비율
+const REINFORCE_TILE_HP := 0.15
 ## BANK 이자: 웨이브 클리어 때 가진 돈의 BANK_INTEREST(강화마다 +1%p), 최대 수입 × BANK_INTEREST_CAP
 const BANK_INTEREST := 0.04
 const BANK_INTEREST_STEP := 0.01
@@ -358,13 +362,16 @@ func _apply_boost(id: String) -> void:
 	var v := boost_value(id)
 	match id:
 		"damage":
-			board.damage_mult *= 1.0 + v / 100.0
+			board.damage_mult += v / 100.0
 		"rate":
-			board.rate_mult *= 1.0 + v / 100.0
+			board.rate_mult += v / 100.0
 		"repair":
 			var core := board.core_tile()
 			core.max_hp += v
-			core.hp = minf(core.hp + core.max_hp * 0.5, core.max_hp)
+			for t in board.tiles.values():
+				if t != core:
+					t.max_hp *= 1.0 + REINFORCE_TILE_HP
+				t.hp = t.max_hp
 		"resonance":
 			resonance += v / 100.0
 

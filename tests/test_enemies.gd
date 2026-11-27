@@ -203,7 +203,7 @@ func _run() -> void:
 	_check(hive._drones.size() == 3, "level 3 adds a drone")
 	hive.queue_free()
 
-	# ARCHER: 맞닿은 ARCHER 1개당 공격력 +40%
+	# ARCHER: 맞닿은 ARCHER 1개당 공격력 +35%
 	var a1 := board.place_tile(board.placeable_cells()[0], "archer")
 	var a2: HexTile = null
 	for n in HexGrid.neighbors(a1.coord):
@@ -211,8 +211,8 @@ func _run() -> void:
 			a2 = board.place_tile(n, "archer")
 			break
 	_check(a2 != null and a1.linked_archers() == 1 and a2.linked_archers() == 1, "archers link")
-	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * 1.4) < 0.001,
-			"linked archer +40%% dmg (%.2f)" % a1.damage())
+	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * (1.0 + a1.pack_bonus)) < 0.001 and is_equal_approx(a1.pack_bonus, 0.35),
+			"linked archer +35%% dmg (%.2f)" % a1.damage())
 	a2.take_damage(1e9)
 	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
 	a1.take_damage(1e9)

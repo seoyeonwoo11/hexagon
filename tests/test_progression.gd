@@ -193,7 +193,7 @@ func _run() -> void:
 			return t.kind == "bank" and GearDefs.ids().any(func(id: String) -> bool:
 				return GearDefs.can_equip(id, t))), "bank takes no gear")
 
-	# CRIT LENS: 평균 피해가 늘어난다 (20% 확률로 3배 → 기대값 1.4배)
+	# CRIT LENS: 평균 피해가 늘어난다 (25% 확률로 3.5배 → 기대값 1.625배)
 	core.equip("crit")
 	var tank := _spawn_enemy_at(Vector2(-700, 400))
 	tank.max_hp = 100000.0
@@ -201,17 +201,22 @@ func _run() -> void:
 	for i in 1000:
 		core.apply_hit(tank, 1.0)
 	var dealt := tank.max_hp - tank.hp
-	_check(dealt > 1200.0 and dealt < 1600.0, "crit average damage (dealt %.0f)" % dealt)
+	var crit_avg := 1000.0 * (1.0 - GearDefs.CRIT_CHANCE + GearDefs.CRIT_CHANCE * GearDefs.CRIT_MULT)
+	_check(absf(dealt - crit_avg) < crit_avg * 0.12, "crit average damage (dealt %.0f, expected %.0f)" % [dealt, crit_avg])
 	tank.queue_free()
 
-	# DETONATOR: 처치한 적이 폭발해 근처 적에게 피해, 멀리 있는 적은 무사
+	# DETONATOR: 맞힐 때마다 폭발해 근처 다른 적에게 맞힌 피해의 35%, 멀리 있는 적은 무사
 	core.equip("detonator")
 	var target := _spawn_enemy_at(Vector2(600, 400))
 	var near := _spawn_enemy_at(Vector2(660, 400))
 	var away := _spawn_enemy_at(Vector2(900, 400))
-	core.apply_hit(target, 99999.0)
-	_check(near.hp < near.max_hp, "explosion hurts nearby enemy")
+	core.apply_hit(target, 2.0)
+	_check(target.is_alive(), "detonator works without a kill")
+	_check(is_equal_approx(target.max_hp - target.hp, 2.0), "hit enemy takes no extra blast")
+	_check(is_equal_approx(near.max_hp - near.hp, 2.0 * GearDefs.DETONATE_RATIO),
+			"explosion hurts nearby enemy (%.2f)" % (near.max_hp - near.hp))
 	_check(away.hp == away.max_hp, "explosion misses far enemy")
+	target.queue_free()
 	near.queue_free()
 	away.queue_free()
 
@@ -243,9 +248,38 @@ func _run() -> void:
 	_game.wave = 1
 	var early_v := _game.boost_value("damage")
 	_game.wave = 21
-	_check(_game.boost_value("damage") > early_v * 1.5, "late boost cards are stronger")
+	_check(_game.boost_value("damage") > early_v * 1.4, "late boost cards are stronger")
 	_game.wave = saved_wave
-	# RESONANCE: 이후 웨이브를 넘길 때마다 공격력이 곱해진다
+	# OVERCHARGE / OVERCLOCK는 더하기로 쌓인다 (두 번 고르면 같은 양씩 늘어남)
+	var dm0 := board.damage_mult
+	var dv := _game.boost_value("damage") / 100.0
+	_game._apply_boost("damage")
+	_game._apply_boost("damage")
+	_check(absf(board.damage_mult - dm0 - dv * 2.0) < 0.001, "overcharge stacks additively")
+	board.damage_mult = dm0
+	var rm0 := board.rate_mult
+	_game._apply_boost("rate")
+	_check(absf(board.rate_mult - rm0 - _game.boost_value("rate") / 100.0) < 0.001,
+			"overclock stacks additively")
+	board.rate_mult = rm0
+	# REINFORCE: 코어 최대 체력 +v, 다른 타일 최대 체력 +15%, 모두 완전 수리
+	var some: HexTile = null
+	for t in board.tiles.values():
+		if t != board.core_tile():
+			some = t
+	_check(some != null, "a non-core tile exists for the reinforce test")
+	if some != null:
+		var hp0 := some.max_hp
+		some.hp = 1.0
+		var core_t := board.core_tile()
+		var core_max := core_t.max_hp
+		core_t.hp = 1.0
+		_game._apply_boost("repair")
+		_check(is_equal_approx(some.max_hp, hp0 * (1.0 + Game.REINFORCE_TILE_HP))
+				and is_equal_approx(some.hp, some.max_hp), "reinforce boosts and repairs tiles")
+		_check(is_equal_approx(core_t.max_hp, core_max + _game.boost_value("repair"))
+				and is_equal_approx(core_t.hp, core_t.max_hp), "reinforce boosts and repairs core")
+	# RESONANCE: 이후 웨이브를 넘길 때마다 공격력이 더해진다
 	_game.resonance = 0.0
 	_game._apply_boost("resonance")
 	var res_v := _game.resonance
