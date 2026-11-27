@@ -184,7 +184,10 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 	var lines: Array[String] = []
 	if tile.attack != "none":
 		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.effective_range())])
-		lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+		if tile.attack == "orbit":
+			lines.append("ORBS %d    HIT EVERY %.2f S" % [tile.orb_count(), tile.interval()])
+		else:
+			lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])

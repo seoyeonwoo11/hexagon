@@ -10,6 +10,10 @@ const SHOT_TIME := 0.08
 const HIT_FLASH_TIME := 0.2
 const FROST_SLOW := 0.5
 const FROST_SLOW_TIME := 0.6
+## ORBIT: 구체 회전 속도(라디안/초), 구체 반지름, 최대 구체 수
+const ORBIT_SPEED := 3.5
+const ORB_RADIUS := 12.0
+const MAX_ORBS := 6
 
 var kind := "laser"
 var display_name := "LASER"
@@ -24,6 +28,8 @@ var income := 0
 ## SPARK: 번개가 튕기는 횟수와 거리
 var bounces := 0
 var bounce_range := 0.0
+## ORBIT: 도는 구체 수
+var orbs := 0
 var level := 1
 var selected := false
 ## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
@@ -40,6 +46,10 @@ var _shot_targets: Array[Vector2] = []
 var _shot_time := 0.0
 var _hit_flash := 0.0
 var _destroyed := false
+## ORBIT: 현재 회전 각도와 (구체, 적)마다 다시 때리기까지 남은 시간
+var orbit_angle := 0.0
+var _orb_hit_cd := {}
+var _orbit_ring: OrbitRing
 
 
 func setup(tile_kind: String) -> void:
@@ -56,6 +66,11 @@ func setup(tile_kind: String) -> void:
 	income = def["income"]
 	bounces = def.get("bounces", 0)
 	bounce_range = def.get("bounce_range", 0.0)
+	orbs = def.get("orbs", 0)
+	if attack == "orbit" and _orbit_ring == null:
+		_orbit_ring = OrbitRing.new()
+		_orbit_ring.tile = self
+		add_child(_orbit_ring)
 
 
 ## 전체 강화 배율까지 반영한 실제 공격력.
@@ -76,6 +91,17 @@ func effective_range() -> float:
 ## 한 번 공격할 때 노리는 대상 수 (SPLITTER면 +1).
 func target_count() -> int:
 	return 2 if gear == "splitter" else 1
+
+
+## ORBIT: 실제로 도는 구체 수 (SPLITTER면 +1).
+func orb_count() -> int:
+	return orbs + (1 if gear == "splitter" else 0)
+
+
+## ORBIT: i번째 구체의 위치 (타일 기준 로컬 좌표).
+func orb_position(i: int) -> Vector2:
+	var a := orbit_angle + TAU * i / orb_count()
+	return Vector2(cos(a), sin(a)) * effective_range()
 
 
 ## 장비 장착. 이미 있으면 교체한다.
@@ -133,6 +159,8 @@ func upgrade() -> void:
 		income += 5
 	if kind == "spark":
 		bounces += 1
+	if kind == "orbit":
+		orbs = mini(orbs + 1, MAX_ORBS)
 	queue_redraw()
 
 
@@ -141,9 +169,40 @@ func _process(delta: float) -> void:
 	_cooldown -= delta
 	_shot_time = maxf(_shot_time - delta, 0.0)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
-	if _cooldown <= 0.0:
+	if attack == "orbit":
+		_process_orbit(delta)
+	elif _cooldown <= 0.0:
 		_fire()
 	queue_redraw()
+
+
+## ORBIT: 구체를 돌리고, 닿은 적을 때린다. 같은 구체는 같은 적을 interval()마다 한 번만 때린다.
+func _process_orbit(delta: float) -> void:
+	orbit_angle = fmod(orbit_angle + ORBIT_SPEED * delta, TAU)
+	for key in _orb_hit_cd.keys():
+		_orb_hit_cd[key] -= delta
+		if _orb_hit_cd[key] <= 0.0:
+			_orb_hit_cd.erase(key)
+	var reach := effective_range() + ORB_RADIUS + 30.0
+	var nearby: Array[Enemy] = []
+	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var enemy := node as Enemy
+		if enemy != null and enemy.is_alive() \
+				and global_position.distance_to(enemy.global_position) <= reach + enemy.radius:
+			nearby.append(enemy)
+	if nearby.is_empty():
+		return
+	for i in orb_count():
+		var orb := global_position + orb_position(i)
+		for enemy in nearby:
+			if not enemy.is_alive():
+				continue
+			var key := "%d:%d" % [i, enemy.get_instance_id()]
+			if _orb_hit_cd.has(key):
+				continue
+			if orb.distance_to(enemy.global_position) <= ORB_RADIUS + enemy.radius:
+				_orb_hit_cd[key] = interval()
+				apply_hit(enemy, damage())
 
 
 func _fire() -> void:
@@ -238,6 +297,8 @@ func _draw() -> void:
 					_shot_time / SHOT_TIME, 2.0)
 	if attack == "frost":
 		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
+	if attack == "orbit" and _orbit_ring != null:
+		_orbit_ring.queue_redraw()
 	if gear != "":
 		_draw_gear_badge()
 
@@ -274,6 +335,11 @@ func _draw_glyph(c: Color, intensity: float) -> void:
 				var a := PI * i / 3.0
 				var d := Vector2(cos(a), sin(a)) * r
 				NeonDraw.polyline(self, PackedVector2Array([-d, d]), c, intensity * 0.8, 2.0)
+		"orbit":
+			draw_arc(Vector2.ZERO, r * 0.85, 0.0, TAU, 32, Color(c, 0.5 * intensity), 1.5, true)
+			draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
+			var a := orbit_angle
+			draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
 		"bank":
 			var dia := PackedVector2Array([Vector2(0, -r), Vector2(r * 0.7, 0), Vector2(0, r),
 					Vector2(-r * 0.7, 0), Vector2(0, -r)])

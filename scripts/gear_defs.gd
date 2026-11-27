@@ -7,37 +7,37 @@ const DEFS := {
 	"scope": {
 		"name": "SCOPE", "color": Color(0.6, 1.0, 0.95),
 		"desc": "+40% attack range.",
-		"attacks": ["laser", "spark", "frost"],
+		"attacks": ["laser", "spark", "frost", "orbit"],
 	},
 	"splitter": {
 		"name": "SPLITTER", "color": Color(1.0, 0.6, 0.2),
-		"desc": "Hits one extra target each attack.",
-		"attacks": ["laser", "spark"],
+		"desc": "Hits one extra target each attack (ORBIT: +1 orb).",
+		"attacks": ["laser", "spark", "orbit"],
 	},
 	"igniter": {
 		"name": "IGNITER", "color": Color(1.0, 0.4, 0.15),
 		"desc": "Hits set enemies on fire for 3 seconds.",
-		"attacks": ["laser", "spark", "frost"],
+		"attacks": ["laser", "spark", "frost", "orbit"],
 	},
 	"cryo": {
 		"name": "CRYO COIL", "color": Color(0.5, 0.8, 1.0),
 		"desc": "Hits slow enemies by 35%.",
-		"attacks": ["laser", "spark"],
+		"attacks": ["laser", "spark", "orbit"],
 	},
 	"crit": {
 		"name": "CRIT LENS", "color": Color(1.0, 0.3, 0.6),
 		"desc": "20% chance to deal triple damage.",
-		"attacks": ["laser", "spark", "frost"],
+		"attacks": ["laser", "spark", "frost", "orbit"],
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
 		"desc": "Enemies it kills explode, hurting enemies nearby.",
-		"attacks": ["laser", "spark", "frost"],
+		"attacks": ["laser", "spark", "frost", "orbit"],
 	},
 	"collector": {
 		"name": "COLLECTOR", "color": Color(1.0, 0.85, 0.1),
 		"desc": "Enemies killed by this tile drop +$1.",
-		"attacks": ["laser", "spark", "frost"],
+		"attacks": ["laser", "spark", "frost", "orbit"],
 	},
 }
 

@@ -29,9 +29,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 ## 장비 (타일마다 1개, 새로 달면 교체)
 
 - SCOPE: 사거리 +40%
-- SPLITTER: 공격마다 대상 1명 추가 (LASER, SPARK, CORE)
+- SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1 (LASER, SPARK, ORBIT, CORE)
 - IGNITER: 맞은 적에게 3초 화상
-- CRYO COIL: 맞은 적 35% 감속 (LASER, SPARK, CORE)
+- CRYO COIL: 맞은 적 35% 감속 (LASER, SPARK, ORBIT, CORE)
 - CRIT LENS: 20% 확률로 3배 피해
 - DETONATOR: 이 타일이 처치한 적이 폭발해 주변 적에게 피해
 - BANK에는 장비를 달 수 없음
@@ -52,6 +52,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - LASER: 가장 가까운 적 하나를 공격
 - SPARK: 가까운 적들 사이를 튕기는 번개 투사체 (레벨마다 튕김 +1)
 - FROST: 사거리 안 적을 느리게 하고 약한 피해
+- ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도를 돌며 닿은 적에게 피해 (레벨마다 구체 +1, 최대 6개)
 - BANK: 웨이브를 넘길 때마다 돈
 
 ## 구조
@@ -64,6 +65,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 - `scripts/board.gd`: 보드, 배경 그리드, 배치 규칙 (맞닿은 면에만 배치)
 - `scripts/explosion.gd`: DETONATOR 폭발 효과
 - `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
+- `scripts/orbit_ring.gd`: ORBIT 타일의 도는 구체 그리기
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)

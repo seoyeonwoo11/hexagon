@@ -2,7 +2,7 @@ class_name TileDefs
 extends RefCounted
 ## 타일 종류별 기본 능력치. 새 타일 종류는 여기에 추가한다.
 ## attack: "laser" (가장 가까운 적 1명), "spark" (적 사이를 튕기는 번개), "frost" (전체 감속 + 약한 피해),
-##         "none" (공격 안 함)
+##         "orbit" (타일 주위를 도는 구체가 닿은 적에게 피해), "none" (공격 안 함)
 
 const DEFS := {
 	"core": {
@@ -26,6 +26,12 @@ const DEFS := {
 		"max_hp": 60.0, "damage": 1.5, "range": 210.0, "interval": 0.5, "income": 0,
 		"desc": "Slows every enemy in range.",
 	},
+	"orbit": {
+		"name": "ORBIT", "color": Color(1.0, 0.3, 0.9), "attack": "orbit",
+		"max_hp": 60.0, "damage": 10.0, "range": 110.0, "interval": 0.35, "income": 0,
+		"orbs": 3,
+		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
+	},
 	"bank": {
 		"name": "BANK", "color": Color(0.8, 0.45, 1.0), "attack": "none",
 		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 9,
@@ -34,7 +40,7 @@ const DEFS := {
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "bank"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "bank"]
 
 
 static func get_def(kind: String) -> Dictionary:
