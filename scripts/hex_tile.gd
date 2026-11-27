@@ -373,41 +373,41 @@ func upgrade_preview() -> Array[String]:
 	var lines: Array[String] = []
 	var mult := board.damage_mult if board != null else 1.0
 	if attack != "none":
-		lines.append("DMG %.1f > %.1f" % [damage(), base_damage * UPG_DAMAGE * mult])
-		lines.append("RANGE +%d    SPEED +%d%%" % [roundi(UPG_RANGE),
+		lines.append(Loc.t("DMG %.1f > %.1f") % [damage(), base_damage * UPG_DAMAGE * mult])
+		lines.append(Loc.t("RANGE +%d    SPEED +%d%%") % [roundi(UPG_RANGE),
 				roundi((1.0 / UPG_INTERVAL - 1.0) * 100.0)])
 	match kind:
 		"bank":
-			lines.append("INCOME $%d > $%d" % [income, income + UPG_INCOME])
-			lines.append("INTEREST +%d%%" % roundi(Game.BANK_INTEREST_STEP * 100.0))
+			lines.append(Loc.t("INCOME $%d > $%d") % [income, income + UPG_INCOME])
+			lines.append(Loc.t("INTEREST +%d%%") % roundi(Game.BANK_INTEREST_STEP * 100.0))
 		"spark":
-			lines.append("+1 BOUNCE")
+			lines.append(Loc.t("+1 BOUNCE"))
 		"booster":
-			lines.append("HASTE +%d%% > +%d%%" % [roundi(haste * 100.0),
+			lines.append(Loc.t("HASTE +%d%% > +%d%%") % [roundi(haste * 100.0),
 					roundi((haste + UPG_HASTE) * 100.0)])
 		"orbit":
 			if orbs < MAX_ORBS:
-				lines.append("+1 ORB")
+				lines.append(Loc.t("+1 ORB"))
 		"drone":
 			if DRONE_LEVELS.has(level + 1) and drones < MAX_DRONES:
-				lines.append("+1 DRONE")
+				lines.append(Loc.t("+1 DRONE"))
 		"archer":
-			lines.append("PACK +%d%% > +%d%% PER ARCHER" % [roundi(pack_bonus * 100.0),
+			lines.append(Loc.t("PACK +%d%% > +%d%% PER ARCHER") % [roundi(pack_bonus * 100.0),
 					roundi((pack_bonus + UPG_PACK) * 100.0)])
 		"burn":
-			lines.append("BURN %.1f S > %.1f S" % [burn_time, burn_time + FlameJet.UPG_BURN_TIME])
+			lines.append(Loc.t("BURN %.1f S > %.1f S") % [burn_time, burn_time + FlameJet.UPG_BURN_TIME])
 		"frost":
-			lines.append("SLOW %d%% > %d%%" % [roundi((1.0 - frost_slow) * 100.0),
+			lines.append(Loc.t("SLOW %d%% > %d%%") % [roundi((1.0 - frost_slow) * 100.0),
 					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
 		"laser", "core":
 			if EXTRA_BEAM_LEVELS.has(level + 1) and not beam:
-				lines.append("+1 BEAM")
+				lines.append(Loc.t("+1 BEAM"))
 			if focus_max > 0:
-				lines.append("FOCUS +%d%% > +%d%% / HIT" % [roundi(focus_step * 100.0),
+				lines.append(Loc.t("FOCUS +%d%% > +%d%% / HIT") % [roundi(focus_step * 100.0),
 						roundi((focus_step + UPG_FOCUS) * 100.0)])
 	if level + 1 == GearDefs.SECOND_SLOT_LEVEL and takes_gear():
-		lines.append("+1 GEAR SLOT")
-	lines.append("HP +%d" % roundi(UPG_HP))
+		lines.append(Loc.t("+1 GEAR SLOT"))
+	lines.append(Loc.t("HP +%d") % roundi(UPG_HP))
 	return lines
 
 
