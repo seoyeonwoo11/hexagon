@@ -11,6 +11,8 @@ extends CanvasLayer
 signal pause_pressed
 signal speed_pressed
 signal restart_pressed
+signal option_chosen(index: int)
+signal upgrade_pressed
 
 const NEON_CYAN := Color(0.0, 0.95, 1.0)
 const NEON_PINK := Color(1.0, 0.2, 0.8)
@@ -28,6 +30,13 @@ var _overlay_title: Label
 var _overlay_sub: Label
 var _pause_button: Button
 var _speed_button: Button
+var _choice_overlay: ColorRect
+var _choice_row: HBoxContainer
+var _tile_panel: PanelContainer
+var _tile_title: Label
+var _tile_stats: Label
+var _tile_gear: Label
+var _upgrade_button: Button
 
 
 func _ready() -> void:
@@ -43,6 +52,7 @@ func _ready() -> void:
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	info.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.add_theme_constant_override("separation", 6)
 	root.add_child(info)
 	_wave_label = _make_label(NEON_CYAN, 44, 800, 0.25)
@@ -62,6 +72,7 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_END
 	buttons.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	buttons.add_theme_constant_override("separation", 16)
 	root.add_child(buttons)
 	_pause_button = _make_button("PAUSE", pause_pressed)
@@ -76,6 +87,9 @@ func _ready() -> void:
 	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner_label.visible = false
 	root.add_child(_banner_label)
+
+	_build_tile_panel(root)
+	_build_choice_overlay()
 
 	# 가운데 오버레이
 	_overlay = ColorRect.new()
@@ -140,6 +154,146 @@ func show_overlay(title: String, subtitle: String, color := NEON_CYAN) -> void:
 
 func hide_overlay() -> void:
 	_overlay.visible = false
+
+
+## 웨이브 클리어 카드 3장. options의 각 항목: {title, desc, color, ...}
+func show_choices(options: Array) -> void:
+	for child in _choice_row.get_children():
+		child.queue_free()
+	for i in options.size():
+		_choice_row.add_child(_make_card(options[i], i))
+	_choice_overlay.visible = true
+
+
+func hide_choices() -> void:
+	_choice_overlay.visible = false
+
+
+func is_choosing() -> bool:
+	return _choice_overlay.visible
+
+
+## 선택한 타일 정보 창. tile이 null이면 숨긴다.
+func show_tile_panel(tile: HexTile, money: int) -> void:
+	if tile == null or not is_instance_valid(tile):
+		_tile_panel.visible = false
+		return
+	_tile_panel.visible = true
+	_tile_title.text = "%s  LV %d" % [tile.display_name, tile.level]
+	_set_label_color(_tile_title, tile.color)
+	var lines: Array[String] = []
+	if tile.attack != "none":
+		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.effective_range())])
+		lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+	if tile.income > 0:
+		lines.append("INCOME $%d / WAVE" % tile.income)
+	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
+	_tile_stats.text = "\n".join(lines)
+	if tile.gear != "":
+		var gdef := GearDefs.get_def(tile.gear)
+		_tile_gear.text = "GEAR  %s" % gdef["name"]
+		_set_label_color(_tile_gear, gdef["color"])
+		_tile_gear.visible = true
+	else:
+		_tile_gear.visible = false
+	var cost := tile.upgrade_cost()
+	_upgrade_button.text = "UPGRADE  $%d" % cost
+	_upgrade_button.disabled = money < cost
+
+
+func _build_tile_panel(root: MarginContainer) -> void:
+	_tile_panel = PanelContainer.new()
+	_tile_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_tile_panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	_tile_panel.custom_minimum_size = Vector2(340, 0)
+	_tile_panel.add_theme_stylebox_override("panel", _neon_box(NEON_CYAN, 0.75, 18))
+	_tile_panel.visible = false
+	root.add_child(_tile_panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	_tile_panel.add_child(box)
+	_tile_title = _make_label(NEON_CYAN, 30, 800)
+	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
+	_tile_gear = _make_label(Color.WHITE, 20, 700)
+	var hint := _make_label(Color(1, 1, 1, 0.4), 15, 500)
+	hint.text = "RIGHT CLICK TO CLOSE"
+	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
+	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
+	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
+	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
+	for c in [_tile_title, _tile_stats, _tile_gear, _upgrade_button, hint]:
+		box.add_child(c)
+
+
+func _build_choice_overlay() -> void:
+	_choice_overlay = ColorRect.new()
+	_choice_overlay.color = Color(0, 0, 0, 0.55)
+	_choice_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_choice_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_choice_overlay.visible = false
+	add_child(_choice_overlay)
+	var center := VBoxContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	center.grow_vertical = Control.GROW_DIRECTION_BOTH
+	center.add_theme_constant_override("separation", 36)
+	_choice_overlay.add_child(center)
+	var title := _make_label(Color.WHITE, 44, 800, 0.25)
+	title.text = "CHOOSE ONE"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	center.add_child(title)
+	_choice_row = HBoxContainer.new()
+	_choice_row.add_theme_constant_override("separation", 32)
+	_choice_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	center.add_child(_choice_row)
+
+
+func _make_card(option: Dictionary, index: int) -> Button:
+	var color: Color = option["color"]
+	var card := Button.new()
+	card.focus_mode = Control.FOCUS_NONE
+	card.custom_minimum_size = Vector2(340, 260)
+	card.add_theme_stylebox_override("normal", _neon_box(color, 0.85, 12))
+	var hover := _neon_box(color, 0.85, 24)
+	hover.bg_color = Color(color, 0.14)
+	card.add_theme_stylebox_override("hover", hover)
+	card.add_theme_stylebox_override("pressed", hover)
+	card.pressed.connect(func() -> void: option_chosen.emit(index))
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 28
+	box.offset_right = -28
+	box.offset_top = 28
+	box.offset_bottom = -28
+	box.add_theme_constant_override("separation", 14)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	var tag := _make_label(Color(color, 0.7), 16, 600)
+	tag.text = option.get("tag", "")
+	var title := _make_label(color, 34, 800, 0.2)
+	title.text = option["title"]
+	var desc := _make_label(Color(1, 1, 1, 0.85), 19, 500)
+	desc.text = option["desc"]
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size = Vector2(284, 0)
+	for c in [tag, title, desc]:
+		box.add_child(c)
+	return card
+
+
+func _neon_box(color: Color, bg_alpha: float, glow: int) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0, 0, 0, bg_alpha)
+	box.border_color = color
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(8)
+	box.shadow_color = Color(color, 0.3)
+	box.shadow_size = glow
+	box.content_margin_left = 24
+	box.content_margin_right = 24
+	box.content_margin_top = 20
+	box.content_margin_bottom = 20
+	return box
 
 
 func _unhandled_input(event: InputEvent) -> void:
