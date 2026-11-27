@@ -69,6 +69,8 @@ func _run() -> void:
 		else:
 			boost_idx = i
 	_check(tile_idx >= 0 and boost_idx >= 0, "has tile and boost options")
+	var tile_cards := _game.current_options.filter(func(o: Dictionary) -> bool: return o["type"] == "tile")
+	_check(tile_cards.size() == 1, "one tile card")
 
 	# 강화 카드: 바로 다음 웨이브 대기로
 	var opts_copy := _game.current_options.duplicate()
@@ -94,6 +96,26 @@ func _run() -> void:
 	if placed.attack != "none":
 		_check(placed.damage() > before, "damage boost applies")
 
+	# SPARK: 번개가 가까운 적들 사이를 튕긴다
+	var e1 := _spawn_enemy_at(Vector2(150, 0))
+	var e2 := _spawn_enemy_at(Vector2(250, 0))
+	var e3 := _spawn_enemy_at(Vector2(350, 0))
+	var far := _spawn_enemy_at(Vector2(-900, 0))
+	var bolt := ChainBolt.new()
+	bolt.damage = 1.0
+	bolt.bounces = 3
+	board.enemy_layer.add_child(bolt)
+	bolt.launch(Vector2.ZERO, e1)
+	for i in 60:
+		if bolt.is_queued_for_deletion() or bolt._done:
+			break
+		bolt._process(1.0 / 60.0)
+	_check(bolt.hit_count() == 3, "bolt hit 3 nearby enemies (hit %d)" % bolt.hit_count())
+	_check(e1.hp < e1.max_hp and e2.hp < e2.max_hp and e3.hp < e3.max_hp, "chain damaged all")
+	_check(far.hp == far.max_hp, "far enemy untouched")
+	for e in [e1, e2, e3, far]:
+		e.queue_free()
+
 	# BANK: 웨이브 클리어 때 돈
 	var bank := HexTile.new()
 	bank.setup("bank")
@@ -107,3 +129,12 @@ func _run() -> void:
 	var full_opts := _game.make_options()
 	_check(full_opts.all(func(o: Dictionary) -> bool: return o["type"] == "boost"),
 			"no tile cards when board is full")
+
+
+func _spawn_enemy_at(pos: Vector2) -> Enemy:
+	var e := Enemy.new()
+	e.max_hp = 100.0
+	e.speed = 0.0
+	_game.board.enemy_layer.add_child(e)
+	e.global_position = _game.board.to_global(pos)
+	return e

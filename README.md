@@ -27,7 +27,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 
 - CORE: 시작 타일. 부서지면 게임 오버
 - LASER: 가장 가까운 적 하나를 공격
-- PULSE: 주변 모든 적에게 충격파
+- SPARK: 가까운 적들 사이를 튕기는 번개 투사체 (레벨마다 튕김 +1)
 - FROST: 사거리 안 적을 느리게 하고 약한 피해
 - BANK: 웨이브를 넘길 때마다 돈
 
@@ -38,6 +38,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 - `scripts/tile_defs.gd`: 타일 종류별 능력치 (새 타일은 여기에 추가)
 - `scripts/hex_tile.gd`: 타일 하나 (공격, 강화)
 - `scripts/board.gd`: 보드, 배경 그리드, 배치 규칙 (맞닿은 면에만 배치)
+- `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/hud.gd`: 화면 위 정보와 버튼

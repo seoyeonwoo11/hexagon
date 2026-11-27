@@ -7,7 +7,6 @@ extends Node2D
 signal destroyed(tile: HexTile)
 
 const SHOT_TIME := 0.08
-const PULSE_TIME := 0.35
 const HIT_FLASH_TIME := 0.2
 const FROST_SLOW := 0.5
 const FROST_SLOW_TIME := 0.6
@@ -22,6 +21,9 @@ var base_damage := 5.0
 var attack_range := 260.0
 var fire_interval := 0.4
 var income := 0
+## SPARK: 번개가 튕기는 횟수와 거리
+var bounces := 0
+var bounce_range := 0.0
 var level := 1
 var selected := false
 
@@ -34,7 +36,6 @@ var _time := 0.0
 var _cooldown := 0.0
 var _shot_target := Vector2.ZERO
 var _shot_time := 0.0
-var _pulse_time := 0.0
 var _hit_flash := 0.0
 var _destroyed := false
 
@@ -51,6 +52,8 @@ func setup(tile_kind: String) -> void:
 	attack_range = def["range"]
 	fire_interval = def["interval"]
 	income = def["income"]
+	bounces = def.get("bounces", 0)
+	bounce_range = def.get("bounce_range", 0.0)
 
 
 ## 전체 강화 배율까지 반영한 실제 공격력.
@@ -77,6 +80,8 @@ func upgrade() -> void:
 	hp = minf(hp + 15.0, max_hp)
 	if kind == "bank":
 		income += 4
+	if kind == "spark":
+		bounces += 1
 	queue_redraw()
 
 
@@ -84,7 +89,6 @@ func _process(delta: float) -> void:
 	_time += delta
 	_cooldown -= delta
 	_shot_time = maxf(_shot_time - delta, 0.0)
-	_pulse_time = maxf(_pulse_time - delta, 0.0)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
 	if _cooldown <= 0.0:
 		_fire()
@@ -100,13 +104,17 @@ func _fire() -> void:
 				_shot_time = SHOT_TIME
 				_cooldown = interval()
 				enemy.take_damage(damage())
-		"pulse":
-			var targets := enemies_in_range()
-			if not targets.is_empty():
-				_pulse_time = PULSE_TIME
+		"spark":
+			var enemy := find_target()
+			if enemy != null and board != null:
 				_cooldown = interval()
-				for enemy in targets:
-					enemy.take_damage(damage())
+				var bolt := ChainBolt.new()
+				bolt.color = color
+				bolt.damage = damage()
+				bolt.bounces = bounces
+				bolt.bounce_range = bounce_range
+				board.enemy_layer.add_child(bolt)
+				bolt.launch(global_position, enemy)
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
@@ -168,9 +176,6 @@ func _draw() -> void:
 	if _shot_time > 0.0:
 		NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, _shot_target]), c,
 				_shot_time / SHOT_TIME, 2.0)
-	if _pulse_time > 0.0:
-		var t := 1.0 - _pulse_time / PULSE_TIME
-		draw_arc(Vector2.ZERO, attack_range * t, 0.0, TAU, 64, Color(c, 1.0 - t), 4.0, true)
 	if attack == "frost":
 		draw_arc(Vector2.ZERO, attack_range, 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
 
@@ -187,9 +192,10 @@ func _draw_glyph(c: Color, intensity: float) -> void:
 				var a := -PI / 2.0 + TAU * i / 3.0
 				tri.append(Vector2(cos(a), sin(a)) * r)
 			NeonDraw.polyline(self, tri, c, intensity * 0.8, 2.0)
-		"pulse":
-			draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, c, 2.0, true)
-			draw_arc(Vector2.ZERO, r * 0.45, 0.0, TAU, 24, c, 2.0, true)
+		"spark":
+			var bolt := PackedVector2Array([Vector2(r * 0.25, -r), Vector2(-r * 0.35, r * 0.1),
+					Vector2(r * 0.35, -r * 0.1), Vector2(-r * 0.25, r)])
+			NeonDraw.polyline(self, bolt, c, intensity * 0.8, 2.0)
 		"frost":
 			for i in 3:
 				var a := PI * i / 3.0

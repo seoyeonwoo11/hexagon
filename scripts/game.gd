@@ -22,11 +22,11 @@ const CARD_TAG_BOOST := "BOOST"
 
 ## 강화 카드 종류. 새 카드는 여기와 _apply_boost에 추가한다.
 const BOOSTS := [
-	{"id": "damage", "title": "OVERCHARGE", "desc": "All tiles deal +20% damage.",
+	{"id": "damage", "title": "OVERCHARGE", "desc": "All tiles deal +10% damage.",
 			"color": Color(1.0, 0.35, 0.45)},
-	{"id": "rate", "title": "OVERCLOCK", "desc": "All tiles attack 15% faster.",
+	{"id": "rate", "title": "OVERCLOCK", "desc": "All tiles attack 8% faster.",
 			"color": Color(0.3, 1.0, 0.85)},
-	{"id": "repair", "title": "REINFORCE", "desc": "Core +25 max HP and fully repaired.",
+	{"id": "repair", "title": "REINFORCE", "desc": "Core +15 max HP and repairs half its HP.",
 			"color": Color(0.0, 0.95, 1.0)},
 ]
 
@@ -106,7 +106,7 @@ func try_upgrade(tile: HexTile) -> bool:
 	return true
 
 
-## 카드 3장 만들기: 놓을 칸이 있으면 타일 카드 2장 + 강화 카드 1장, 없으면 강화 카드만.
+## 카드 3장 만들기: 놓을 칸이 있으면 타일 카드 1장 + 강화 카드 2장, 없으면 강화 카드만.
 func make_options() -> Array:
 	var options: Array = []
 	var boosts := BOOSTS.duplicate()
@@ -114,7 +114,7 @@ func make_options() -> Array:
 	if not board.placeable_cells().is_empty():
 		var kinds := TileDefs.PLACEABLE.duplicate()
 		kinds.shuffle()
-		for kind in kinds.slice(0, 2):
+		for kind in kinds.slice(0, 1):
 			var def := TileDefs.get_def(kind)
 			options.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
 					"title": def["name"], "desc": def["desc"], "color": def["color"]})
@@ -146,13 +146,13 @@ func choose_option(index: int) -> void:
 func _apply_boost(id: String) -> void:
 	match id:
 		"damage":
-			board.damage_mult *= 1.2
+			board.damage_mult *= 1.1
 		"rate":
-			board.rate_mult *= 1.15
+			board.rate_mult *= 1.08
 		"repair":
 			var core := board.core_tile()
-			core.max_hp += 25.0
-			core.hp = core.max_hp
+			core.max_hp += 15.0
+			core.hp = minf(core.hp + core.max_hp * 0.5, core.max_hp)
 
 
 func _on_placement_finished(_tile: HexTile) -> void:
