@@ -39,9 +39,11 @@ var _slow_timer := 0.0
 var _burn_dps := 0.0
 var _burn_timer := 0.0
 var _burn_source: HexTile
-## 마지막으로 피해를 준 타일 (COLLECTOR 장비 보상용)
+## 마지막으로 피해를 준 타일
 var _last_source: HexTile
 var _crit_flash := 0.0
+## 성능: 도는 몸체는 자식 노드로 그리고 회전은 rotation으로. 색/모양이 바뀔 때만 다시 그린다.
+var _body: _Body
 
 
 ## 종류와 웨이브 기본 능력치로 설정한다. add_child 전에 호출.
@@ -68,6 +70,10 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: f
 func _ready() -> void:
 	add_to_group(GROUP)
 	hp = max_hp
+	_body = _Body.new()
+	_body.enemy = self
+	add_child(_body)
+	_body.sync()
 
 
 func _process(delta: float) -> void:
@@ -97,18 +103,33 @@ func _process(delta: float) -> void:
 				_hit_cd = hit_interval
 				_lunge = 1.0
 				target.take_damage(contact_damage)
-			_spin += delta * 3.0
-			_crit_flash = maxf(_crit_flash - delta, 0.0)
-			queue_redraw()
+			_update_body(delta)
 			return
 	elif to_target.length() <= board.hex_size * 0.8:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
 	global_position += to_target.normalized() * speed * _slow_factor * delta
+	_update_body(delta)
+
+
+func _update_body(delta: float) -> void:
 	_spin += delta * 3.0
 	_crit_flash = maxf(_crit_flash - delta, 0.0)
-	queue_redraw()
+	if _body == null:
+		return
+	_body.rotation = _spin * 0.5 if star else _spin
+	_body.sync()
+
+
+## 몸체 색: 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
+func body_color() -> Color:
+	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
+	if _crit_flash > 0.0:
+		c = Color.WHITE
+	elif is_burning():
+		c = c.lerp(Color(1.0, 0.6, 0.1), 0.5 + 0.3 * sin(_spin * 6.0))
+	return c
 
 
 ## factor 배 속도로 duration초 동안 느려진다 (여러 번 걸리면 가장 강한 감속 유지).
@@ -151,8 +172,11 @@ func is_alive() -> bool:
 func take_damage(amount: float, source: HexTile = null) -> void:
 	if _dead:
 		return
+	var dealt := minf(amount * (1.0 - armor), hp)
 	if source != null:
 		_last_source = source
+		if source.board != null:
+			source.board.stats.record(source, dealt)
 	hp -= amount * (1.0 - armor)
 	if hp <= 0.0:
 		_die(true)
@@ -164,10 +188,7 @@ func _die(was_killed: bool) -> void:
 	_dead = true
 	killed = was_killed
 	remove_from_group(GROUP)
-	var bonus := 0
-	if was_killed and is_instance_valid(_last_source) and _last_source.gear == "collector":
-		bonus = GearDefs.COLLECTOR_BONUS
-	died.emit(self, reward + bonus if was_killed else 0)
+	died.emit(self, reward if was_killed else 0)
 	queue_free()
 
 
@@ -176,36 +197,44 @@ func shape_points() -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	if star:
 		for i in sides * 2 + 1:
-			var a := _spin * 0.5 + PI * i / sides
+			var a := PI * i / sides
 			var r := radius if i % 2 == 0 else radius * 0.5
 			pts.append(Vector2(cos(a), sin(a)) * r)
 	else:
 		for i in sides + 1:
-			var a := _spin + TAU * i / sides
+			var a := TAU * i / sides
 			pts.append(Vector2(cos(a), sin(a)) * radius)
 	return pts
 
 
+## 체력 막대만 여기서 그린다 (피해를 받을 때만 다시 그림). 몸체는 _Body.
 func _draw() -> void:
-	var pts := shape_points()
-	if _lunge > 0.0:
-		# 근접 공격 순간 잠깐 부풀었다 돌아온다
-		for i in pts.size():
-			pts[i] *= 1.0 + 0.2 * _lunge
-	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
-	if _crit_flash > 0.0:
-		c = Color.WHITE
-	elif is_burning():
-		c = c.lerp(Color(1.0, 0.6, 0.1), 0.5 + 0.3 * sin(_spin * 6.0))
-	NeonDraw.polyline(self, pts, c, 1.0, 3.5 if kind == "boss" else 2.5)
-	if armor > 0.0:
-		# 장갑: 안쪽에 같은 모양을 한 겹 더
-		var inner := PackedVector2Array()
-		for p in pts:
-			inner.append(p * 0.55)
-		NeonDraw.polyline(self, inner, c, 0.7, 1.5)
 	if hp < max_hp:
 		var w := radius * 2.0
 		var y := radius + 6.0
 		draw_line(Vector2(-w / 2.0, y), Vector2(w / 2.0, y), Color(color, 0.25), 2.0)
 		draw_line(Vector2(-w / 2.0, y), Vector2(-w / 2.0 + w * hp / max_hp, y), color, 2.0)
+
+
+## 적의 몸체 (도는 도형). 근접 공격 때 잠깐 부풀어 오른다 (scale).
+class _Body extends Node2D:
+	var enemy: Enemy
+	var _drawn_color := Color(0, 0, 0, 0)
+
+	func sync() -> void:
+		scale = Vector2.ONE * (1.0 + 0.2 * enemy._lunge)
+		var c := enemy.body_color()
+		if not c.is_equal_approx(_drawn_color):
+			_drawn_color = c
+			queue_redraw()
+
+	func _draw() -> void:
+		var pts := enemy.shape_points()
+		var c := _drawn_color
+		NeonDraw.polyline(self, pts, c, 1.0, 3.5 if enemy.kind == "boss" else 2.5)
+		if enemy.armor > 0.0:
+			# 장갑: 안쪽에 같은 모양을 한 겹 더
+			var inner := PackedVector2Array()
+			for p in pts:
+				inner.append(p * 0.55)
+			NeonDraw.polyline(self, inner, c, 0.7, 1.5)

@@ -48,7 +48,7 @@ const BOOST_PER_WAVE := {"damage": 0.3, "rate": 0.2, "repair": 2.0, "resonance":
 ## BANK 이자: 웨이브 클리어 때 가진 돈의 BANK_INTEREST(강화마다 +1%p), 최대 수입 × BANK_INTEREST_CAP
 const BANK_INTEREST := 0.04
 const BANK_INTEREST_STEP := 0.01
-const BANK_INTEREST_CAP := 4
+const BANK_INTEREST_CAP := 3
 
 @onready var board: Board = $Board
 @onready var hud: Hud = $HUD
@@ -112,6 +112,7 @@ func start_run() -> void:
 		return
 	started = true
 	shop.close()
+	board.stats.reset()
 	board.damage_mult *= Meta.damage_mult()
 	board.rate_mult *= Meta.rate_mult()
 	board.tile_hp_mult = Meta.tile_hp_mult()
@@ -180,8 +181,9 @@ func try_upgrade(tile: HexTile) -> bool:
 func make_options() -> Array:
 	var pool: Array = []
 	if not board.placeable_cells().is_empty():
+		# 출정 타일(시작 화면에서 고른 최대 6종)만 카드로 나온다
 		for kind in TileDefs.PLACEABLE:
-			if not Meta.is_tile_unlocked(kind):
+			if not Meta.in_loadout(kind):
 				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
@@ -280,7 +282,7 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN)
+		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN, board.stats)
 	else:
 		hud.hide_overlay()
 
@@ -298,11 +300,11 @@ func wave_enemy_count(n: int) -> int:
 
 ## 적 체력: LATE_FROM 웨이브까지는 HP_GROWTH배씩, 그 뒤로는 HP_LATE_GROWTH배씩 늘어난다.
 const HP_GROWTH := 1.23
-const HP_LATE_GROWTH := 1.19
+const HP_LATE_GROWTH := 1.17
 const LATE_FROM := 15
 ## 처치 보상: 적 체력^REWARD_POWER × REWARD_SCALE. 적이 강해질수록 보상도 같이 커진다.
 const REWARD_SCALE := 0.3
-const REWARD_POWER := 0.45
+const REWARD_POWER := 0.38
 
 
 func wave_enemy_hp(n: int) -> float:
@@ -318,6 +320,7 @@ func wave_enemy_reward(n: int) -> float:
 func _begin_wave() -> void:
 	state = State.WAVE
 	wave += 1
+	board.stats.current_wave = wave
 	_to_spawn = wave_enemy_count(wave)
 	_boss_pending = EnemyDefs.is_boss_wave(wave)
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)

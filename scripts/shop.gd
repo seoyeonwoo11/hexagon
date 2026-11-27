@@ -4,7 +4,8 @@ extends CanvasLayer
 ##
 ## 배치 (1920x1080 기준):
 ##   왼쪽  : 게임 이름, 지난 판 결과, 가진 SHARD
-##   가운데: 벌집 모양 보드. 가운데 육각형이 START, 둘레 6칸이 타일 (잠긴 타일은 클릭해서 구매)
+##   가운데: 벌집 모양 보드. 가운데 육각형이 START, 둘레가 타일.
+##           잠긴 타일은 클릭해서 구매, 풀린 타일은 클릭해서 출정 타일(최대 6종)에 넣거나 뺀다
 ##   오른쪽: 영구 강화 목록 (이름, 설명, 육각형 레벨 표시, 구매 버튼)
 ## 벌집 아래 설명 줄은 마우스를 올린 칸을 설명한다.
 
@@ -177,7 +178,9 @@ func _build_center(parent: Control) -> void:
 
 
 func _on_tile_clicked(kind: String) -> void:
-	if Meta.buy_tile(kind):
+	var changed := Meta.toggle_loadout(kind) if Meta.is_tile_unlocked(kind) \
+			else Meta.buy_tile(kind)
+	if changed:
 		refresh()
 
 
@@ -191,16 +194,21 @@ func _show_caption(kind: String) -> void:
 		_caption_body.text = "Click the core or press Enter."
 		return
 	if kind == "none":
-		_caption_title.text = "Your tiles"
+		_caption_title.text = "Pick your tiles"
 		_set_color(_caption_title, Color.WHITE)
-		_caption_body.text = "Unlocked tiles can show up as cards during a run.\nHover a tile for details."
+		_caption_body.text = "Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it." % Meta.MAX_LOADOUT
 		return
 	var def := TileDefs.get_def(kind)
 	_caption_title.text = def["name"]
 	_set_color(_caption_title, def["color"])
 	var action := ""
-	if Meta.is_tile_unlocked(kind):
-		action = "Unlocked"
+	if Meta.in_loadout(kind):
+		action = "In your loadout. Click to remove." if Meta.loadout.size() > 1 \
+				else "In your loadout (you need at least one)."
+	elif Meta.is_tile_unlocked(kind):
+		action = "Loadout full (%d/%d). Remove a tile first." % [Meta.loadout.size(), Meta.MAX_LOADOUT] \
+				if Meta.loadout_full() else "Click to add to your loadout (%d/%d)." \
+				% [Meta.loadout.size(), Meta.MAX_LOADOUT]
 	else:
 		var price: int = Meta.TILE_PRICES[kind]
 		if Meta.shards >= price:
@@ -280,7 +288,9 @@ class Honeycomb extends Control:
 	## "" = START 위, "none" = 아무것도 아님, 그 외 = 타일 종류
 	signal hover_changed(kind: String)
 
-	const R := 92.0
+	const R := 76.0
+	## 둘레 6칸 다음에 놓을 칸 (가로 양 끝). 타일 종류가 늘면 여기에 추가
+	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(-1, 2)]
 
 	var hovered := "none"
 	var _time := 0.0
@@ -291,9 +301,12 @@ class Honeycomb extends Control:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		_font = Hud.font_weight(700)
 		_cells[Vector2i.ZERO] = ""
+		var slots: Array[Vector2i] = []
+		slots.append_array(HexGrid.DIRECTIONS)
+		slots.append_array(EXTRA_CELLS)
 		var kinds := TileDefs.PLACEABLE
-		for i in mini(kinds.size(), HexGrid.DIRECTIONS.size()):
-			_cells[HexGrid.DIRECTIONS[i]] = kinds[i]
+		for i in mini(kinds.size(), slots.size()):
+			_cells[slots[i]] = kinds[i]
 
 	func _process(delta: float) -> void:
 		if not is_visible_in_tree():
@@ -334,6 +347,10 @@ class Honeycomb extends Control:
 
 	func _draw() -> void:
 		var c0 := _center()
+		# 위쪽: 출정 타일 수
+		var full := Meta.loadout_full()
+		_text(c0 + Vector2(0, -R * 3.35), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.MAX_LOADOUT],
+				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
 		for cell in _cells:
 			var kind: String = _cells[cell]
 			var pos: Vector2 = c0 + HexGrid.axial_to_pixel(cell, R)
@@ -364,23 +381,33 @@ class Honeycomb extends Control:
 	func _draw_tile(pos: Vector2, kind: String) -> void:
 		var def := TileDefs.get_def(kind)
 		var owned := Meta.is_tile_unlocked(kind)
+		var picked := Meta.in_loadout(kind)
 		var hot := hovered == kind
 		var c: Color = def["color"] if owned else LOCKED_COLOR
-		var intensity := 0.9 if owned else 0.55
+		# 출정 타일: 밝고 안이 채워짐 / 풀렸지만 안 넣은 타일: 흐림 / 잠김: 회색
+		var intensity := 1.0 if picked else 0.4 if owned else 0.55
 		if hot:
 			intensity += 0.3
-		NeonDraw.hexagon(self, pos, R * 0.86, c, intensity, 2.5, 0.12 if hot else 0.05)
+		var fill := 0.2 if picked else 0.03
+		NeonDraw.hexagon(self, pos, R * 0.86, c, intensity, 3.0 if picked else 2.0,
+				fill + (0.08 if hot else 0.0))
 		if hot:
 			NeonDraw.hexagon(self, pos, R * 0.96, Color.WHITE, 0.6, 1.5)
-		draw_set_transform(pos + Vector2(0, -14))
+		draw_set_transform(pos + Vector2(0, -12))
 		HexTile.draw_glyph(self, kind, R * 0.24, c, intensity, _time * 2.4)
 		draw_set_transform(Vector2.ZERO)
-		_text(pos + Vector2(0, 30), def["name"], 15, Color(c, 0.95 if owned else 0.7))
+		var name_size := 13 if def["name"].length() > 7 else 15
+		_text(pos + Vector2(0, 24), def["name"], name_size, Color(c, 0.95 if picked else 0.6))
 		if not owned:
 			var price: int = Meta.TILE_PRICES[kind]
 			var afford := Meta.shards >= price
 			var pc := SHARD_COLOR if afford else Color(SHARD_COLOR, 0.45)
-			_text(pos + Vector2(0, 54), "%d" % price, 18, pc)
+			_text(pos + Vector2(0, 44), "%d" % price, 17, pc)
+		elif picked:
+			# 출정 표시: 위쪽 꼭짓점 근처 작은 꽉 찬 육각형
+			NeonDraw.hexagon(self, pos + Vector2(0, -R * 0.6), 5.0, c, 1.0, 1.0, 1.0)
+		else:
+			_text(pos + Vector2(0, 44), "OFF", 13, Color(c, 0.5))
 
 	## pos를 글자 가운데(기준선 근처)로 하여 쓴다.
 	func _text(pos: Vector2, s: String, font_size: int, color: Color) -> void:

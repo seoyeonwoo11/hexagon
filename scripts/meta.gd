@@ -20,7 +20,9 @@ const UPGRADES := [
 
 ## 처음부터 쓸 수 있는 타일과 SHARD로 사야 하는 타일 (가격).
 const STARTER_TILES: Array[String] = ["laser", "frost", "bank"]
-const TILE_PRICES := {"spark": 12, "orbit": 20}
+const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "drone": 25}
+## 한 판에 들고 갈 수 있는 타일 종류 수 (출정 타일). 카드에는 이 타일들만 나온다.
+const MAX_LOADOUT := 6
 
 ## 효과 수치 (레벨당)
 const CORE_HP_PER_LV := 25.0
@@ -34,6 +36,8 @@ static var shards := 0
 static var best_wave := 0
 static var levels := {}
 static var unlocked: Array[String] = []
+## 출정 타일 (최대 MAX_LOADOUT개)
+static var loadout: Array[String] = ["laser", "frost", "booster", "bank"]
 ## 마지막 판 결과 (시작 화면 안내용). wave가 0이면 아직 끝난 판이 없음.
 static var last_run_wave := 0
 static var last_run_shards := 0
@@ -95,8 +99,45 @@ static func buy_tile(kind: String) -> bool:
 		return false
 	shards -= TILE_PRICES[kind]
 	unlocked.append(kind)
+	# 자리가 있으면 바로 출정 타일에 넣는다
+	if loadout.size() < MAX_LOADOUT:
+		loadout.append(kind)
 	save_data()
 	return true
+
+
+## 출정 타일에 들어 있는지 (풀린 타일만).
+static func in_loadout(kind: String) -> bool:
+	return loadout.has(kind) and is_tile_unlocked(kind)
+
+
+static func loadout_full() -> bool:
+	return loadout.size() >= MAX_LOADOUT
+
+
+## 출정 타일에 넣거나 뺀다. 마지막 1개는 뺄 수 없고, 가득 차면 넣을 수 없다. 바뀌면 true.
+static func toggle_loadout(kind: String) -> bool:
+	if not is_tile_unlocked(kind):
+		return false
+	if loadout.has(kind):
+		if loadout.size() <= 1:
+			return false
+		loadout.erase(kind)
+	elif loadout_full():
+		return false
+	else:
+		loadout.append(kind)
+	save_data()
+	return true
+
+
+## 기본 출정 타일: 풀린 타일을 TileDefs.PLACEABLE 순서로 MAX_LOADOUT개까지.
+static func default_loadout() -> Array[String]:
+	var result: Array[String] = []
+	for kind in TileDefs.PLACEABLE:
+		if is_tile_unlocked(kind) and result.size() < MAX_LOADOUT:
+			result.append(kind)
+	return result
 
 
 ## 판 시작 시 적용할 값들
@@ -125,6 +166,7 @@ static func reset() -> void:
 	best_wave = 0
 	levels = {}
 	unlocked = []
+	loadout = default_loadout()
 	last_run_wave = 0
 	last_run_shards = 0
 
@@ -135,6 +177,7 @@ static func save_data() -> void:
 	cfg.set_value("meta", "best_wave", best_wave)
 	cfg.set_value("meta", "levels", levels)
 	cfg.set_value("meta", "unlocked", Array(unlocked))
+	cfg.set_value("meta", "loadout", Array(loadout))
 	cfg.save(save_path)
 
 
@@ -158,3 +201,11 @@ static func load_data() -> void:
 	levels = cfg.get_value("meta", "levels", {})
 	for kind in cfg.get_value("meta", "unlocked", []):
 		unlocked.append(String(kind))
+	# 예전 저장 파일에는 출정 타일이 없다 -> 기본값
+	if cfg.has_section_key("meta", "loadout"):
+		loadout.clear()
+		for kind in cfg.get_value("meta", "loadout", []):
+			if TileDefs.DEFS.has(String(kind)) and is_tile_unlocked(String(kind)):
+				loadout.append(String(kind))
+	if loadout.is_empty():
+		loadout = default_loadout()

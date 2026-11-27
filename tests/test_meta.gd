@@ -68,13 +68,29 @@ func _run() -> void:
 	_check(Meta.buy_tile("orbit") and Meta.is_tile_unlocked("orbit"), "buy orbit")
 	_check(not Meta.buy_tile("orbit"), "cannot buy twice")
 
+	# 출정 타일: 기본은 풀린 타일, 산 타일은 자리가 있으면 바로 들어감, 최대 6종
+	_check(Meta.in_loadout("orbit") and Meta.in_loadout("laser") and not Meta.in_loadout("spark"),
+			"loadout has unlocked tiles (%s)" % [Meta.loadout])
+	_check(Meta.toggle_loadout("bank") and not Meta.in_loadout("bank"), "remove from loadout")
+	_check(Meta.toggle_loadout("bank") and Meta.in_loadout("bank"), "add back to loadout")
+	_check(not Meta.toggle_loadout("spark"), "locked tile cannot join loadout")
+	Meta.buy_tile("spark")
+	_check(Meta.loadout.size() == Meta.MAX_LOADOUT and Meta.loadout_full(), "loadout fills to 6")
+	Meta.buy_tile("drone")
+	_check(Meta.is_tile_unlocked("drone") and not Meta.in_loadout("drone"), "7th tile stays out")
+	_check(not Meta.toggle_loadout("drone"), "cannot add when full")
+	Meta.toggle_loadout("spark")
+	_check(Meta.toggle_loadout("drone"), "swap spark for drone")
+
 	# 저장 후 다시 불러와도 그대로
 	var shards := Meta.shards
 	Meta.save_data()
 	Meta.reset()
 	Meta.load_data()
 	_check(Meta.shards == shards and Meta.level("core_hp") == 5 and Meta.is_tile_unlocked("orbit")
-			and not Meta.is_tile_unlocked("spark"), "save/load roundtrip")
+			and Meta.is_tile_unlocked("spark"), "save/load roundtrip")
+	_check(Meta.in_loadout("drone") and not Meta.in_loadout("spark") and Meta.loadout.size() == 6,
+			"loadout saved (%s)" % [Meta.loadout])
 
 	# START: 영구 강화가 판에 적용된다
 	_game.shop.start_pressed.emit()
@@ -86,7 +102,7 @@ func _run() -> void:
 	var t := _game.board.place_tile(Vector2i(1, 0), "laser")
 	_check(absf(t.max_hp - 60.0 * 1.1) < 0.01, "tile hp bonus")
 
-	# 잠긴 타일(SPARK)은 카드에 나오지 않는다
+	# 출정 타일에 없는 타일(SPARK)은 카드에 나오지 않는다
 	var saw_spark := false
 	var saw_orbit := false
 	for i in 300:
@@ -95,7 +111,7 @@ func _run() -> void:
 				saw_spark = true
 			if o["type"] == "tile" and o["kind"] == "orbit":
 				saw_orbit = true
-	_check(not saw_spark and saw_orbit, "locked tile cards hidden (spark %s, orbit %s)"
+	_check(not saw_spark and saw_orbit, "only loadout tiles in cards (spark %s, orbit %s)"
 			% [saw_spark, saw_orbit])
 
 	# 게임 오버: 버틴 웨이브만큼 SHARD가 들어오고 시작 화면이 다시 뜬다

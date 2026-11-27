@@ -137,6 +137,86 @@ func _run() -> void:
 	boss.queue_free()
 	core.hp = core.max_hp
 
+	# LASER: 광선이 줄 위 적을 관통하고, 같은 적을 계속 맞히면 피해가 커진다
+	var las := HexTile.new()
+	las.setup("laser")
+	board.add_child(las)
+	las.global_position = Vector2(-3000, -2000)
+	var front := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 0))
+	var back := _game.spawn_enemy("grunt", las.global_position + Vector2(220, 0))
+	var side := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 160))
+	for e in [front, back, side]:
+		e.max_hp = 10000.0
+		e.hp = 10000.0
+	las._fire_laser()
+	var first_hit := 10000.0 - front.hp
+	_check(first_hit > 0.0 and back.hp < 10000.0, "laser pierces enemies in a line")
+	_check(side.hp == 10000.0, "laser misses enemies off the line")
+	for i in 8:
+		las._fire_laser()
+	var hp_before := front.hp
+	las._fire_laser()
+	var focused_hit := hp_before - front.hp
+	_check(absf(focused_hit - first_hit * (1.0 + las.focus_step * las.focus_max)) < 0.01,
+			"focus caps at x%.1f (first %.1f, now %.1f)" % [1.0 + las.focus_step * las.focus_max,
+			first_hit, focused_hit])
+	front.global_position += Vector2(0, 5000)
+	las._fire_laser()
+	_check(las.focus_stacks() == 0, "focus resets on a new target")
+	for e in [front, back, side]:
+		e.queue_free()
+	las.queue_free()
+
+	# DRONE HIVE: 드론 2기가 사거리 안 적을 쫓아가 들이받는다. 강화하면 +1기
+	var hive := HexTile.new()
+	hive.setup("drone")
+	hive.board = board
+	board.add_child(hive)
+	hive.global_position = Vector2(-3000, 2000)
+	hive._sync_drones()
+	_check(hive._drones.size() == 2, "hive launches 2 drones")
+	var prey := _game.spawn_enemy("grunt", hive.global_position + Vector2(160, 0))
+	prey.max_hp = 10000.0
+	prey.hp = 10000.0
+	for i in 120:
+		for d in hive._drones:
+			d._process(1.0 / 60.0)
+	_check(prey.hp < 10000.0, "drones chase and hit enemies")
+	_check(hive._drones.all(func(d: Drone) -> bool: return d.target == prey), "drones lock on")
+	# 통계: 준 피해가 타일별로 기록된다 (장갑 반영, 넘친 피해 제외)
+	var recorded := board.stats.damage(hive.get_instance_id(), board.stats.current_wave)
+	_check(absf(recorded - (10000.0 - prey.hp)) < 0.01, "damage stats per tile (%.1f)" % recorded)
+	var tiny := _game.spawn_enemy("grunt", Vector2(-2000, 3000))
+	tiny.hp = 3.0
+	var before_total := board.stats.total(hive.get_instance_id())
+	hive.apply_hit(tiny, 50.0)
+	_check(absf(board.stats.total(hive.get_instance_id()) - before_total - 3.0) < 0.01,
+			"overkill not counted")
+	# 쫓던 적이 사라져도 오류 없이 다음 목표를 찾는다
+	prey.free()
+	for d in hive._drones:
+		d._process(1.0 / 60.0)
+	_check(hive._drones.all(func(d: Drone) -> bool: return d.target == null), "drones drop freed target")
+	hive.upgrade()
+	hive.upgrade()
+	hive._sync_drones()
+	_check(hive._drones.size() == 3, "level 3 adds a drone")
+	hive.queue_free()
+
+	# ARCHER: 맞닿은 ARCHER 1개당 공격력 +40%
+	var a1 := board.place_tile(board.placeable_cells()[0], "archer")
+	var a2: HexTile = null
+	for n in HexGrid.neighbors(a1.coord):
+		if board.can_place(n):
+			a2 = board.place_tile(n, "archer")
+			break
+	_check(a2 != null and a1.linked_archers() == 1 and a2.linked_archers() == 1, "archers link")
+	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * 1.4) < 0.001,
+			"linked archer +40%% dmg (%.2f)" % a1.damage())
+	a2.take_damage(1e9)
+	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
+	a1.take_damage(1e9)
+
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6
 	_game.wave = 9

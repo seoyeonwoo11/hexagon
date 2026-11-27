@@ -7,51 +7,38 @@ const DEFS := {
 	"scope": {
 		"name": "SCOPE", "color": Color(0.6, 1.0, 0.95),
 		"desc": "+40% attack range.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"splitter": {
 		"name": "SPLITTER", "color": Color(1.0, 0.6, 0.2),
-		"desc": "Hits one extra target each attack (ORBIT: +1 orb).",
-		"attacks": ["laser", "spark", "orbit"],
+		"desc": "Hits one extra target each attack (ORBIT: +1 orb, HIVE: +1 drone).",
+		"attacks": ["laser", "spark", "orbit", "drone", "archer"],
 	},
 	"igniter": {
 		"name": "IGNITER", "color": Color(1.0, 0.4, 0.15),
 		"desc": "Hits set enemies on fire for 3 seconds.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
-	},
-	"cryo": {
-		"name": "CRYO COIL", "color": Color(0.5, 0.8, 1.0),
-		"desc": "Hits slow enemies by 35%.",
-		"attacks": ["laser", "spark", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"crit": {
 		"name": "CRIT LENS", "color": Color(1.0, 0.3, 0.6),
 		"desc": "20% chance to deal triple damage.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 	"detonator": {
 		"name": "DETONATOR", "color": Color(1.0, 0.75, 0.3),
 		"desc": "Enemies it kills explode, hurting enemies nearby.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
-	},
-	"collector": {
-		"name": "COLLECTOR", "color": Color(1.0, 0.85, 0.1),
-		"desc": "Enemies killed by this tile drop +$1.",
-		"attacks": ["laser", "spark", "frost", "orbit"],
+		"attacks": ["laser", "spark", "frost", "orbit", "drone", "archer"],
 	},
 }
 
 const SCOPE_RANGE_MULT := 1.4
 const IGNITE_DPS_RATIO := 0.4
 const IGNITE_TIME := 3.0
-const CRYO_SLOW := 0.65
-const CRYO_TIME := 1.0
 const CRIT_CHANCE := 0.2
 const CRIT_MULT := 3.0
 ## 폭발: 처치한 적 위치에서 반경 안 적들에게 (그 타일 공격력 × 비율) 피해
 const DETONATE_RADIUS := 100.0
 const DETONATE_RATIO := 0.8
-const COLLECTOR_BONUS := 1
 
 
 static func get_def(id: String) -> Dictionary:
