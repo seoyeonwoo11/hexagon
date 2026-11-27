@@ -409,7 +409,7 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN, board.stats)
+		hud.show_overlay("PAUSED", Hud.resume_hint(), Hud.NEON_CYAN, board.stats)
 	else:
 		hud.hide_overlay()
 
