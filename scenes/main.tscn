@@ -1,6 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/board.gd" id="1_board"]
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/board.gd" id="2_board"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -12,6 +14,7 @@ glow_blend_mode = 1
 glow_hdr_threshold = 0.6
 
 [node name="Main" type="Node2D"]
+script = ExtResource("1_game")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_neon")
@@ -20,4 +23,7 @@ environment = SubResource("Environment_neon")
 zoom = Vector2(0.7, 0.7)
 
 [node name="Board" type="Node2D" parent="."]
-script = ExtResource("1_board")
+script = ExtResource("2_board")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("3_hud")
