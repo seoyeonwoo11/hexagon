@@ -457,6 +457,18 @@ func wave_enemy_hp(n: int) -> float:
 	return 6.0 * pow(HP_GROWTH, early) * pow(HP_LATE_GROWTH, late) + n
 
 
+## 일반 적(보스와 OVERLORD 부하 제외)만 더 단단하게: NORMAL_HP_FROM 웨이브 뒤로 웨이브마다
+## NORMAL_HP_STEP씩 더해져 FINAL_WAVE에서 최대가 된다 (무한 모드에서는 그 값 유지).
+## 보스 체력은 wave_enemy_hp 그대로라 보스 난이도는 바뀌지 않는다. 보상도 wave_enemy_hp 기준.
+const NORMAL_HP_FROM := 10
+const NORMAL_HP_STEP := 0.035
+
+
+func normal_hp_mult(n: int) -> float:
+	var steps := clampi(n, NORMAL_HP_FROM, EnemyDefs.FINAL_WAVE) - NORMAL_HP_FROM
+	return 1.0 + NORMAL_HP_STEP * steps
+
+
 func wave_enemy_reward(n: int) -> float:
 	return maxf(1.0, REWARD_SCALE * pow(wave_enemy_hp(n), REWARD_POWER))
 
@@ -515,10 +527,14 @@ func bank_interest(tile: HexTile) -> int:
 
 
 ## kind 종류의 적을 전역 위치 pos에 만든다. 능력치 = 웨이브 기본값 × 종류 배율.
-func spawn_enemy(kind: String, pos: Vector2) -> Enemy:
+## normal이면(보스도 OVERLORD 부하도 아니면) normal_hp_mult를 더 곱한다.
+func spawn_enemy(kind: String, pos: Vector2, normal := true) -> Enemy:
 	var enemy := Enemy.new()
 	enemy.board = board
-	enemy.setup(kind, wave_enemy_hp(wave), minf(55.0 + wave * 2.5, 140.0),
+	var base_hp := wave_enemy_hp(wave)
+	if normal and not EnemyDefs.get_def(kind).get("is_boss", false):
+		base_hp *= normal_hp_mult(wave)
+	enemy.setup(kind, base_hp, minf(55.0 + wave * 2.5, 140.0),
 			wave_enemy_reward(wave), 10.0 + wave * 0.5)
 	enemy.died.connect(_on_enemy_died)
 	if enemy.summon_kind != "":
@@ -577,7 +593,7 @@ func _on_enemy_summoned(enemy: Enemy, kind: String, count: int) -> void:
 		return
 	for i in count:
 		var offset := Vector2.from_angle(TAU * (i + randf() * 0.5) / count) * (enemy.radius + 30.0)
-		spawn_enemy(kind, enemy.global_position + offset)
+		spawn_enemy(kind, enemy.global_position + offset, false)
 
 
 ## FINAL_WAVE 클리어: SHARD를 바로 받고(앱을 꺼도 남음) 클리어 화면.
