@@ -48,7 +48,7 @@ const BOOST_PER_WAVE := {"damage": 0.3, "rate": 0.2, "repair": 2.0, "resonance":
 ## BANK 이자: 웨이브 클리어 때 가진 돈의 BANK_INTEREST(강화마다 +1%p), 최대 수입 × BANK_INTEREST_CAP
 const BANK_INTEREST := 0.04
 const BANK_INTEREST_STEP := 0.01
-const BANK_INTEREST_CAP := 4
+const BANK_INTEREST_CAP := 3
 
 @onready var board: Board = $Board
 @onready var hud: Hud = $HUD
@@ -298,11 +298,11 @@ func wave_enemy_count(n: int) -> int:
 
 ## 적 체력: LATE_FROM 웨이브까지는 HP_GROWTH배씩, 그 뒤로는 HP_LATE_GROWTH배씩 늘어난다.
 const HP_GROWTH := 1.23
-const HP_LATE_GROWTH := 1.20
+const HP_LATE_GROWTH := 1.17
 const LATE_FROM := 15
 ## 처치 보상: 적 체력^REWARD_POWER × REWARD_SCALE. 적이 강해질수록 보상도 같이 커진다.
 const REWARD_SCALE := 0.3
-const REWARD_POWER := 0.45
+const REWARD_POWER := 0.38
 
 
 func wave_enemy_hp(n: int) -> float:

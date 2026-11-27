@@ -61,7 +61,11 @@ var frost_slow := FROST_SLOW
 ## BOOSTER: 맞닿은 타일에 주는 공격 속도 보너스 (0.25 = 25% 빠르게)
 var haste := 0.0
 var level := 1
-var selected := false
+var selected := false:
+	set(value):
+		if selected != value:
+			selected = value
+			queue_redraw()
 ## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
 var gear := ""
 
@@ -85,6 +89,9 @@ var orbit_angle := 0.0
 var _orb_hit_cd := {}
 var _orbit_ring: OrbitRing
 var _frost_field: FrostField
+## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태
+var _drawn_state := []
+var _anim_active := false
 
 
 func setup(tile_kind: String) -> void:
@@ -292,7 +299,26 @@ func _process(delta: float) -> void:
 		_process_orbit(delta)
 	elif _cooldown <= 0.0:
 		_fire()
-	queue_redraw()
+	# 밝기 맥동은 다시 그리지 않고 투명도로만
+	self_modulate.a = 0.85 + 0.15 * sin(_time * 2.5)
+	_redraw_if_needed()
+
+
+## 성능: 모양이 바뀔 때만 다시 그린다 (매 프레임 다시 그리면 타일이 많을 때 렉이 걸림).
+## 광선, 피격 깜빡임, BOOSTER 화살표는 움직이는 동안만 매 프레임 그린다.
+func _redraw_if_needed() -> void:
+	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
+	var state := [level, hp, max_hp, gear, focus_stacks(),
+			effective_range() if selected else 0.0]
+	if anim or _anim_active or state != _drawn_state:
+		_drawn_state = state
+		queue_redraw()
+	_anim_active = anim
+	if _orbit_ring != null:
+		_orbit_ring.rotation = orbit_angle
+		_orbit_ring.sync()
+	if _frost_field != null:
+		_frost_field.sync()
 
 
 ## ORBIT: 구체를 돌리고, 닿은 적을 때린다. 같은 구체는 같은 적을 interval()마다 한 번만 때린다.
@@ -316,7 +342,7 @@ func _process_orbit(delta: float) -> void:
 		for enemy in nearby:
 			if not enemy.is_alive():
 				continue
-			var key := "%d:%d" % [i, enemy.get_instance_id()]
+			var key := enemy.get_instance_id() * 8 + i
 			if _orb_hit_cd.has(key):
 				continue
 			if orb.distance_to(enemy.global_position) <= ORB_RADIUS + enemy.radius:
@@ -446,7 +472,7 @@ func take_damage(amount: float) -> void:
 
 
 func _draw() -> void:
-	var pulse := 0.85 + 0.15 * sin(_time * 2.5)
+	var pulse := 1.0
 	var c := color.lerp(Color(1.0, 0.15, 0.2), _hit_flash / HIT_FLASH_TIME)
 	if selected:
 		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5, true)
@@ -476,10 +502,6 @@ func _draw() -> void:
 						_shot_time / SHOT_TIME, minf(2.0 + 0.8 * (level - 1), 6.0))
 	if focus_max > 0:
 		_draw_focus_meter(c)
-	if _frost_field != null:
-		_frost_field.queue_redraw()
-	if attack == "orbit" and _orbit_ring != null:
-		_orbit_ring.queue_redraw()
 	if haste > 0.0:
 		_draw_boost_links(c)
 	if gear != "":
@@ -542,7 +564,7 @@ func _draw_gear_badge() -> void:
 
 ## 종류마다 가운데 모양을 다르게 그린다.
 func _draw_glyph(c: Color, intensity: float) -> void:
-	draw_glyph(self, kind, size * 0.3, c, intensity, orbit_angle)
+	draw_glyph(self, kind, size * 0.3, c, intensity)
 
 
 ## 타일 종류별 아이콘. canvas의 원점에 반지름 r 크기로 그린다 (상점 화면에서도 사용).
