@@ -3,7 +3,7 @@ extends Node2D
 ## BURN 타일의 화염방사기. 가장 가까운 적 쪽으로 돌아가며 부채꼴 불길을 뿜는다.
 ## 공격(fire)마다 불길 안의 모든 적에게 피해 + 화상. 불붙은 적이 다른 적과 맞닿으면 불이 옮겨붙는다
 ## (옮겨붙을 때마다 화상이 SPREAD_RATIO배로 약해지고, 최대 SPREAD_HOPS번).
-## 성능: 파티클이나 투사체 없이 불길마다 다각형 3겹 + 바깥 테두리 1줄 + 밀려 나가는 호 3개.
+## 성능: 파티클 노드나 투사체 없이 불길마다 그리기 3번 (색이 번지는 부채꼴 1번 + 불씨 선 묶음 2번).
 ## 뿜는 동안만 매 프레임 다시 그리고, 옮겨붙기 검사는 SPREAD_EVERY초에 1번.
 
 ## 불길이 적을 따라 도는 속도(라디안/초)
@@ -23,10 +23,17 @@ const SPARK_TIME := 0.25
 const MAX_SPARKS := 12
 ## 강화 1번마다 화상 시간 +0.5초
 const UPG_BURN_TIME := 0.5
-## 불길 테두리 점 수
-const EDGE_POINTS := 10
+## 빛 부채꼴: 각도 칸 수, 고리마다 [노즐~끝 위치, 색, 진하기]
+const GLOW_SEGS := 10
+const GLOW_RINGS := [[0.35, Color(1.0, 0.7, 0.25), 0.55], [0.7, Color(1.0, 0.42, 0.12), 0.3],
+		[1.0, Color(1.0, 0.18, 0.1), 0.0]]
+## 불씨 선 수 (불길마다)
+const EMBERS := 16
 
-const HOT := Color(1.0, 0.92, 0.55)
+## 불 색: 노즐 쪽 흰 노랑 > 주황 > 끝의 빨강
+const HOT := Color(1.0, 0.92, 0.6)
+const MID := Color(1.0, 0.5, 0.12)
+const TIP := Color(1.0, 0.2, 0.12)
 
 var tile: HexTile
 ## 불길마다 지금 향한 각도와 따라가는 적
@@ -153,39 +160,67 @@ func _draw() -> void:
 		draw_multiline(lines, Color(HOT, 0.8), 2.5, true)
 
 
-## 불길 하나: 바깥(타일 색) > 가운데(주황) > 안쪽(노란 흰빛) 세 겹 부채꼴.
-## 끝은 시간에 따라 일렁이고, 노즐에서 끝까지 밝은 호가 계속 밀려 나간다.
+## 불길 하나. 두 부분으로 그린다:
+## 1) 빛: 노즐에서 흰 노랑으로 밝고 끝과 양옆으로 갈수록 주황, 빨강으로 옅어지는 부채꼴 (꼭짓점 색 보간, 삼각형 묶음 1번)
+## 2) 불씨: 노즐에서 끝으로 흩날리는 짧은 네온 선들 (선 묶음 2번: 번짐 + 밝은 선)
 func _draw_flame(a: float, reach: float, fade: float) -> void:
-	var c := tile.color
+	_draw_glow(a, reach, fade)
+	_draw_embers(a, reach, fade)
+
+
+func _draw_glow(a: float, reach: float, fade: float) -> void:
 	var half := tile.cone
-	var nozzle := tile.size * 0.45
-	var layers := [[1.0, 1.0, c, 0.3], [0.75, 0.68, c.lerp(HOT, 0.45), 0.36], [0.48, 0.38, HOT, 0.5]]
-	for li in layers.size():
-		var L: Array = layers[li]
-		var lc: Color = L[2]
-		var pts := _cone_points(a, nozzle, reach * float(L[0]), half * float(L[1]), li)
-		draw_colored_polygon(pts, Color(lc, float(L[3]) * fade))
-		if li == 0:
-			# 바깥 테두리 (노즐 점은 빼고)
-			draw_polyline(pts.slice(1), Color(c.lightened(0.3), 0.55 * fade), 2.0, true)
-	# 밀려 나가는 불길 띠: 노즐에서 끝으로 가며 넓어지고 옅어진다
-	for k in 3:
-		var f := fmod(_t * 2.6 + k / 3.0, 1.0)
+	var nozzle := tile.size * 0.42
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var idx := PackedInt32Array()
+	pts.append(Vector2.from_angle(a) * nozzle)
+	cols.append(Color(HOT, 0.75 * fade))
+	# 고리 RINGS개 × 각도 GLOW_SEGS+1개. 끝은 살짝 숨 쉬듯 늘었다 줄었다
+	var breathe := 1.0 + 0.04 * sin(_t * 11.0)
+	for ring in GLOW_RINGS.size():
+		var g: Array = GLOW_RINGS[ring]
+		var rr: float = lerpf(nozzle, reach * breathe, g[0])
+		var gc: Color = g[1]
+		for i in GLOW_SEGS + 1:
+			var u := float(i) / GLOW_SEGS
+			var da := lerpf(-half, half, u)
+			# 가운데가 조금 더 길고, 양옆은 투명하게
+			var edge := sin(PI * u)
+			pts.append(Vector2.from_angle(a + da) * rr * (0.86 + 0.14 * edge))
+			cols.append(Color(gc, float(g[2]) * fade * pow(edge, 0.6)))
+	var row := GLOW_SEGS + 1
+	for i in GLOW_SEGS:
+		idx.append_array([0, 1 + i, 2 + i])
+	for ring in GLOW_RINGS.size() - 1:
+		var b0 := 1 + ring * row
+		var b1 := b0 + row
+		for i in GLOW_SEGS:
+			idx.append_array([b0 + i, b1 + i, b1 + i + 1, b0 + i, b1 + i + 1, b0 + i + 1])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols)
+
+
+func _draw_embers(a: float, reach: float, fade: float) -> void:
+	var half := tile.cone
+	var nozzle := tile.size * 0.42
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var glow := PackedColorArray()
+	for i in EMBERS:
+		# 불씨마다 정해진 속도, 출발 시점, 방향 (황금비로 고르게 흩어 놓음)
+		var seed_u := fmod(i * 0.618034, 1.0)
+		var speed := 1.7 + 0.9 * fmod(i * 0.381966, 1.0)
+		var f := fmod(_t * speed + seed_u, 1.0)
+		var off := (seed_u * 2.0 - 1.0) * half * (0.35 + 0.6 * f)
+		off += 0.06 * sin(_t * 9.0 + i * 1.3)
+		var dir := Vector2.from_angle(a + off)
 		var r := lerpf(nozzle, reach * 0.95, f)
-		var w := half * (0.35 + 0.6 * f)
-		draw_arc(Vector2.ZERO, r, a - w, a + w, 10, Color(HOT.lerp(c, f), 0.55 * (1.0 - f) * fade),
-				3.0 + 5.0 * f, true)
-
-
-## 부채꼴 다각형: 노즐 + 일렁이는 바깥 끝.
-func _cone_points(a: float, nozzle: float, length: float, half: float, layer: int) -> PackedVector2Array:
-	# 노즐 한 점에서 퍼지는 부채꼴 (끝점들이 노즐보다 늘 멀어서 다각형이 꼬이지 않음)
-	var pts := PackedVector2Array([Vector2.from_angle(a) * nozzle * 0.5])
-	for i in EDGE_POINTS + 1:
-		var u := float(i) / EDGE_POINTS
-		var da := lerpf(half, -half, u)
-		# 가운데가 길고 양끝이 짧은 혀 모양 + 시간에 따른 일렁임
-		var shape := 0.78 + 0.22 * sin(PI * u)
-		var flicker := 0.08 * sin(_t * 15.0 + i * 2.1 + layer * 1.7) + 0.05 * sin(_t * 23.0 + i * 4.3)
-		pts.append(Vector2.from_angle(a + da) * maxf(length * (shape + flicker), nozzle + 8.0))
-	return pts
+		var length := 8.0 + 20.0 * f * (1.0 - f) * 2.0
+		pts.append(dir * r)
+		pts.append(dir * (r + length))
+		var col := HOT.lerp(MID, minf(f * 1.6, 1.0)).lerp(TIP, clampf(f * 1.6 - 0.6, 0.0, 1.0))
+		var alpha := fade * pow(1.0 - f, 0.8)
+		cols.append(Color(col.lightened(0.2), alpha))
+		glow.append(Color(col, 0.22 * alpha))
+	draw_multiline_colors(pts, glow, 7.0)
+	draw_multiline_colors(pts, cols, 2.0, true)
