@@ -10,6 +10,14 @@
 
 Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행합니다.
 
+## 웹(태블릿)에서 하기
+
+- 주소: https://seoyeonwoo11.github.io/hexagon/ (태블릿은 가로로 두는 걸 추천)
+- main에 올라가면 GitHub Actions(`.github/workflows/web.yml`)가 웹 빌드를 만들어 `gh-pages` 브랜치에 올림
+- 저장(SHARD, 영구 강화)은 그 브라우저에 남음. 다른 기기나 PC 버전과는 따로
+- 직접 내보내기: Godot 에디터의 Project > Export에서 "Web" 프리셋 (스레드 끔, 그래서 특별한 서버 설정 없이 동작)
+- 터치: 탭이 왼쪽 클릭. 오른쪽 클릭 대신 정보 창의 CLOSE 버튼이나 빈 곳 탭, 옮기기 취소는 MOVE 버튼, 스킬은 왼쪽 아래 버튼, FULL 버튼으로 전체 화면
+
 ## 테스트
 
 ```
@@ -24,12 +32,12 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 
 ## 조작
 
-- Space: 일시정지 / 계속. 일시정지 화면에 타일별 최근 7웨이브 피해 표 (총 피해 많은 순, 부서진 타일은 흐리게 X)
+- Space 또는 PAUSE/PLAY 버튼: 일시정지 / 계속. 일시정지 중에는 화면 아무 데나 눌러도(탭) 이어서 한다. 일시정지 화면에 타일별 최근 7웨이브 피해 표 (총 피해 많은 순, 부서진 타일은 흐리게 X)
 - F: 1배속 / 2배속
-- R: 게임 오버 후 재시작
+- R: 게임 오버 후 재시작 (결과창에서도 됨)
 - Q: 코어 스킬 (왼쪽 아래 버튼, 막대가 차면 다시 쓸 수 있음)
 - M: 타일 옮기기. 웨이브마다 1번 (쌓이지 않음). 옮길 타일을 클릭한 뒤 갈 칸을 클릭. 다른 타일을 클릭하면 자리 바꾸기. 빈 칸은 다른 타일과 맞닿아 있어야 함. 코어는 제자리. 오른쪽 클릭으로 취소
-- F11: 전체 화면
+- F11: 전체 화면 (웹/터치 화면에서는 오른쪽 위 FULL 버튼)
 - 타일 왼쪽 클릭: 정보 창 (돈으로 UPGRADE), 오른쪽 클릭: 창 닫기
 - 웨이브 클리어: 카드 3장 중 하나 선택 (타일, 강화, 장비가 무작위로 섞여 나옴). 타일 카드는 표시된 맞닿은 칸을 클릭해 배치, 장비 카드는 깜빡이는 타일을 클릭해 장착
 
@@ -59,7 +67,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - 왼쪽 위 웨이브 표시는 "WAVE 12 / 30"
 - OVERLORD를 포함해 30웨이브 적을 다 잡으면 VICTORY 화면. 그 자리에서 SHARD 75개 (30웨이브 몫 45 + 클리어 보너스 30)를 바로 받음
 - CONTINUE ENDLESS: 같은 판을 카드 3장부터 이어서 진행 ("WAVE 31 ENDLESS"). 끝나면 31웨이브부터 버틴 만큼 SHARD를 더 받음
-- END RUN: 시작 화면으로. 시작 화면에 클리어 횟수(Clears) 표시
+- END RUN: 결과창을 거쳐 시작 화면으로. 시작 화면에 클리어 횟수(Clears) 표시
 
 ## 타일 종류
 
@@ -74,10 +82,19 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - BOOSTER: 공격하지 않는 대신 면이 맞닿은 타일들의 공격 속도 +25% (강화마다 +10%p, 여러 개면 더해짐). 장비 불가
 - BANK: 웨이브를 넘길 때마다 돈 $12 (강화마다 +$6), 그리고 가진 돈의 4% 이자 (강화마다 +1%p, 최대 수입 × 3)
 
-## 판 사이 성장 (SHARD)
+## 결과창
+
+판이 끝나면 (코어가 부서지거나, 클리어 뒤 END RUN) 시작 화면 전에 결과창이 뜹니다.
+
+- 제목: GAME OVER (분홍) 또는 VICTORY (금색), 무한 모드까지 갔으면 "ENDLESS RUN OVER"
+- 숫자 카드 5장: 도달 웨이브 (최고 기록을 넘으면 NEW BEST), 처치 수, 플레이 시간 (실제 시간, 일시정지와 배속 무관), 번 돈 (시작 돈 제외, 쓴 돈은 안 뺌), 받은 SHARD
+- 왼쪽: 타일별 총 피해 순위 (상위 8개, 막대와 전체 중 몫 %, 부서진 타일은 흐리게 X)
+- 오른쪽: 적 종류별 처치 수
+- RETRY (R): 상점 없이 바로 새 판, CONTINUE (Enter/Space): 시작 화면으로
+
 
 - 게임을 켜면 시작 화면(상점)이 뜨고, START 또는 Enter로 판을 시작
-- 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). 결과는 시작 화면에 표시되고, R을 누르면 상점 없이 바로 새 판
+- 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). R을 누르면 상점 없이 바로 새 판
 - 코어 종류 (시작 화면 왼쪽 아래에서 고름, 판마다 1개):
   - CORE (기본): OVERDRIVE, 6초 동안 모든 타일 공격력 +60%, 쿨다운 35초
   - CRYO CORE (15): FREEZE, 모든 적 3.5초 정지 (움직이지도 때리지도 않음), 쿨다운 30초
@@ -128,6 +145,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 - `scripts/frost_field.gd`: FROST 감속 범위와 냉기 파동
 - `scripts/drone.gd`, `scripts/arrow.gd`: DRONE HIVE의 드론, ARCHER의 화살
 - `scripts/damage_stats.gd`, `scripts/stats_panel.gd`: 타일별 웨이브 피해 기록과 일시정지 화면 표
+- `scripts/results_screen.gd`: 판이 끝났을 때 결과창
 - `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)

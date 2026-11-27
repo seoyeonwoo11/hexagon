@@ -114,11 +114,24 @@ func _run() -> void:
 	_check(not saw_spark and saw_orbit, "only loadout tiles in cards (spark %s, orbit %s)"
 			% [saw_spark, saw_orbit])
 
-	# 게임 오버: 버틴 웨이브만큼 SHARD가 들어오고 시작 화면이 다시 뜬다
+	# 결과창 기록: 처치 수와 번 돈 (시작 돈은 안 셈)
+	var earned_before := _game.money_earned
+	var foe := _game.spawn_enemy("grunt", Vector2(2000, 0))
+	foe.take_damage(99999.0)
+	_check(_game.kills.get("grunt", 0) == 1, "kill counted for results")
+	_check(_game.money_earned > earned_before, "kill reward counted as earned gold")
+	_check(ResultsScreen.format_time(125.0) == "2:05" and ResultsScreen.format_time(3725.0)
+			== "1:02:05", "results time format")
+
+	# 게임 오버: 버틴 웨이브만큼 SHARD가 들어오고 결과창 -> 시작 화면
 	_game.wave = 12
 	var before := Meta.shards
 	core.take_damage(99999.0)
 	_check(Meta.shards == before + Meta.shards_for_run(12), "shards awarded on game over")
 	_check(Meta.last_run_wave == 12 and Meta.best_wave == 12, "run result recorded")
-	_check(_game.shop.is_open(), "shop shown after game over")
+	_check(_game.results.is_open() and not _game.shop.is_open(), "results shown after game over")
+	_check(_game.results.data["wave"] == 12 and _game.results.data["new_best"]
+			and _game.results.data["shards"] == Meta.shards_for_run(12), "results show the run")
+	_game.results.continue_pressed.emit()
+	_check(not _game.results.is_open() and _game.shop.is_open(), "continue opens the shop")
 	get_root().get_tree().paused = false

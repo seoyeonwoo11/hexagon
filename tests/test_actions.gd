@@ -1,6 +1,6 @@
 extends SceneTree
 ## 실행: godot --headless --fixed-fps 60 --path . -s res://tests/test_actions.gd
-## 웨이브마다 1번 타일 옮기기, 코어 종류별 스킬, 코어 구매/선택 저장.
+## 웨이브마다 1번 타일 옮기기, 코어 종류별 스킬, 코어 구매/선택 저장, 일시정지 탭으로 이어 하기.
 
 var _failures := 0
 var _frame := 0
@@ -121,3 +121,17 @@ func _run() -> void:
 	Meta.load_data()
 	_check(Meta.is_core_unlocked("nova") and not Meta.is_core_unlocked("cryo")
 			and Meta.core_type == "core", "cores saved")
+
+	# 일시정지: 화면 아무 데나 누르면(탭) 이어서 한다. PLAY 버튼은 어두운 화면 위에 있다.
+	var hud := _game.hud
+	_game.toggle_pause()
+	_check(paused and hud.is_overlay_visible(), "paused with overlay")
+	_check(hud._pause_button.text == "PLAY", "pause button shows PLAY")
+	_check(hud._pause_button.get_parent().get_parent().get_index() > hud._overlay.get_index(),
+			"pause button drawn above the pause overlay")
+	var tap := InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
+	tap.pressed = true
+	hud._on_overlay_input(tap)
+	_check(not paused and not hud.is_overlay_visible(), "tap on overlay resumes")
+	_check(hud._pause_button.text == "PAUSE", "pause button back to PAUSE")

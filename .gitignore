@@ -2,4 +2,5 @@
 .godot/
 /android/
 *.tmp
-export_presets.cfg
+# 웹 내보내기 설정은 GitHub Actions가 쓰므로 저장소에 둔다 (비밀 값 없음)
+/build/

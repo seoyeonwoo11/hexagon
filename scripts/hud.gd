@@ -6,7 +6,10 @@ extends CanvasLayer
 ## - 아래 가운데: "WAVE 3", "WAVE CLEAR" 같은 짧은 안내
 ## - 가운데: 일시정지/게임 오버 오버레이 (화면을 어둡게 덮음)
 ## 일시정지 중에도 동작해야 하므로 PROCESS_MODE_ALWAYS.
+## 일시정지 중에는 화면 아무 데나 누르거나 PLAY 버튼으로 이어서 한다.
 ## 단축키: Space = 일시정지, F = 배속 전환, R = 게임 오버 후 재시작, F11 = 전체 화면.
+## 터치(태블릿/웹): 모든 조작에 화면 버튼이 있다 (스킬, 옮기기, 정보 창 CLOSE, 전체 화면 FULL).
+## 탭은 왼쪽 클릭으로 처리된다 (Godot의 터치 → 마우스 흉내).
 
 signal pause_pressed
 signal speed_pressed
@@ -17,6 +20,7 @@ signal skill_pressed
 signal move_pressed
 signal endless_pressed
 signal end_run_pressed
+signal close_tile_pressed
 
 const NEON_CYAN := Color(0.0, 0.95, 1.0)
 const NEON_PINK := Color(1.0, 0.2, 0.8)
@@ -99,6 +103,8 @@ func _ready() -> void:
 	root.add_child(buttons)
 	_pause_button = _make_button("PAUSE", pause_pressed)
 	_speed_button = _make_button("1x", speed_pressed)
+	if wants_fullscreen_button():
+		buttons.add_child(make_fullscreen_button())
 	buttons.add_child(_pause_button)
 	buttons.add_child(_speed_button)
 
@@ -119,7 +125,9 @@ func _ready() -> void:
 	_overlay = ColorRect.new()
 	_overlay.color = Color(0, 0, 0, 0.6)
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 일시정지 화면은 아무 데나 누르면(탭) 이어서 한다. 키보드가 없는 모바일용.
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay.gui_input.connect(_on_overlay_input)
 	_overlay.visible = false
 	add_child(_overlay)
 	var center := VBoxContainer.new()
@@ -139,6 +147,14 @@ func _ready() -> void:
 	_stats_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_stats_panel.visible = false
 	center.add_child(_stats_panel)
+	# 오른쪽 위 버튼(PAUSE/PLAY, 배속)은 어두운 일시정지 화면 위에 그려서 밝게 보이게 한다.
+	var top := MarginContainer.new()
+	top.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		top.add_theme_constant_override("margin_" + side, MARGIN)
+	add_child(top)
+	buttons.reparent(top, false)
 	_build_victory()
 
 
@@ -294,6 +310,25 @@ func hide_overlay() -> void:
 	_overlay.visible = false
 
 
+func is_overlay_visible() -> bool:
+	return _overlay.visible
+
+
+## 일시정지 화면 안내 문구: 터치 화면이면 탭, 아니면 Space/클릭.
+static func resume_hint() -> String:
+	if DisplayServer.is_touchscreen_available():
+		return "TAP TO RESUME"
+	return "SPACE OR CLICK TO RESUME"
+
+
+func _on_overlay_input(event: InputEvent) -> void:
+	# 탭은 Godot가 왼쪽 클릭으로 바꿔 준다 (터치 → 마우스 흉내).
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		_overlay.accept_event()
+		pause_pressed.emit()
+
+
 ## 웨이브 클리어 카드 3장. options의 각 항목: {title, desc, color, ...}
 func show_choices(options: Array) -> void:
 	for child in _choice_row.get_children():
@@ -444,13 +479,15 @@ func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
 	_tile_gear = _make_label(Color.WHITE, 20, 700)
 	_tile_next = _make_label(Color(0.45, 1.0, 0.5), 18, 600)
-	var hint := _make_label(Color(1, 1, 1, 0.4), 15, 500)
-	hint.text = "RIGHT CLICK TO CLOSE"
+	var close := make_neon_button("CLOSE", Color(1, 1, 1, 0.7))
+	close.custom_minimum_size = Vector2(0, 52)
+	close.pressed.connect(func() -> void: close_tile_pressed.emit())
 	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
 	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
 	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
 	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
-	for c in [_tile_title, _tile_stats, _tile_gear, _tile_next, _upgrade_button, hint]:
+	_upgrade_button.custom_minimum_size = Vector2(0, 64)
+	for c in [_tile_title, _tile_stats, _tile_gear, _tile_next, _upgrade_button, close]:
 		box.add_child(c)
 
 
@@ -551,8 +588,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+## 전체 화면 버튼을 보여 줄지: 웹(브라우저)이거나 터치 화면이면.
+static func wants_fullscreen_button() -> bool:
+	return OS.has_feature("web") or DisplayServer.is_touchscreen_available()
+
+
+## FULL 버튼 (F11과 같음). 브라우저에서는 주소창을 없애 태블릿 화면을 넓게 쓴다.
+static func make_fullscreen_button() -> Button:
+	var b := make_neon_button("FULL", NEON_CYAN)
+	b.custom_minimum_size = Vector2(130, 60)
+	b.add_theme_font_size_override("font_size", 24)
+	b.pressed.connect(toggle_fullscreen)
+	return b
+
+
 func _toggle_fullscreen() -> void:
-	var w := get_window()
+	toggle_fullscreen()
+
+
+static func toggle_fullscreen() -> void:
+	var w := (Engine.get_main_loop() as SceneTree).root
 	if w.mode == Window.MODE_FULLSCREEN or w.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
 		w.mode = Window.MODE_MAXIMIZED
 	else:
