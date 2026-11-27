@@ -39,7 +39,7 @@ func _ready() -> void:
 	hud.set_wave(wave)
 	hud.set_speed(speed_multiplier)
 	hud.set_paused(false)
-	hud.show_message("READY", Hud.NEON_CYAN)
+	hud.show_banner("READY", Hud.NEON_CYAN)
 
 
 func _process(delta: float) -> void:
@@ -82,9 +82,9 @@ func toggle_pause() -> void:
 	tree.paused = not tree.paused
 	hud.set_paused(tree.paused)
 	if tree.paused:
-		hud.show_message("PAUSED", Hud.NEON_CYAN)
+		hud.show_overlay("PAUSED", "SPACE TO RESUME", Hud.NEON_CYAN)
 	else:
-		hud.hide_message()
+		hud.hide_overlay()
 
 
 func toggle_speed() -> void:
@@ -104,19 +104,19 @@ func _begin_wave() -> void:
 	_spawn_interval = maxf(0.3, 1.2 - wave * 0.05)
 	_spawn_timer = 0.0
 	hud.set_wave(wave)
-	hud.show_message("WAVE %d" % wave, Hud.NEON_CYAN)
+	hud.show_banner("WAVE %d" % wave, Hud.NEON_CYAN)
 	get_tree().create_timer(1.2, false).timeout.connect(_hide_wave_message.bind(wave))
 	wave_started.emit(wave)
 
 
 func _hide_wave_message(for_wave: int) -> void:
 	if for_wave == wave and not is_over and not get_tree().paused:
-		hud.hide_message()
+		hud.hide_banner()
 
 
 func _on_wave_cleared() -> void:
 	wave_cleared.emit(wave)
-	hud.show_message("WAVE CLEAR", Hud.NEON_YELLOW)
+	hud.show_banner("WAVE CLEAR", Hud.NEON_YELLOW)
 	_intermission = INTERMISSION
 
 
@@ -163,7 +163,8 @@ func _on_core_destroyed() -> void:
 		return
 	is_over = true
 	hud.set_core(0, board.core_tile().max_hp)
-	hud.show_message("GAME OVER\nWAVE %d  -  R TO RESTART" % wave, Hud.NEON_PINK)
+	hud.hide_banner()
+	hud.show_overlay("GAME OVER", "REACHED WAVE %d  -  PRESS R TO RESTART" % wave, Hud.NEON_PINK)
 	get_tree().paused = true
 	game_over.emit()
 
