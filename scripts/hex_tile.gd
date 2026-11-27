@@ -79,7 +79,7 @@ func upgrade() -> void:
 	max_hp += 15.0
 	hp = minf(hp + 15.0, max_hp)
 	if kind == "bank":
-		income += 4
+		income += 5
 	if kind == "spark":
 		bounces += 1
 	queue_redraw()
