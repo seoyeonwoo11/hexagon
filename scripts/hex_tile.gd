@@ -83,8 +83,8 @@ var selected := false:
 		if selected != value:
 			selected = value
 			queue_redraw()
-## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
-var gear := ""
+## 장착한 장비 id들 (GearDefs), 먼저 단 것부터. 최대 gear_slots()개.
+var gears: Array[String] = []
 
 var coord := Vector2i.ZERO
 var size := 48.0
@@ -166,7 +166,7 @@ func linked_archers() -> int:
 
 ## DRONE HIVE: 실제 드론 수 (SPLITTER면 +1).
 func drone_count() -> int:
-	return mini(drones + (1 if gear == "splitter" else 0), MAX_DRONES)
+	return mini(drones + (1 if has_gear("splitter") else 0), MAX_DRONES)
 
 
 ## DRONE HIVE: 드론이 노릴 적. 벌집 사거리 안에서, 다른 드론이 안 노리는 적 중 그 드론에 가장 가까운 적.
@@ -245,17 +245,17 @@ func boosted_neighbors() -> Array[HexTile]:
 
 ## 장비까지 반영한 실제 사거리.
 func effective_range() -> float:
-	return attack_range * (GearDefs.SCOPE_RANGE_MULT if gear == "scope" else 1.0)
+	return attack_range * (GearDefs.SCOPE_RANGE_MULT if has_gear("scope") else 1.0)
 
 
 ## 한 번 공격할 때 노리는 대상 수 (SPLITTER면 +1).
 func target_count() -> int:
-	return 1 + extra_beams + (1 if gear == "splitter" else 0)
+	return 1 + extra_beams + (1 if has_gear("splitter") else 0)
 
 
 ## ORBIT: 실제로 도는 구체 수 (SPLITTER면 +1).
 func orb_count() -> int:
-	return orbs + (1 if gear == "splitter" else 0)
+	return orbs + (1 if has_gear("splitter") else 0)
 
 
 ## ORBIT: i번째 구체의 위치 (타일 기준 로컬 좌표).
@@ -268,24 +268,37 @@ func orb_position(i: int) -> Vector2:
 var _last_blast_ms := -100000
 
 
-## 장비 장착. 이미 있으면 교체한다.
+## 장비 칸 수. 기본 1칸, 레벨 GearDefs.SECOND_SLOT_LEVEL부터 2칸.
+func gear_slots() -> int:
+	return 2 if level >= GearDefs.SECOND_SLOT_LEVEL else 1
+
+
+func has_gear(gear_id: String) -> bool:
+	return gears.has(gear_id)
+
+
+## 장비 장착. 빈 칸이 있으면 채우고, 칸이 꽉 찼으면 가장 먼저 단 장비를 뺀다.
+## 이미 단 장비는 다시 달지 않는다 (같은 장비 2개는 겹치지 않음).
 func equip(gear_id: String) -> void:
-	gear = gear_id
+	if has_gear(gear_id):
+		return
+	while gears.size() >= gear_slots():
+		gears.pop_front()
+	gears.append(gear_id)
 	queue_redraw()
 
 
 ## 적 하나를 맞혔을 때: 피해 + 장비 효과.
 func apply_hit(enemy: Enemy, amount: float) -> void:
-	if gear == "crit" and randf() < GearDefs.CRIT_CHANCE:
+	if has_gear("crit") and randf() < GearDefs.CRIT_CHANCE:
 		amount *= GearDefs.CRIT_MULT
 		enemy.flash_crit()
 	var pos := enemy.global_position
 	enemy.take_damage(amount, self)
-	if gear == "detonator":
+	if has_gear("detonator"):
 		_detonate(pos, amount, enemy)
-	match gear:
-		"igniter":
-			enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
+	if has_gear("igniter"):
+		enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
 
 
 ## DETONATOR: 맞힌 자리 pos(전역)에서 폭발해 주변의 다른 적에게 (맞힌 피해 × 비율).
@@ -387,8 +400,16 @@ func upgrade_preview() -> Array[String]:
 			if focus_max > 0:
 				lines.append("FOCUS +%d%% > +%d%% / HIT" % [roundi(focus_step * 100.0),
 						roundi((focus_step + UPG_FOCUS) * 100.0)])
+	if level + 1 == GearDefs.SECOND_SLOT_LEVEL and takes_gear():
+		lines.append("+1 GEAR SLOT")
 	lines.append("HP +%d" % roundi(UPG_HP))
 	return lines
+
+
+## 이 타일에 달 수 있는 장비가 하나라도 있는지 (BANK, BOOSTER 등은 없음).
+func takes_gear() -> bool:
+	return GearDefs.ids().any(func(id: String) -> bool:
+		return (GearDefs.get_def(id)["attacks"] as Array).has(attack))
 
 
 func _show_level_up() -> void:
@@ -421,7 +442,7 @@ func _process(delta: float) -> void:
 ## 광선, 피격 깜빡임, BOOSTER 화살표는 움직이는 동안만 매 프레임 그린다.
 func _redraw_if_needed() -> void:
 	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
-	var state := [level, hp, max_hp, gear, focus_stacks(), linked_archers(), prism_sources().size(),
+	var state := [level, hp, max_hp, gears.duplicate(), focus_stacks(), linked_archers(), prism_sources().size(),
 			board != null and board.skill_damage_mult > 1.0, color,
 			effective_range() if selected else 0.0]
 	if anim or _anim_active or state != _drawn_state:
@@ -701,8 +722,8 @@ func _draw() -> void:
 		_draw_pack_links(c)
 	if split > 0.0:
 		_draw_prism_rays()
-	if gear != "":
-		_draw_gear_badge()
+	if not gears.is_empty():
+		_draw_gear_badges()
 
 
 ## LASER: 사거리 끝까지 뻗는 굵은 광선. 집중이 쌓일수록 굵고 하얗게, 맞힌 자리엔 불꽃.
@@ -775,15 +796,22 @@ func _draw_pack_links(c: Color) -> void:
 				mid + side * size * 0.32]), c.lerp(Color.WHITE, 0.4), 1.0, 3.0)
 
 
-## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지.
-func _draw_gear_badge() -> void:
-	var gc: Color = GearDefs.get_def(gear)["color"]
-	var center := Vector2(0, size * 0.62)
+## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지. 칸마다 하나씩 나란히,
+## 장비를 하나라도 단 타일에 빈 칸이 남아 있으면 그 칸은 흐린 테두리만.
+func _draw_gear_badges() -> void:
+	var slots := gear_slots()
 	var r := 6.0
-	var dia := PackedVector2Array([center + Vector2(0, -r), center + Vector2(r, 0),
-			center + Vector2(0, r), center + Vector2(-r, 0), center + Vector2(0, -r)])
-	draw_colored_polygon(dia, Color(gc, 0.35))
-	NeonDraw.polyline(self, dia, gc, 1.0, 1.5)
+	var gap := r * 2.6
+	for i in slots:
+		var center := Vector2((i - (slots - 1) * 0.5) * gap, size * 0.62)
+		var dia := PackedVector2Array([center + Vector2(0, -r), center + Vector2(r, 0),
+				center + Vector2(0, r), center + Vector2(-r, 0), center + Vector2(0, -r)])
+		if i < gears.size():
+			var gc: Color = GearDefs.get_def(gears[i])["color"]
+			draw_colored_polygon(dia, Color(gc, 0.35))
+			NeonDraw.polyline(self, dia, gc, 1.0, 1.5)
+		else:
+			NeonDraw.polyline(self, dia, Color(1, 1, 1, 0.35), 0.6, 1.0)
 
 
 ## 종류마다 가운데 모양을 다르게 그린다.
