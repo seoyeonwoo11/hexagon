@@ -1,13 +1,13 @@
 class_name Shop
 extends CanvasLayer
-## 시작 화면 겸 상점. 게임을 켤 때와 판이 끝났을 때 나온다.
+## 시작 화면. 게임을 켤 때와 판이 끝났을 때 나온다. 사는 것은 따로 연 상점 창(ShopWindow)에서.
 ##
 ## 배치 (1920x1080 기준):
-##   왼쪽  : 게임 이름, 지난 판 결과, 가진 SHARD
+##   왼쪽  : 게임 이름, 지난 판 결과, 코어 고르기
 ##   위    : 스테이지 고르기 (깬 스테이지 다음까지 열림)
 ##   가운데: 벌집 모양 보드. 가운데 육각형이 START, 둘레가 타일.
-##           잠긴 타일은 클릭해서 구매, 풀린 타일은 클릭해서 출정 타일(최대 6종)에 넣거나 뺀다
-##   오른쪽: 영구 강화 목록 (이름, 설명, 육각형 레벨 표시, 구매 버튼)
+##           풀린 타일은 클릭해서 출정 타일(최대 6종)에 넣거나 빼고, 잠긴 타일은 클릭하면 상점 창
+##   오른쪽: 가진 SHARD와 SHOP 버튼 (영구 강화, 타일, 코어 구매)
 ## 벌집 아래 설명 줄은 마우스를 올린 칸을 설명한다.
 
 signal start_pressed
@@ -29,8 +29,10 @@ var _shards_value: FixedDigits
 var _honeycomb: Honeycomb
 var _caption_title: Label
 var _caption_body: Label
-var _upgrade_list: VBoxContainer
 var _core_picker: CorePicker
+var _window: ShopWindow
+var _shop_note: Label
+var _root: ColorRect
 var _stage_picker: StagePicker
 
 
@@ -42,10 +44,17 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
+	_root = bg
 	_build_left(bg)
 	_build_center(bg)
 	_build_top(bg)
 	_build_right(bg)
+	_window = ShopWindow.new()
+	# 상점 창이 떠 있는 동안 시작 화면은 숨긴다 (글로우가 비쳐 보이지 않게)
+	_window.closed.connect(func() -> void:
+		_root.visible = true
+		refresh())
+	add_child(_window)
 	# 소리 설정 버튼: 오른쪽 위 줄(FULL, 언어) 바로 아래, 오른쪽 끝에 맞춤
 	var sound := SoundPanel.make_button()
 	sound.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -97,6 +106,20 @@ func open() -> void:
 
 func close() -> void:
 	visible = false
+	if _window != null:
+		_window.visible = false
+		_root.visible = true
+
+
+## 상점 창 열기. tab: "upgrades", "tiles", "cores" ("" 이면 마지막 탭)
+func open_window(tab := "") -> void:
+	Sfx.play("click")
+	_root.visible = false
+	_window.open(tab)
+
+
+func is_window_open() -> bool:
+	return _window != null and _window.is_open()
 
 
 func is_open() -> bool:
@@ -133,19 +156,28 @@ func refresh() -> void:
 		_show_caption("stage:%d" % _stage_picker.hovered)
 	else:
 		_show_caption(_honeycomb.hovered)
-	for child in _upgrade_list.get_children():
-		child.queue_free()
-	for i in Meta.UPGRADES.size():
-		if i > 0:
-			var rule := ColorRect.new()
-			rule.color = RULE
-			rule.custom_minimum_size = Vector2(0, 1)
-			_upgrade_list.add_child(rule)
-		_upgrade_list.add_child(_upgrade_row(Meta.UPGRADES[i]))
+	_shop_note.text = Loc.t("Upgrades  %d / %d") % [_upgrade_levels(), _upgrade_caps()]
+	if _window != null and _window.is_open():
+		_window.refresh()
+
+
+func _upgrade_levels() -> int:
+	var n := 0
+	for u in Meta.UPGRADES:
+		n += Meta.level(u["id"])
+	return n
+
+
+func _upgrade_caps() -> int:
+	var n := 0
+	for u in Meta.UPGRADES:
+		if Meta.is_upgrade_unlocked(u["id"]):
+			n += Meta.upgrade_max(u["id"])
+	return n
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or is_window_open():
 		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
@@ -189,26 +221,7 @@ func _build_left(parent: Control) -> void:
 	col.add_child(_spacer(10))
 	_best_label = Hud.make_label(INK_DIM, 20, 500)
 	col.add_child(_best_label)
-	col.add_child(_spacer(44))
-	var shard_row := HBoxContainer.new()
-	shard_row.add_theme_constant_override("separation", 24)
-	col.add_child(shard_row)
-	_shards_value = FixedDigits.new()
-	_shards_value.font_size = NUMBER_SIZE
-	_shards_value.color = SHARD_COLOR
-	_shards_value.min_digits = 3
-	shard_row.add_child(_shards_value)
-	if DEBUG_FREE_SHARDS:
-		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
-		plus.custom_minimum_size = Vector2(96, 56)
-		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		plus.tooltip_text = Loc.t("Test only: +%d shards") % DEBUG_SHARD_AMOUNT
-		plus.pressed.connect(add_debug_shards)
-		shard_row.add_child(plus)
-	var unit := Hud.make_label(SHARD_COLOR, 26, 600)
-	unit.text = Loc.t("shards to spend")
-	col.add_child(unit)
-	col.add_child(_spacer(44))
+	col.add_child(_spacer(70))
 	var core_head := Hud.make_label(INK_DIM, 22, 600)
 	core_head.text = Loc.t("Core and skill")
 	col.add_child(core_head)
@@ -220,10 +233,13 @@ func _build_left(parent: Control) -> void:
 	col.add_child(_core_picker)
 
 
+## 산 코어는 고르고, 안 산 코어는 상점 창의 CORES 탭을 연다.
 func _on_core_clicked(id: String) -> void:
-	var owned := Meta.is_core_unlocked(id)
-	var changed := Meta.select_core(id) if owned else Meta.buy_core(id)
-	Sfx.play(("click" if owned else "coin") if changed else "deny")
+	if not Meta.is_core_unlocked(id):
+		open_window("cores")
+		return
+	var changed := Meta.select_core(id)
+	Sfx.play("click" if changed else "deny")
 	if changed:
 		refresh()
 
@@ -276,10 +292,13 @@ func _build_center(parent: Control) -> void:
 		cap.add_child(l)
 
 
+## 산 타일은 출정 타일에 넣거나 빼고, 안 산 타일은 상점 창의 TILES 탭을 연다.
 func _on_tile_clicked(kind: String) -> void:
-	var owned := Meta.is_tile_unlocked(kind)
-	var changed := Meta.toggle_loadout(kind) if owned else Meta.buy_tile(kind)
-	Sfx.play(("click" if owned else "coin") if changed else "deny")
+	if not Meta.is_tile_unlocked(kind):
+		open_window("tiles")
+		return
+	var changed := Meta.toggle_loadout(kind)
+	Sfx.play("click" if changed else "deny")
 	if changed:
 		refresh()
 
@@ -306,10 +325,8 @@ func _show_caption(kind: String) -> void:
 		elif not Meta.is_core_available(id):
 			how = Loc.t("Clear %s to unlock (then %d shards).") \
 					% [StageDefs.title(StageDefs.stage_for_unlock("core:" + id)), cdef["price"]]
-		elif Meta.shards >= cdef["price"]:
-			how = Loc.t("Click to unlock for %d shards.") % cdef["price"]
 		else:
-			how = Loc.t("Unlock for %d shards (%d more needed).") % [cdef["price"], cdef["price"] - Meta.shards]
+			how = Loc.t("Buy it in the shop for %d shards. Click to open the shop.") % cdef["price"]
 		_caption_body.text = "%s\n%s" % [Loc.t(cdef["desc"]), how]
 		return
 	if kind.begins_with("stage:"):
@@ -349,93 +366,57 @@ func _show_caption(kind: String) -> void:
 				if Meta.loadout_full() else Loc.t("Click to add to your loadout (%d/%d).") \
 				% [Meta.loadout.size(), Meta.max_loadout()]
 	else:
-		var price: int = Meta.TILE_PRICES[kind]
-		if Meta.shards >= price:
-			action = Loc.t("Click to unlock for %d shards") % price
-		else:
-			action = Loc.t("Unlock for %d shards (%d more needed)") % [price, price - Meta.shards]
+		action = Loc.t("Buy it in the shop for %d shards. Click to open the shop.") % Meta.TILE_PRICES[kind]
 	_caption_body.text = "%s\n%s" % [Loc.t(def["desc"]), action]
 
 
 # ---------------------------------------------------------------- 오른쪽
 
+## 가진 SHARD (큰 숫자)와 SHOP 버튼. 사는 것은 모두 상점 창에서.
 func _build_right(parent: Control) -> void:
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	col.offset_right = -SIDE_MARGIN
-	col.offset_left = -SIDE_MARGIN - 470
-	col.offset_top = -330
-	col.offset_bottom = 330
+	col.offset_left = -SIDE_MARGIN - 420
+	col.offset_top = -260
+	col.offset_bottom = 260
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 18)
+	col.add_theme_constant_override("separation", 0)
 	parent.add_child(col)
-	var heading := Hud.make_label(INK_DIM, 22, 600)
-	heading.text = Loc.t("Permanent upgrades")
-	col.add_child(heading)
-	_upgrade_list = VBoxContainer.new()
-	# 스테이지 보상 강화까지 7줄이라 촘촘하게
-	_upgrade_list.add_theme_constant_override("separation", 9)
-	col.add_child(_upgrade_list)
-
-
-func _upgrade_row(u: Dictionary) -> Control:
-	var id: String = u["id"]
-	if not Meta.is_upgrade_unlocked(id):
-		return _locked_upgrade_row(u)
-	var lv := Meta.level(id)
-	var cost := Meta.upgrade_cost(id)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	var text := VBoxContainer.new()
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_theme_constant_override("separation", 4)
-	row.add_child(text)
-	var name_label := Hud.make_label(u["color"], 24, 800)
-	name_label.text = u["title"]
-	var desc := Hud.make_label(INK, 17, 500)
-	desc.text = Loc.t(u["desc"])
-	var pips := LevelPips.new()
-	pips.level = lv
-	pips.max_level = Meta.upgrade_max(id)
-	pips.color = u["color"]
-	for c in [name_label, desc, pips]:
-		text.add_child(c)
-	var b := Hud.make_neon_button(Loc.t("Maxed") if cost < 0 else "%d" % cost, SHARD_COLOR)
-	b.custom_minimum_size = Vector2(110, 50)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.disabled = cost < 0 or Meta.shards < cost
-	b.tooltip_text = "" if cost < 0 else Loc.t("Buy level %d for %d shards") % [lv + 1, cost]
-	b.pressed.connect(func() -> void:
-		if Meta.buy_upgrade(id):
-			Sfx.play("coin")
-			refresh())
-	row.add_child(b)
-	return row
-
-
-## 스테이지 보상으로 풀리는 강화 (아직 안 풀림): 회색 이름과 설명 + 버튼 자리에 깨야 하는 스테이지.
-func _locked_upgrade_row(u: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	var text := VBoxContainer.new()
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_theme_constant_override("separation", 6)
-	row.add_child(text)
-	var name_label := Hud.make_label(LOCKED_COLOR, 24, 800)
-	name_label.text = u["title"]
-	var desc := Hud.make_label(INK_DIM, 17, 500)
-	desc.text = Loc.t(u["desc"])
-	for c in [name_label, desc]:
-		text.add_child(c)
-	var need := StageDefs.stage_for_unlock(u["unlock"])
-	var b := Hud.make_neon_button(Loc.t("CLEAR %d") % need, LOCKED_COLOR)
-	b.custom_minimum_size = Vector2(110, 48)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.disabled = true
-	b.add_theme_font_size_override("font_size", 17)
-	b.tooltip_text = Loc.t("Clear %s to unlock.") % StageDefs.title(need)
-	row.add_child(b)
-	return row
+	var head := Hud.make_label(INK_DIM, 22, 600)
+	head.text = Loc.t("shards to spend")
+	col.add_child(head)
+	col.add_child(_spacer(6))
+	var shard_row := HBoxContainer.new()
+	shard_row.add_theme_constant_override("separation", 20)
+	col.add_child(shard_row)
+	_shards_value = FixedDigits.new()
+	_shards_value.font_size = NUMBER_SIZE
+	_shards_value.color = SHARD_COLOR
+	_shards_value.min_digits = 3
+	shard_row.add_child(_shards_value)
+	if DEBUG_FREE_SHARDS:
+		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
+		plus.custom_minimum_size = Vector2(84, 50)
+		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		plus.tooltip_text = Loc.t("Test only: +%d shards") % DEBUG_SHARD_AMOUNT
+		plus.pressed.connect(add_debug_shards)
+		shard_row.add_child(plus)
+	col.add_child(_spacer(36))
+	var shop := Hud.make_neon_button(Loc.t("SHOP"), SHARD_COLOR)
+	shop.name = "ShopButton"
+	shop.custom_minimum_size = Vector2(420, 96)
+	shop.add_theme_font_size_override("font_size", 40)
+	shop.pressed.connect(func() -> void: open_window())
+	col.add_child(shop)
+	col.add_child(_spacer(14))
+	_shop_note = Hud.make_label(INK_DIM, 19, 500)
+	_shop_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_shop_note)
+	var sub := Hud.make_label(INK_DIM, 17, 500)
+	sub.text = Loc.t("Upgrades, tiles and cores")
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(sub)
 
 
 ## 배율 표시: 1.5 -> "1.5", 2.0 -> "2"

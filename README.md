@@ -39,6 +39,7 @@ godot --headless --path . -s res://tests/test_loc.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_burn.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_sound.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 ```
 
 ## 조작
@@ -135,7 +136,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - RETRY (R): 상점 없이 바로 새 판, CONTINUE (Enter/Space): 시작 화면으로
 
 
-- 게임을 켜면 시작 화면(상점)이 뜨고, START 또는 Enter로 판을 시작
+- 게임을 켜면 시작 화면이 뜨고, START 또는 Enter로 판을 시작. 시작 화면에서는 스테이지, 코어, 출정 타일만 고름
+- 상점: 시작 화면 오른쪽 SHOP 버튼으로 여는 따로 된 창. 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼. Esc, 오른쪽 클릭, 돌아가기 버튼으로 닫음. 시작 화면에서 안 산 타일이나 코어를 누르면 그 탭이 바로 열림
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). R을 누르면 상점 없이 바로 새 판
 - 코어 종류 (시작 화면 왼쪽 아래에서 고름, 판마다 1개):
   - CORE (기본): OVERDRIVE, 6초 동안 모든 타일 공격력 +60%, 쿨다운 35초
@@ -198,7 +200,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 스테이지 진행, 저장/불러오기
 - `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
-- `scripts/shop.gd`: 시작 화면 겸 상점
+- `scripts/shop.gd`: 시작 화면 (스테이지, 코어, 출정 타일, SHOP 버튼)
+- `scripts/shop_window.gd`: 상점 창 (영구 강화, 타일, 코어 구매)
 - `scripts/hud.gd`: 화면 위 정보와 버튼
 - `scripts/sfx.gd`: 효과음과 배경음 (`Sfx.play("kill")`, `Sfx.music("battle")`), 볼륨 설정
 - `scripts/sound_panel.gd`: 소리 설정 창과 SOUND 버튼

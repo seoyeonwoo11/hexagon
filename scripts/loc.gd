@@ -302,4 +302,22 @@ const KO := {
 	"Core skill cooldown -7%": "코어 스킬 쿨다운 -7%",
 	"WARP: throws every enemy 380 away from the core (bosses 150).":
 			"WARP: 모든 적을 코어 반대쪽으로 380 날려 보냅니다 (보스 150).",
+	# 상점 창
+	"SHOP": "상점",
+	"shards": "샤드",
+	"BACK  (ESC)": "돌아가기  (ESC)",
+	"UPGRADES": "영구 강화",
+	"TILES": "타일",
+	"CORES": "코어",
+	"Permanent upgrades apply to every run. Clearing a stage for the first time raises every limit by %d.": "영구 강화는 모든 판에 적용됩니다. 스테이지를 처음 깰 때마다 상한이 %d씩 오릅니다.",
+	"Bought tiles can be added to your loadout on the start screen.": "산 타일은 시작 화면에서 가져갈 타일에 넣을 수 있습니다.",
+	"Pick the core for your run on the start screen. Each core has its own skill (Q).": "판에 쓸 코어는 시작 화면에서 고릅니다. 코어마다 스킬(Q)이 다릅니다.",
+	"Clear a new stage to raise the limit.": "새 스테이지를 깨면 상한이 오릅니다.",
+	"UPGRADE   %d shards": "강화   샤드 %d",
+	"OWNED": "보유",
+	"BUY   %d shards": "구매   샤드 %d",
+	"Upgrades  %d / %d": "영구 강화  %d / %d",
+	"Upgrades, tiles and cores": "영구 강화, 타일, 코어",
+	"Buy it in the shop for %d shards. Click to open the shop.": "상점에서 샤드 %d개로 살 수 있습니다. 클릭하면 상점이 열립니다.",
+	"COOLDOWN %ds": "쿨다운 %d초",
 }
