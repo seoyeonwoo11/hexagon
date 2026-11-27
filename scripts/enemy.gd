@@ -2,6 +2,7 @@ class_name Enemy
 extends Node2D
 ## 화면 밖에서 나타나 가장 가까운 타일로 다가가는 적.
 ## 타일에 닿으면 피해를 주고 사라지며, 처치되면 보상금을 준다.
+## 종류(kind)별 모양과 능력은 EnemyDefs 참고. armor는 받는 피해 감소 비율(0~1).
 
 signal died(enemy: Enemy, reward: int)
 
@@ -16,6 +17,15 @@ var reward := 5
 var contact_damage := 10.0
 var radius := 12.0
 var board: Board
+var kind := "grunt"
+var sides := 3
+var star := false
+var armor := 0.0
+## 처치되면 이 종류의 적으로 split_count마리 갈라진다 (빈 문자열이면 없음)
+var splits_into := ""
+var split_count := 0
+## 처치당해 죽었는지 (타일에 부딪혀 사라지면 false)
+var killed := false
 
 var _dead := false
 var _spin := 0.0
@@ -27,6 +37,25 @@ var _burn_source: HexTile
 ## 마지막으로 피해를 준 타일 (COLLECTOR 장비 보상용)
 var _last_source: HexTile
 var _crit_flash := 0.0
+
+
+## 종류와 웨이브 기본 능력치로 설정한다. add_child 전에 호출.
+func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: int,
+		base_contact: float) -> void:
+	var def := EnemyDefs.get_def(enemy_kind)
+	kind = enemy_kind
+	color = def["color"]
+	sides = def["sides"]
+	star = def["star"]
+	radius = def["radius"]
+	armor = def["armor"]
+	max_hp = base_hp * def["hp"]
+	hp = max_hp
+	speed = base_speed * def["speed"]
+	reward = maxi(1, roundi(base_reward * def["reward"]))
+	contact_damage = base_contact * def["contact"]
+	splits_into = def.get("splits_into", "")
+	split_count = def.get("split_count", 0)
 
 
 func _ready() -> void:
@@ -43,7 +72,9 @@ func _process(delta: float) -> void:
 			_slow_factor = 1.0
 	if _burn_timer > 0.0:
 		_burn_timer -= delta
-		take_damage(_burn_dps * delta, _burn_source)
+		# 불을 붙인 타일이 이미 부서졌을 수 있다
+		var src: HexTile = _burn_source if is_instance_valid(_burn_source) else null
+		take_damage(_burn_dps * delta, src)
 		if _dead:
 			return
 	var target := board.nearest_tile(global_position)
@@ -96,34 +127,53 @@ func take_damage(amount: float, source: HexTile = null) -> void:
 		return
 	if source != null:
 		_last_source = source
-	hp -= amount
+	hp -= amount * (1.0 - armor)
 	if hp <= 0.0:
 		_die(true)
 	else:
 		queue_redraw()
 
 
-func _die(killed: bool) -> void:
+func _die(was_killed: bool) -> void:
 	_dead = true
+	killed = was_killed
 	remove_from_group(GROUP)
 	var bonus := 0
-	if killed and is_instance_valid(_last_source) and _last_source.gear == "collector":
+	if was_killed and is_instance_valid(_last_source) and _last_source.gear == "collector":
 		bonus = GearDefs.COLLECTOR_BONUS
-	died.emit(self, reward + bonus if killed else 0)
+	died.emit(self, reward + bonus if was_killed else 0)
 	queue_free()
 
 
-func _draw() -> void:
+## 종류에 따른 외곽선 점들 (닫힌 도형).
+func shape_points() -> PackedVector2Array:
 	var pts := PackedVector2Array()
-	for i in 4:
-		var a := _spin + TAU * i / 3.0
-		pts.append(Vector2(cos(a), sin(a)) * radius)
+	if star:
+		for i in sides * 2 + 1:
+			var a := _spin * 0.5 + PI * i / sides
+			var r := radius if i % 2 == 0 else radius * 0.5
+			pts.append(Vector2(cos(a), sin(a)) * r)
+	else:
+		for i in sides + 1:
+			var a := _spin + TAU * i / sides
+			pts.append(Vector2(cos(a), sin(a)) * radius)
+	return pts
+
+
+func _draw() -> void:
+	var pts := shape_points()
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
 	if _crit_flash > 0.0:
 		c = Color.WHITE
 	elif is_burning():
 		c = c.lerp(Color(1.0, 0.6, 0.1), 0.5 + 0.3 * sin(_spin * 6.0))
-	NeonDraw.polyline(self, pts, c, 1.0, 2.5)
+	NeonDraw.polyline(self, pts, c, 1.0, 3.5 if kind == "boss" else 2.5)
+	if armor > 0.0:
+		# 장갑: 안쪽에 같은 모양을 한 겹 더
+		var inner := PackedVector2Array()
+		for p in pts:
+			inner.append(p * 0.55)
+		NeonDraw.polyline(self, inner, c, 0.7, 1.5)
 	if hp < max_hp:
 		var w := radius * 2.0
 		var y := radius + 6.0

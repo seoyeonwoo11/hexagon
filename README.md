@@ -14,6 +14,7 @@ Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행�
 godot --headless --path . -s res://tests/test_hex_grid.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_combat.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_enemies.gd
 ```
 
 ## 조작
@@ -36,6 +37,15 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 - BANK에는 장비를 달 수 없음
 - COLLECTOR: 이 타일이 처치한 적 보상 +$1
 
+## 적 종류
+
+- GRUNT (빨간 삼각형): 기본
+- RUNNER (노란 작은 사각형, 웨이브 2~): 체력 낮고 매우 빠름
+- TANK (주황 큰 사각형, 웨이브 4~): 체력 많고 느림, 부딪히면 큰 피해, 보상 3배
+- SPLITTER (연두 오각형, 웨이브 6~): 처치하면 RUNNER 2마리로 갈라짐
+- ARMORED (회색 이중 육각형, 웨이브 8~): 받는 피해 30% 감소
+- BOSS (분홍 별, 10웨이브마다 1마리): 체력 매우 많음, 피해 20% 감소, 보상 큼
+
 ## 타일 종류
 
 - CORE: 시작 타일. 부서지면 게임 오버
@@ -54,6 +64,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 - `scripts/board.gd`: 보드, 배경 그리드, 배치 규칙 (맞닿은 면에만 배치)
 - `scripts/explosion.gd`: DETONATOR 폭발 효과
 - `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
+- `scripts/enemy_defs.gd`: 적 종류별 배율과 등장 웨이브
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/hud.gd`: 화면 위 정보와 버튼
