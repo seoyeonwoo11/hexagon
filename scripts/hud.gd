@@ -389,6 +389,11 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 				roundi(tile.pack_bonus * tile.linked_archers() * 100.0)])
 	if tile.attack == "frost":
 		lines.append("SLOW %d%%" % roundi((1.0 - tile.frost_slow) * 100.0))
+	if tile.attack == "burn":
+		if tile.target_count() > 1:
+			lines.append("FLAMES %d" % tile.target_count())
+		lines.append("BURN %.1f / S FOR %.1f S" % [tile.damage() * FlameJet.BURN_DPS_RATIO, tile.burn_time])
+		lines.append("FIRE SPREADS ON TOUCH (%d%%)" % roundi(FlameJet.SPREAD_RATIO * 100.0))
 	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
 	if not tile.gears.is_empty():
