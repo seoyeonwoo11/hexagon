@@ -29,7 +29,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 - SPLITTER: 공격마다 대상 1명 추가 (LASER, SPARK, CORE)
 - IGNITER: 맞은 적에게 3초 화상
 - CRYO COIL: 맞은 적 35% 감속 (LASER, SPARK, CORE)
-- REGENERATOR: 최대 체력 +30, 초당 3 회복 (모든 타일)
+- CRIT LENS: 20% 확률로 3배 피해
+- DETONATOR: 이 타일이 처치한 적이 폭발해 주변 적에게 피해
+- BANK에는 장비를 달 수 없음
 - COLLECTOR: 이 타일이 처치한 적 보상 +$1
 
 ## 타일 종류
@@ -48,6 +50,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_progression.gd
 - `scripts/tile_defs.gd`: 타일 종류별 능력치 (새 타일은 여기에 추가)
 - `scripts/hex_tile.gd`: 타일 하나 (공격, 강화)
 - `scripts/board.gd`: 보드, 배경 그리드, 배치 규칙 (맞닿은 면에만 배치)
+- `scripts/explosion.gd`: DETONATOR 폭발 효과
 - `scripts/chain_bolt.gd`: SPARK 타일의 튕기는 번개 투사체
 - `scripts/enemy.gd`: 적 (화면 밖에서 등장해 가장 가까운 타일로 이동)
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)

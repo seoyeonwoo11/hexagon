@@ -26,6 +26,7 @@ var _burn_timer := 0.0
 var _burn_source: HexTile
 ## 마지막으로 피해를 준 타일 (COLLECTOR 장비 보상용)
 var _last_source: HexTile
+var _crit_flash := 0.0
 
 
 func _ready() -> void:
@@ -55,6 +56,7 @@ func _process(delta: float) -> void:
 		return
 	global_position += to_target.normalized() * speed * _slow_factor * delta
 	_spin += delta * 3.0
+	_crit_flash = maxf(_crit_flash - delta, 0.0)
 	queue_redraw()
 
 
@@ -74,6 +76,11 @@ func apply_burn(dps: float, duration: float, source: HexTile = null) -> void:
 
 func is_burning() -> bool:
 	return _burn_timer > 0.0
+
+
+## 치명타 맞았을 때 잠깐 하얗게 번쩍인다.
+func flash_crit() -> void:
+	_crit_flash = 0.15
 
 
 func is_slowed() -> bool:
@@ -112,7 +119,9 @@ func _draw() -> void:
 		var a := _spin + TAU * i / 3.0
 		pts.append(Vector2(cos(a), sin(a)) * radius)
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
-	if is_burning():
+	if _crit_flash > 0.0:
+		c = Color.WHITE
+	elif is_burning():
 		c = c.lerp(Color(1.0, 0.6, 0.1), 0.5 + 0.3 * sin(_spin * 6.0))
 	NeonDraw.polyline(self, pts, c, 1.0, 2.5)
 	if hp < max_hp:

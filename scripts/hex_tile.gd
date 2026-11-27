@@ -78,26 +78,43 @@ func target_count() -> int:
 	return 2 if gear == "splitter" else 1
 
 
-## 장비 장착. 이미 있으면 교체한다 (REGENERATOR의 체력 보너스도 같이 정리).
+## 장비 장착. 이미 있으면 교체한다.
 func equip(gear_id: String) -> void:
-	if gear == "regen":
-		max_hp -= GearDefs.REGEN_HP
-		hp = minf(hp, max_hp)
 	gear = gear_id
-	if gear == "regen":
-		max_hp += GearDefs.REGEN_HP
-		hp += GearDefs.REGEN_HP
 	queue_redraw()
 
 
 ## 적 하나를 맞혔을 때: 피해 + 장비 효과.
 func apply_hit(enemy: Enemy, amount: float) -> void:
+	if gear == "crit" and randf() < GearDefs.CRIT_CHANCE:
+		amount *= GearDefs.CRIT_MULT
+		enemy.flash_crit()
+	var was_alive := enemy.is_alive()
 	enemy.take_damage(amount, self)
+	if gear == "detonator" and was_alive and not enemy.is_alive():
+		_detonate(enemy.global_position)
 	match gear:
 		"igniter":
 			enemy.apply_burn(amount * GearDefs.IGNITE_DPS_RATIO, GearDefs.IGNITE_TIME, self)
 		"cryo":
 			enemy.apply_slow(GearDefs.CRYO_SLOW, GearDefs.CRYO_TIME)
+
+
+## DETONATOR: pos(전역)에서 폭발. 폭발 피해로는 다시 폭발하지 않는다.
+func _detonate(pos: Vector2) -> void:
+	if board == null:
+		return
+	var color: Color = GearDefs.get_def("detonator")["color"]
+	var fx := Explosion.new()
+	fx.color = color
+	fx.radius = GearDefs.DETONATE_RADIUS
+	board.enemy_layer.add_child(fx)
+	fx.global_position = pos
+	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var other := node as Enemy
+		if other != null and other.is_alive() \
+				and pos.distance_to(other.global_position) <= GearDefs.DETONATE_RADIUS:
+			other.take_damage(damage() * GearDefs.DETONATE_RATIO, self)
 
 
 func upgrade_cost() -> int:
@@ -124,8 +141,6 @@ func _process(delta: float) -> void:
 	_cooldown -= delta
 	_shot_time = maxf(_shot_time - delta, 0.0)
 	_hit_flash = maxf(_hit_flash - delta, 0.0)
-	if gear == "regen" and hp < max_hp and not _destroyed:
-		hp = minf(hp + GearDefs.REGEN_PER_SEC * delta, max_hp)
 	if _cooldown <= 0.0:
 		_fire()
 	queue_redraw()

@@ -143,13 +143,35 @@ func _run() -> void:
 	_check(core.gear == "scope" and core.effective_range() > range_before, "scope adds range")
 	_check(_game.state == Game.State.INTERMISSION, "equip -> intermission")
 
-	# 장비 교체 + REGENERATOR 체력 보너스 정리
-	var hp_before := core.max_hp
-	core.equip("regen")
-	_check(core.max_hp == hp_before + GearDefs.REGEN_HP, "regen adds max hp")
+	# 장비 교체
 	core.equip("splitter")
-	_check(core.max_hp == hp_before and core.gear == "splitter", "replacing regen removes bonus")
-	_check(core.target_count() == 2, "splitter targets 2")
+	_check(core.gear == "splitter" and core.target_count() == 2, "splitter replaces scope")
+	_check(core.effective_range() == core.attack_range, "scope bonus gone after replace")
+	_check(not board.tiles.values().any(func(t: HexTile) -> bool:
+			return t.kind == "bank" and GearDefs.ids().any(func(id: String) -> bool:
+				return GearDefs.can_equip(id, t))), "bank takes no gear")
+
+	# CRIT LENS: 평균 피해가 늘어난다 (20% 확률로 3배 → 기대값 1.4배)
+	core.equip("crit")
+	var tank := _spawn_enemy_at(Vector2(-700, 400))
+	tank.max_hp = 100000.0
+	tank.hp = tank.max_hp
+	for i in 1000:
+		core.apply_hit(tank, 1.0)
+	var dealt := tank.max_hp - tank.hp
+	_check(dealt > 1200.0 and dealt < 1600.0, "crit average damage (dealt %.0f)" % dealt)
+	tank.queue_free()
+
+	# DETONATOR: 처치한 적이 폭발해 근처 적에게 피해, 멀리 있는 적은 무사
+	core.equip("detonator")
+	var target := _spawn_enemy_at(Vector2(600, 400))
+	var near := _spawn_enemy_at(Vector2(660, 400))
+	var away := _spawn_enemy_at(Vector2(900, 400))
+	core.apply_hit(target, 99999.0)
+	_check(near.hp < near.max_hp, "explosion hurts nearby enemy")
+	_check(away.hp == away.max_hp, "explosion misses far enemy")
+	near.queue_free()
+	away.queue_free()
 
 	# 장비 효과: IGNITER 화상, CRYO 감속, COLLECTOR 보상
 	var victim := _spawn_enemy_at(Vector2(-700, -400))
