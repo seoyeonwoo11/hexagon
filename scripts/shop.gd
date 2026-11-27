@@ -347,9 +347,9 @@ class Honeycomb extends Control:
 
 	func _draw() -> void:
 		var c0 := _center()
-		# 위쪽: 출정 타일 수
+		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째 타일 자리)
 		var full := Meta.loadout_full()
-		_text(c0 + Vector2(0, -R * 3.35), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.MAX_LOADOUT],
+		_text(c0 + Vector2(0, R * 3.05), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.MAX_LOADOUT],
 				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
 		for cell in _cells:
 			var kind: String = _cells[cell]

@@ -217,6 +217,48 @@ func _run() -> void:
 	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
 	a1.take_damage(1e9)
 
+	# PRISM: 맞닿은 LASER가 쏘면 LASER -> PRISM 방향으로 세 갈래 광선 (갈래마다 40%)
+	var beam := board.place_tile(board.placeable_cells()[0], "laser")
+	var prism: HexTile = null
+	for n in HexGrid.neighbors(beam.coord):
+		if board.can_place(n) and HexGrid.distance(n, Vector2i.ZERO) > HexGrid.distance(beam.coord, Vector2i.ZERO):
+			prism = board.place_tile(n, "prism")
+			break
+	_check(prism != null and beam.adjacent_prisms() == [prism] and prism.prism_sources() == [beam],
+			"prism sees adjacent laser")
+	var ray_dir := beam.position.direction_to(prism.position)
+	var in_line := _game.spawn_enemy("grunt", prism.global_position + ray_dir * 150.0)
+	var bait := _game.spawn_enemy("grunt", beam.global_position - ray_dir * 120.0)
+	for e in [in_line, bait]:
+		e.max_hp = 10000.0
+		e.hp = 10000.0
+		e.speed = 0.0
+	beam._fire_laser()
+	_check(absf((10000.0 - in_line.hp) - beam.damage() * prism.split) < 0.01,
+			"refracted ray hits in prism direction (%.2f)" % (10000.0 - in_line.hp))
+	_check(prism._shot_targets.size() == 3, "prism splits into 3 rays")
+	# ARCHER + PRISM: 곧게 나는 화살 세 개, 같은 방향
+	beam.take_damage(1e9)
+	var bow := board.place_tile(beam.coord, "archer")
+	ray_dir = bow.position.direction_to(prism.position)
+	in_line.global_position = prism.global_position + ray_dir * 150.0
+	in_line.hp = 10000.0
+	bait.global_position = bow.global_position - ray_dir * 120.0
+	bow._fire()
+	var prism_arrows: Array = board.enemy_layer.get_children().filter(func(n: Node) -> bool:
+		return n is Arrow and n.source == prism)
+	_check(prism_arrows.size() == 3, "prism splits archer shot into 3 arrows")
+	for i in 30:
+		for ar in prism_arrows:
+			if is_instance_valid(ar):
+				ar._process(1.0 / 60.0)
+	_check(absf((10000.0 - in_line.hp) - bow.damage() * prism.split) < 0.01,
+			"straight arrow hits enemy in line (%.2f)" % (10000.0 - in_line.hp))
+	for t in [bow, prism]:
+		t.take_damage(1e9)
+	for e in [in_line, bait]:
+		e.queue_free()
+
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6
 	_game.wave = 9

@@ -54,6 +54,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - ORBIT: 빛나는 구체 3개가 타일 주위 원 궤도(반지름 145)를 돌며 닿은 적에게 피해 14 (레벨마다 구체 +1, 최대 6개)
 - DRONE HIVE: 드론 2기가 벌집 주위를 돌다가 사거리(330) 안 적을 쫓아가 들이받음. 드론마다 다른 적을 노림
 - ARCHER: 긴 사거리(360) 화살. 면이 맞닿은 ARCHER 1개당 공격력 +40% (가운데 끼면 최대 +240%). 연결된 변에 밝은 막대
+- PRISM: 공격하지 않는 대신 면이 맞닿은 LASER/ARCHER가 쏠 때마다 쏜 타일 → PRISM 방향으로 세 갈래(가운데 ±24°)를 쏨. 갈래마다 원래 공격력의 40% (강화마다 +10%p). LASER는 관통 광선(빨강/초록/파랑), ARCHER는 곧게 나는 화살. 놓는 위치가 화력 방향을 정함
 - BOOSTER: 공격하지 않는 대신 면이 맞닿은 타일들의 공격 속도 +25% (강화마다 +10%p, 여러 개면 더해짐). 장비 불가
 - BANK: 웨이브를 넘길 때마다 돈, 그리고 가진 돈의 4% 이자 (강화마다 +1%p, 최대 수입 × 3)
 
@@ -62,7 +63,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - 게임을 켜면 시작 화면(상점)이 뜨고, START 또는 Enter로 판을 시작
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). 결과는 시작 화면에 표시되고, R을 누르면 상점 없이 바로 새 판
 - 영구 강화 (각 5레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
-- 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), DRONE HIVE(25)는 SHARD로 사야 함
+- 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), PRISM(20), DRONE HIVE(25)는 SHARD로 사야 함
 - 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 

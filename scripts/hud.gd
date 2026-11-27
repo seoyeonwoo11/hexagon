@@ -220,6 +220,9 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		lines.append("BOUNCES %d" % tile.bounces)
 	if tile.attack == "drone":
 		lines.append("DRONES %d" % tile.drone_count())
+	if tile.split > 0.0:
+		lines.append("SPLITS INTO 3 RAYS (%d%% EACH)" % roundi(tile.split * 100.0))
+		lines.append("FEEDING %d LASER/ARCHER" % tile.prism_sources().size())
 	if tile.pack_bonus > 0.0:
 		lines.append("PACK %d ARCHERS (+%d%% DMG)" % [tile.linked_archers(),
 				roundi(tile.pack_bonus * tile.linked_archers() * 100.0)])

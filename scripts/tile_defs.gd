@@ -3,7 +3,7 @@ extends RefCounted
 ## 타일 종류별 기본 능력치. 새 타일 종류는 여기에 추가한다.
 ## attack: "laser" (가장 가까운 적 1명), "spark" (적 사이를 튕기는 번개), "frost" (전체 감속 + 약한 피해),
 ##         "orbit" (타일 주위를 도는 구체가 닿은 적에게 피해), "drone" (드론이 쫓아가 들이받음),
-##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "none" (공격 안 함)
+##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "none" (공격 안 함. BOOSTER, PRISM, BANK)
 
 const DEFS := {
 	"core": {
@@ -46,6 +46,12 @@ const DEFS := {
 		"pack": 0.4,
 		"desc": "Long-range arrows. +40% damage for every ARCHER touching it.",
 	},
+	"prism": {
+		"name": "PRISM", "color": Color(0.92, 0.88, 1.0), "attack": "none",
+		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
+		"split": 0.4,
+		"desc": "Splits the shots of touching LASER and ARCHER tiles into 3 rays, fired away from the shooter.",
+	},
 	"booster": {
 		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",
 		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
@@ -60,7 +66,7 @@ const DEFS := {
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer", "prism"]
 
 
 static func get_def(kind: String) -> Dictionary:
