@@ -353,8 +353,9 @@ class Honeycomb extends Control:
 	signal hover_changed(kind: String)
 
 	const R := 76.0
-	## 둘레 6칸 다음에 놓을 칸 (가로 양 끝). 타일 종류가 늘면 여기에 추가
-	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(-1, 2)]
+	## 둘레 6칸 다음에 놓을 칸 (오른쪽 위, 왼쪽 아래, 위, 오른쪽 아래). 타일 종류가 늘면 여기에 추가.
+	## 바로 아래 칸은 LOADOUT 글자 자리라 비워 둔다.
+	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(1, 1)]
 
 	var hovered := "none"
 	var _time := 0.0
@@ -411,7 +412,7 @@ class Honeycomb extends Control:
 
 	func _draw() -> void:
 		var c0 := _center()
-		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째 타일 자리)
+		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째, 오른쪽 아래 칸은 10번째 타일 자리)
 		var full := Meta.loadout_full()
 		_text(c0 + Vector2(0, R * 3.05), "LOADOUT  %d / %d" % [Meta.loadout.size(), Meta.MAX_LOADOUT],
 				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
