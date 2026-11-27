@@ -45,14 +45,14 @@ func _ready() -> void:
 	info.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	info.add_theme_constant_override("separation", 6)
 	root.add_child(info)
-	_wave_label = _make_label(NEON_CYAN, 44, 800)
-	_money_label = _make_label(NEON_YELLOW, 28, 600)
+	_wave_label = _make_label(NEON_CYAN, 44, 800, 0.25)
+	_money_label = _make_label(NEON_YELLOW, 30, 700)
 	info.add_child(_wave_label)
 	info.add_child(_money_label)
 	var core_row := HBoxContainer.new()
 	core_row.add_theme_constant_override("separation", 14)
 	info.add_child(core_row)
-	_core_label = _make_label(NEON_PINK, 22, 600)
+	_core_label = _make_label(NEON_PINK, 24, 700)
 	_core_label.text = "CORE"
 	_core_bar = _make_bar(NEON_PINK)
 	core_row.add_child(_core_label)
@@ -70,7 +70,7 @@ func _ready() -> void:
 	buttons.add_child(_speed_button)
 
 	# 아래 가운데 안내 문구
-	_banner_label = _make_label(Color.WHITE, 56, 900)
+	_banner_label = _make_label(Color.WHITE, 56, 900, 0.3)
 	_banner_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_banner_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -91,7 +91,7 @@ func _ready() -> void:
 	center.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_theme_constant_override("separation", 18)
 	_overlay.add_child(center)
-	_overlay_title = _make_label(NEON_CYAN, 96, 900)
+	_overlay_title = _make_label(NEON_CYAN, 96, 900, 0.35)
 	_overlay_sub = _make_label(Color(1, 1, 1, 0.85), 28, 500)
 	for l in [_overlay_title, _overlay_sub]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -176,14 +176,16 @@ static func font_weight(weight: int) -> Font:
 	return f
 
 
-func _make_label(color: Color, font_size: int, weight: int) -> Label:
+## glow: 글자 뒤 빛 번짐의 세기 (0이면 없음). 작은 글자에 번짐을 주면 뿌옇게 보이므로
+## 큰 제목에만 약하게 쓴다.
+func _make_label(color: Color, font_size: int, weight: int, glow: float = 0.0) -> Label:
 	var label := Label.new()
 	var settings := LabelSettings.new()
 	settings.font = font_weight(weight)
 	settings.font_size = font_size
 	settings.font_color = color
-	settings.shadow_color = Color(color, 0.45)
-	settings.shadow_size = 10
+	settings.shadow_color = Color(color, glow)
+	settings.shadow_size = 6 if glow > 0.0 else 0
 	settings.shadow_offset = Vector2.ZERO
 	label.label_settings = settings
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -191,8 +193,9 @@ func _make_label(color: Color, font_size: int, weight: int) -> Label:
 
 
 func _set_label_color(label: Label, color: Color) -> void:
+	var glow := label.label_settings.shadow_color.a
 	label.label_settings.font_color = color
-	label.label_settings.shadow_color = Color(color, 0.45)
+	label.label_settings.shadow_color = Color(color, glow)
 
 
 func _make_bar(color: Color) -> ProgressBar:
@@ -207,8 +210,8 @@ func _make_bar(color: Color) -> ProgressBar:
 	bg.set_border_width_all(2)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = color
-	fill.shadow_color = Color(color, 0.5)
-	fill.shadow_size = 8
+	fill.shadow_color = Color(color, 0.3)
+	fill.shadow_size = 4
 	bar.add_theme_stylebox_override("background", bg)
 	bar.add_theme_stylebox_override("fill", fill)
 	return bar
