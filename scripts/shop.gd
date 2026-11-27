@@ -19,13 +19,11 @@ const SIDE_MARGIN := 120
 ## 임시(테스트용): + 키나 숫자 옆 + 버튼으로 SHARD 지급. 출시 전에 false로.
 const DEBUG_FREE_SHARDS := true
 const DEBUG_SHARD_AMOUNT := 10
-## SHARD 숫자용 고정폭 글꼴: 숫자마다 폭이 같아서 값이 바뀌어도 흔들리지 않는다.
-const NUMBER_FONT := preload("res://assets/fonts/ShareTechMono-Regular.ttf")
-const NUMBER_SIZE := 150
+const NUMBER_SIZE := 132
 
 var _result_label: Label
 var _best_label: Label
-var _shards_value: Label
+var _shards_value: FixedDigits
 var _honeycomb: Honeycomb
 var _caption_title: Label
 var _caption_body: Label
@@ -62,7 +60,7 @@ func is_open() -> bool:
 func refresh() -> void:
 	if _shards_value == null:
 		return
-	_shards_value.text = "%d" % Meta.shards
+	_shards_value.set_value(Meta.shards)
 	if Meta.last_run_wave > 0:
 		_result_label.text = "Run ended on wave %d\n+%d shards" \
 				% [Meta.last_run_wave, Meta.last_run_shards]
@@ -131,14 +129,10 @@ func _build_left(parent: Control) -> void:
 	var shard_row := HBoxContainer.new()
 	shard_row.add_theme_constant_override("separation", 24)
 	col.add_child(shard_row)
-	_shards_value = Hud.make_label(SHARD_COLOR, NUMBER_SIZE, 400, 0.3)
-	_shards_value.label_settings.font = NUMBER_FONT
-	# 얇은 고정폭 글꼴에 같은 색 외곽선을 둘러 굵기를 맞춘다
-	_shards_value.label_settings.outline_size = 6
-	_shards_value.label_settings.outline_color = SHARD_COLOR
-	# 세 자리 폭을 미리 잡아 두어 자릿수가 바뀌어도 옆 버튼이 움직이지 않게 한다
-	_shards_value.custom_minimum_size.x = NUMBER_FONT.get_string_size("000",
-			HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE).x
+	_shards_value = FixedDigits.new()
+	_shards_value.font_size = NUMBER_SIZE
+	_shards_value.color = SHARD_COLOR
+	_shards_value.min_digits = 3
 	shard_row.add_child(_shards_value)
 	if DEBUG_FREE_SHARDS:
 		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
@@ -413,3 +407,48 @@ class LevelPips extends Control:
 				NeonDraw.hexagon(self, pos, r, color, 0.9, 1.5, 0.8)
 			else:
 				NeonDraw.hexagon(self, pos, r, Color(1, 1, 1, 0.3), 0.5, 1.0)
+
+
+## 숫자를 Orbitron 그대로 쓰되, 글자마다 같은 폭의 칸에 가운데 맞춰 그린다.
+## Orbitron은 숫자 폭이 제각각(1이 좁음)이라 Label로 쓰면 값이 바뀔 때 폭이 흔들린다.
+## min_digits 자리만큼 폭을 미리 잡아 옆 요소도 움직이지 않는다.
+class FixedDigits extends Control:
+	var font_size := 132
+	var color := Color.WHITE
+	var min_digits := 3
+	var _text := "0"
+	var _font: Font
+	var _cell := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_font = Hud.font_weight(900)
+		for d in "0123456789":
+			_cell = maxf(_cell, _font.get_string_size(d, HORIZONTAL_ALIGNMENT_LEFT, -1,
+					font_size).x)
+		_cell *= 0.96
+		_update_size()
+
+	func set_value(v: int) -> void:
+		_text = "%d" % v
+		_update_size()
+		queue_redraw()
+
+	func _update_size() -> void:
+		if _font == null:
+			return
+		custom_minimum_size = Vector2(_cell * maxi(min_digits, _text.length()),
+				_font.get_height(font_size) * 0.82)
+
+	func _draw() -> void:
+		var base := _font.get_ascent(font_size) * 0.9
+		for i in _text.length():
+			var ch := _text[i]
+			var w := _font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+			var x := _cell * i + (_cell - w) / 2.0
+			# 바깥 빛 번짐 두 겹 + 본 글자
+			for k in [10, 5]:
+				draw_string_outline(_font, Vector2(x, base), ch, HORIZONTAL_ALIGNMENT_LEFT, -1,
+						font_size, k, Color(color, 0.12))
+			draw_string(_font, Vector2(x, base), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
+					color)
