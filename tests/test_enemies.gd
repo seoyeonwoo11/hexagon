@@ -137,33 +137,57 @@ func _run() -> void:
 	boss.queue_free()
 	core.hp = core.max_hp
 
-	# LASER: 광선이 줄 위 적을 관통하고, 같은 적을 계속 맞히면 피해가 커진다
+	# LASER: 가장 가까운 적 한 명에게 광선을 꽂고, 죽거나 사거리를 벗어날 때까지 그 적만 계속 때린다
 	var las := HexTile.new()
 	las.setup("laser")
 	board.add_child(las)
 	las.global_position = Vector2(-3000, -2000)
 	var front := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 0))
 	var back := _game.spawn_enemy("grunt", las.global_position + Vector2(220, 0))
-	var side := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 160))
-	for e in [front, back, side]:
+	for e in [front, back]:
 		e.max_hp = 10000.0
 		e.hp = 10000.0
-	las._fire_laser()
+		e.speed = 0.0
+	las._process_beam(0.0)
 	var first_hit := 10000.0 - front.hp
-	_check(first_hit > 0.0 and back.hp < 10000.0, "laser pierces enemies in a line")
-	_check(side.hp == 10000.0, "laser misses enemies off the line")
+	_check(las.beam_targets == [front] and first_hit > 0.0, "laser locks onto nearest enemy")
+	_check(back.hp == 10000.0, "laser does not pierce")
+	_check(las.beam_active(), "beam is drawn while locked")
+	# 다른 적이 더 가까이 와도 놓지 않는다
+	back.global_position = las.global_position + Vector2(60, 0)
 	for i in 8:
-		las._fire_laser()
+		las._cooldown = 0.0
+		las._process_beam(0.1)
+	_check(las.beam_targets == [front] and back.hp == 10000.0, "beam sticks to its target")
 	var hp_before := front.hp
-	las._fire_laser()
+	las._cooldown = 0.0
+	las._process_beam(0.1)
 	var focused_hit := hp_before - front.hp
 	_check(absf(focused_hit - first_hit * (1.0 + las.focus_step * las.focus_max)) < 0.01,
 			"focus caps at x%.1f (first %.1f, now %.1f)" % [1.0 + las.focus_step * las.focus_max,
 			first_hit, focused_hit])
+	# 대상이 사거리를 벗어나면 곧바로 다음 적으로, 집중은 0부터
 	front.global_position += Vector2(0, 5000)
-	las._fire_laser()
+	las._cooldown = 0.0
+	las._process_beam(0.0)
+	_check(las.beam_targets == [back] and back.hp < 10000.0, "beam moves to next enemy when target leaves")
 	_check(las.focus_stacks() == 0, "focus resets on a new target")
-	for e in [front, back, side]:
+	# 대상이 죽으면 다음 적으로, 적이 없으면 광선이 꺼진다
+	back.take_damage(1e9)
+	front.global_position = las.global_position + Vector2(120, 0)
+	las._process_beam(0.0)
+	_check(las.beam_targets == [front], "beam moves on when target dies")
+	front.take_damage(1e9)
+	las._process_beam(0.0)
+	_check(las.beam_targets.is_empty() and not las.beam_active(), "beam off with no enemies")
+	# SPLITTER: 광선 2줄, 서로 다른 적
+	var e1 := _game.spawn_enemy("grunt", las.global_position + Vector2(80, 0))
+	var e2 := _game.spawn_enemy("grunt", las.global_position + Vector2(0, 90))
+	las.equip("splitter")
+	las._process_beam(HexTile.BEAM_RETARGET)
+	_check(las.beam_targets.size() == 2 and las.beam_targets.has(e1) and las.beam_targets.has(e2),
+			"splitter adds a second beam")
+	for e in [e1, e2]:
 		e.queue_free()
 	las.queue_free()
 
@@ -217,47 +241,6 @@ func _run() -> void:
 	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
 	a1.take_damage(1e9)
 
-	# PRISM: 맞닿은 LASER가 쏘면 LASER -> PRISM 방향으로 세 갈래 광선 (갈래마다 40%)
-	var beam := board.place_tile(board.placeable_cells()[0], "laser")
-	var prism: HexTile = null
-	for n in HexGrid.neighbors(beam.coord):
-		if board.can_place(n) and HexGrid.distance(n, Vector2i.ZERO) > HexGrid.distance(beam.coord, Vector2i.ZERO):
-			prism = board.place_tile(n, "prism")
-			break
-	_check(prism != null and beam.adjacent_prisms() == [prism] and prism.prism_sources() == [beam],
-			"prism sees adjacent laser")
-	var ray_dir := beam.position.direction_to(prism.position)
-	var in_line := _game.spawn_enemy("grunt", prism.global_position + ray_dir * 150.0)
-	var bait := _game.spawn_enemy("grunt", beam.global_position - ray_dir * 120.0)
-	for e in [in_line, bait]:
-		e.max_hp = 10000.0
-		e.hp = 10000.0
-		e.speed = 0.0
-	beam._fire_laser()
-	_check(absf((10000.0 - in_line.hp) - beam.damage() * prism.split) < 0.01,
-			"refracted ray hits in prism direction (%.2f)" % (10000.0 - in_line.hp))
-	_check(prism._shot_targets.size() == 3, "prism splits into 3 rays")
-	# ARCHER + PRISM: 곧게 나는 화살 세 개, 같은 방향
-	beam.take_damage(1e9)
-	var bow := board.place_tile(beam.coord, "archer")
-	ray_dir = bow.position.direction_to(prism.position)
-	in_line.global_position = prism.global_position + ray_dir * 150.0
-	in_line.hp = 10000.0
-	bait.global_position = bow.global_position - ray_dir * 120.0
-	bow._fire()
-	var prism_arrows: Array = board.enemy_layer.get_children().filter(func(n: Node) -> bool:
-		return n is Arrow and n.source == prism)
-	_check(prism_arrows.size() == 3, "prism splits archer shot into 3 arrows")
-	for i in 30:
-		for ar in prism_arrows:
-			if is_instance_valid(ar):
-				ar._process(1.0 / 60.0)
-	_check(absf((10000.0 - in_line.hp) - bow.damage() * prism.split) < 0.01,
-			"straight arrow hits enemy in line (%.2f)" % (10000.0 - in_line.hp))
-	for t in [bow, prism]:
-		t.take_damage(1e9)
-	for e in [in_line, bait]:
-		e.queue_free()
 
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6

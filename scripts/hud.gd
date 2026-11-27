@@ -372,8 +372,8 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 				tile.income * Game.BANK_INTEREST_CAP])
 	if tile.attack == "laser" and tile.target_count() > 1:
 		lines.append("BEAMS %d" % tile.target_count())
-	if tile.pierce:
-		lines.append("PIERCING BEAM")
+	if tile.beam:
+		lines.append("LOCK-ON BEAM")
 	if tile.focus_max > 0:
 		lines.append("FOCUS +%d%% / HIT (MAX x%.1f)" % [roundi(tile.focus_step * 100.0),
 				1.0 + tile.focus_step * tile.focus_max])
@@ -381,9 +381,6 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		lines.append("BOUNCES %d" % tile.bounces)
 	if tile.attack == "drone":
 		lines.append("DRONES %d" % tile.drone_count())
-	if tile.split > 0.0:
-		lines.append("SPLITS INTO 3 RAYS (%d%% EACH)" % roundi(tile.split * 100.0))
-		lines.append("FEEDING %d LASER/ARCHER" % tile.prism_sources().size())
 	if tile.pack_bonus > 0.0:
 		lines.append("PACK %d ARCHERS (+%d%% DMG)" % [tile.linked_archers(),
 				roundi(tile.pack_bonus * tile.linked_archers() * 100.0)])
