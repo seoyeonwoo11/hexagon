@@ -6,6 +6,7 @@ extends CanvasLayer
 ## - 아래 가운데: "WAVE 3", "WAVE CLEAR" 같은 짧은 안내
 ## - 가운데: 일시정지/게임 오버 오버레이 (화면을 어둡게 덮음)
 ## 일시정지 중에도 동작해야 하므로 PROCESS_MODE_ALWAYS.
+## 일시정지 중에는 화면 아무 데나 누르거나 PLAY 버튼으로 이어서 한다.
 ## 단축키: Space = 일시정지, F = 배속 전환, R = 게임 오버 후 재시작, F11 = 전체 화면.
 
 signal pause_pressed
@@ -119,7 +120,9 @@ func _ready() -> void:
 	_overlay = ColorRect.new()
 	_overlay.color = Color(0, 0, 0, 0.6)
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 일시정지 화면은 아무 데나 누르면(탭) 이어서 한다. 키보드가 없는 모바일용.
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay.gui_input.connect(_on_overlay_input)
 	_overlay.visible = false
 	add_child(_overlay)
 	var center := VBoxContainer.new()
@@ -139,6 +142,14 @@ func _ready() -> void:
 	_stats_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_stats_panel.visible = false
 	center.add_child(_stats_panel)
+	# 오른쪽 위 버튼(PAUSE/PLAY, 배속)은 어두운 일시정지 화면 위에 그려서 밝게 보이게 한다.
+	var top := MarginContainer.new()
+	top.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		top.add_theme_constant_override("margin_" + side, MARGIN)
+	add_child(top)
+	buttons.reparent(top, false)
 	_build_victory()
 
 
@@ -292,6 +303,25 @@ func show_overlay(title: String, subtitle: String, color := NEON_CYAN,
 
 func hide_overlay() -> void:
 	_overlay.visible = false
+
+
+func is_overlay_visible() -> bool:
+	return _overlay.visible
+
+
+## 일시정지 화면 안내 문구: 터치 화면이면 탭, 아니면 Space/클릭.
+static func resume_hint() -> String:
+	if DisplayServer.is_touchscreen_available():
+		return "TAP TO RESUME"
+	return "SPACE OR CLICK TO RESUME"
+
+
+func _on_overlay_input(event: InputEvent) -> void:
+	# 탭은 Godot가 왼쪽 클릭으로 바꿔 준다 (터치 → 마우스 흉내).
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		_overlay.accept_event()
+		pause_pressed.emit()
 
 
 ## 웨이브 클리어 카드 3장. options의 각 항목: {title, desc, color, ...}
