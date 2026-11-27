@@ -36,6 +36,9 @@ static var shards := 0
 static var best_wave := 0
 static var levels := {}
 static var unlocked: Array[String] = []
+## 고른 코어 종류 (CoreDefs)와 산 코어들
+static var core_type := "core"
+static var unlocked_cores: Array[String] = []
 ## 출정 타일 (최대 MAX_LOADOUT개)
 static var loadout: Array[String] = ["laser", "frost", "booster", "bank"]
 ## 마지막 판 결과 (시작 화면 안내용). wave가 0이면 아직 끝난 판이 없음.
@@ -106,6 +109,31 @@ static func buy_tile(kind: String) -> bool:
 	return true
 
 
+static func is_core_unlocked(id: String) -> bool:
+	return CoreDefs.get_def(id)["price"] == 0 or unlocked_cores.has(id)
+
+
+## 코어 구매. 사면 바로 그 코어를 고른다.
+static func buy_core(id: String) -> bool:
+	var price: int = CoreDefs.get_def(id)["price"]
+	if is_core_unlocked(id) or shards < price:
+		return false
+	shards -= price
+	unlocked_cores.append(id)
+	core_type = id
+	save_data()
+	return true
+
+
+## 판에 쓸 코어를 고른다 (산 코어만).
+static func select_core(id: String) -> bool:
+	if not is_core_unlocked(id) or core_type == id:
+		return false
+	core_type = id
+	save_data()
+	return true
+
+
 ## 출정 타일에 들어 있는지 (풀린 타일만).
 static func in_loadout(kind: String) -> bool:
 	return loadout.has(kind) and is_tile_unlocked(kind)
@@ -167,6 +195,8 @@ static func reset() -> void:
 	levels = {}
 	unlocked = []
 	loadout = default_loadout()
+	core_type = "core"
+	unlocked_cores = []
 	last_run_wave = 0
 	last_run_shards = 0
 
@@ -178,6 +208,8 @@ static func save_data() -> void:
 	cfg.set_value("meta", "levels", levels)
 	cfg.set_value("meta", "unlocked", Array(unlocked))
 	cfg.set_value("meta", "loadout", Array(loadout))
+	cfg.set_value("meta", "core", core_type)
+	cfg.set_value("meta", "cores", Array(unlocked_cores))
 	cfg.save(save_path)
 
 
@@ -209,3 +241,8 @@ static func load_data() -> void:
 				loadout.append(String(kind))
 	if loadout.is_empty():
 		loadout = default_loadout()
+	for id in cfg.get_value("meta", "cores", []):
+		if CoreDefs.DEFS.has(String(id)):
+			unlocked_cores.append(String(id))
+	var saved_core := String(cfg.get_value("meta", "core", "core"))
+	core_type = saved_core if CoreDefs.DEFS.has(saved_core) and is_core_unlocked(saved_core) else "core"

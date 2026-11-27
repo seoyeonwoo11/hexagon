@@ -42,6 +42,8 @@ var _burn_source: HexTile
 ## 마지막으로 피해를 준 타일
 var _last_source: HexTile
 var _crit_flash := 0.0
+## 코어 스킬 FREEZE: 남은 정지 시간. 그동안 움직이지도 때리지도 않는다.
+var _freeze_timer := 0.0
 ## 성능: 도는 몸체는 자식 노드로 그리고 회전은 rotation으로. 색/모양이 바뀔 때만 다시 그린다.
 var _body: _Body
 
@@ -90,6 +92,11 @@ func _process(delta: float) -> void:
 		take_damage(_burn_dps * delta, src)
 		if _dead:
 			return
+	if _freeze_timer > 0.0:
+		_freeze_timer -= delta
+		if _body != null:
+			_body.sync()
+		return
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -122,8 +129,21 @@ func _update_body(delta: float) -> void:
 	_body.sync()
 
 
-## 몸체 색: 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
+## 코어 스킬 FREEZE: duration초 동안 멈춘다.
+func freeze(duration: float) -> void:
+	_freeze_timer = maxf(_freeze_timer, duration)
+	if _body != null:
+		_body.sync()
+
+
+func is_frozen() -> bool:
+	return _freeze_timer > 0.0
+
+
+## 몸체 색: 정지(하얀 얼음), 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
 func body_color() -> Color:
+	if is_frozen():
+		return Color(0.8, 0.95, 1.0)
 	var c := color.lerp(Color(0.6, 0.8, 1.0), 0.6) if is_slowed() else color
 	if _crit_flash > 0.0:
 		c = Color.WHITE

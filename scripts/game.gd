@@ -72,6 +72,13 @@ var _boss_pending := false
 var resonance := 0.0
 ## 판이 시작됐는지 (시작 화면이 떠 있는 동안은 false)
 var started := false
+## 코어 종류와 스킬: 남은 쿨다운(게임 시간 초), OVERDRIVE처럼 지속되는 스킬의 남은 시간
+var core_type := "core"
+var skill_cooldown := 0.0
+var _skill_active := 0.0
+## 타일 옮기기: 웨이브마다 MOVES_PER_WAVE번 (쌓이지 않음)
+const MOVES_PER_WAVE := 1
+var move_charges := 0
 var shop: Shop
 
 ## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
@@ -91,6 +98,9 @@ func _ready() -> void:
 	hud.restart_pressed.connect(_on_restart_pressed)
 	hud.option_chosen.connect(choose_option)
 	hud.upgrade_pressed.connect(upgrade_selected)
+	hud.skill_pressed.connect(use_skill)
+	hud.move_pressed.connect(toggle_move)
+	board.move_finished.connect(_on_move_finished)
 	hud.set_money(money)
 	hud.set_wave(wave)
 	hud.set_speed(speed_multiplier)
@@ -120,7 +130,91 @@ func start_run() -> void:
 	core.max_hp = (core.max_hp + Meta.core_hp_bonus()) * Meta.tile_hp_mult()
 	core.hp = core.max_hp
 	add_money(Meta.start_money())
+	_apply_core_type(Meta.core_type)
+	move_charges = MOVES_PER_WAVE
+	_update_actions()
 	hud.show_banner("READY", Hud.NEON_CYAN)
+
+
+## 코어 종류를 코어 타일에 입힌다 (색, 이름, 가운데 모양). 스킬은 바로 쓸 수 있는 상태로 시작.
+func _apply_core_type(id: String) -> void:
+	core_type = id
+	var def := CoreDefs.get_def(id)
+	var core := board.core_tile()
+	core.core_type = id
+	core.color = def["color"]
+	core.display_name = def["name"]
+	core.queue_redraw()
+	skill_cooldown = 0.0
+	_skill_active = 0.0
+	board.skill_damage_mult = 1.0
+
+
+func skill_ready() -> bool:
+	return started and not is_over and skill_cooldown <= 0.0
+
+
+## 코어 스킬 쓰기 (Q). 쿨다운 중이거나 판 밖이면 false.
+func use_skill() -> bool:
+	if not skill_ready() or get_tree().paused:
+		return false
+	var def := CoreDefs.get_def(core_type)
+	var core := board.core_tile()
+	var power: float = def["power"]
+	var fx_radius := 900.0
+	match def["skill"]:
+		"overdrive":
+			board.skill_damage_mult = 1.0 + power
+			_skill_active = def["duration"]
+		"freeze":
+			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+				(node as Enemy).freeze(def["duration"])
+		"repair":
+			for t in board.tiles.values():
+				t.hp = minf(t.hp + t.max_hp * power, t.max_hp)
+			fx_radius = 420.0
+		"nova":
+			fx_radius = def["radius"]
+			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+				var e := node as Enemy
+				if e.is_alive() and e.global_position.distance_to(core.global_position) <= fx_radius:
+					var frac := CoreDefs.NOVA_BOSS_POWER if e.kind == "boss" else power
+					# 장갑과 상관없이 최대 체력의 일정 비율
+					e.take_damage(e.max_hp * frac / maxf(1.0 - e.armor, 0.01), core)
+	skill_cooldown = def["cooldown"]
+	var fx := SkillFx.new()
+	fx.color = def["color"]
+	fx.radius = fx_radius
+	board.enemy_layer.add_child(fx)
+	fx.global_position = core.global_position
+	_update_actions()
+	return true
+
+
+## 타일 옮기기 모드 켜기/끄기 (M). 웨이브 중이나 웨이브 사이에만, 남은 횟수가 있을 때.
+func toggle_move() -> void:
+	if board.moving:
+		board.cancel_move()
+	elif can_move():
+		board.begin_move()
+	_update_actions()
+
+
+func can_move() -> bool:
+	return started and not is_over and move_charges > 0 and not get_tree().paused \
+			and (state == State.INTERMISSION or state == State.WAVE)
+
+
+func _on_move_finished(_tile: HexTile) -> void:
+	move_charges = maxi(move_charges - 1, 0)
+	_update_actions()
+
+
+func _update_actions() -> void:
+	var def := CoreDefs.get_def(core_type)
+	hud.set_skill(def["skill_name"], def["color"], skill_cooldown, def["cooldown"],
+			_skill_active > 0.0)
+	hud.set_move(move_charges, board.moving)
 
 
 func _on_shop_start() -> void:
@@ -138,6 +232,13 @@ func _process(delta: float) -> void:
 	if core != null:
 		hud.set_core(core.hp, core.max_hp)
 	hud.show_tile_panel(board.selected_tile, money)
+	if skill_cooldown > 0.0 or _skill_active > 0.0:
+		skill_cooldown = maxf(skill_cooldown - delta, 0.0)
+		if _skill_active > 0.0:
+			_skill_active -= delta
+			if _skill_active <= 0.0:
+				board.skill_damage_mult = 1.0
+		_update_actions()
 
 	match state:
 		State.INTERMISSION:
@@ -320,6 +421,8 @@ func wave_enemy_reward(n: int) -> float:
 func _begin_wave() -> void:
 	state = State.WAVE
 	wave += 1
+	move_charges = MOVES_PER_WAVE
+	_update_actions()
 	board.stats.current_wave = wave
 	_to_spawn = wave_enemy_count(wave)
 	_boss_pending = EnemyDefs.is_boss_wave(wave)
@@ -351,6 +454,9 @@ func _on_wave_cleared() -> void:
 			add_money(tile.income)
 	add_money(interest)
 	hud.hide_banner()
+	if board.moving:
+		board.cancel_move()
+		_update_actions()
 	state = State.CHOOSING
 	current_options = make_options()
 	hud.show_choices(current_options)

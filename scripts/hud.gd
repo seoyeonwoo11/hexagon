@@ -13,6 +13,8 @@ signal speed_pressed
 signal restart_pressed
 signal option_chosen(index: int)
 signal upgrade_pressed
+signal skill_pressed
+signal move_pressed
 
 const NEON_CYAN := Color(0.0, 0.95, 1.0)
 const NEON_PINK := Color(1.0, 0.2, 0.8)
@@ -30,6 +32,13 @@ var _overlay_title: Label
 var _overlay_sub: Label
 var _stats_panel: StatsPanel
 var _pause_button: Button
+## 왼쪽 아래: 코어 스킬 버튼(+쿨다운 막대), 타일 옮기기 버튼
+var _actions: VBoxContainer
+var _skill_box: VBoxContainer
+var _skill_button: Button
+var _skill_bar: ProgressBar
+var _skill_color := Color(0, 0, 0, 0)
+var _move_button: Button
 var _speed_button: Button
 var _choice_overlay: ColorRect
 var _choice_row: HBoxContainer
@@ -91,6 +100,7 @@ func _ready() -> void:
 	root.add_child(_banner_label)
 
 	_build_tile_panel(root)
+	_build_actions(root)
 	_build_choice_overlay()
 
 	# 가운데 오버레이
@@ -243,6 +253,62 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 	_upgrade_button.disabled = money < cost
 
 
+func _build_actions(root: MarginContainer) -> void:
+	_actions = VBoxContainer.new()
+	_actions.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_actions.size_flags_vertical = Control.SIZE_SHRINK_END
+	_actions.add_theme_constant_override("separation", 14)
+	root.add_child(_actions)
+	_skill_box = VBoxContainer.new()
+	_skill_box.add_theme_constant_override("separation", 6)
+	_actions.add_child(_skill_box)
+	_move_button = make_neon_button("MOVE", Color.WHITE)
+	_move_button.custom_minimum_size = Vector2(300, 52)
+	_move_button.tooltip_text = "Move or swap one tile per wave. Right-click cancels."
+	_move_button.pressed.connect(func() -> void: move_pressed.emit())
+	_actions.add_child(_move_button)
+
+
+## 코어 스킬 버튼. cooldown이 0이면 쓸 수 있음, active면 지속 중.
+func set_skill(skill_name: String, color: Color, cooldown: float, max_cooldown: float,
+		active: bool) -> void:
+	if _skill_box == null:
+		return
+	if not color.is_equal_approx(_skill_color):
+		# 코어 색이 바뀌면 버튼과 막대를 그 색으로 새로 만든다
+		_skill_color = color
+		for c in _skill_box.get_children():
+			c.queue_free()
+		_skill_button = make_neon_button(skill_name, color)
+		_skill_button.custom_minimum_size = Vector2(300, 60)
+		_skill_button.add_theme_font_size_override("font_size", 24)
+		_skill_button.pressed.connect(func() -> void: skill_pressed.emit())
+		_skill_box.add_child(_skill_button)
+		_skill_bar = _make_bar(color)
+		_skill_bar.custom_minimum_size = Vector2(300, 8)
+		_skill_box.add_child(_skill_bar)
+	if active:
+		_skill_button.text = "%s  ON" % skill_name
+	elif cooldown > 0.0:
+		_skill_button.text = "%s  %ds" % [skill_name, ceili(cooldown)]
+	else:
+		_skill_button.text = "%s  [Q]" % skill_name
+	_skill_button.disabled = cooldown > 0.0 and not active
+	_skill_bar.max_value = max_cooldown
+	_skill_bar.value = max_cooldown - cooldown
+
+
+## 타일 옮기기 버튼. charges: 이번 웨이브에 남은 횟수, active: 옮기기 모드 중.
+func set_move(charges: int, active: bool) -> void:
+	if _move_button == null:
+		return
+	if active:
+		_move_button.text = "CANCEL MOVE  [M]"
+	else:
+		_move_button.text = "MOVE TILE  %d  [M]" % charges
+	_move_button.disabled = charges <= 0 and not active
+
+
 func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_panel = PanelContainer.new()
 	_tile_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -356,6 +422,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			restart_pressed.emit()
 		KEY_F11:
 			_toggle_fullscreen()
+		KEY_Q:
+			skill_pressed.emit()
+		KEY_M:
+			move_pressed.emit()
 		_:
 			return
 	get_viewport().set_input_as_handled()

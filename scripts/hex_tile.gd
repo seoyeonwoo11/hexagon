@@ -67,6 +67,8 @@ var focus_step := 0.0
 var focus_max := 0
 ## DRONE HIVE: 띄우는 드론 수
 var drones := 0
+## CORE: 코어 종류 (CoreDefs). 가운데 모양만 달라진다.
+var core_type := "core"
 ## ARCHER: 맞닿은 ARCHER 1개당 공격력 보너스 (0.4 = +40%)
 var pack_bonus := 0.0
 ## PRISM: 굴절된 갈래 하나가 원래 공격의 몇 배 피해인지 (0.4 = 40%)
@@ -144,7 +146,7 @@ func setup(tile_kind: String) -> void:
 
 ## 전체 강화 배율까지 반영한 실제 공격력.
 func damage() -> float:
-	var d := base_damage * (board.damage_mult if board != null else 1.0)
+	var d := base_damage * (board.damage_mult * board.skill_damage_mult if board != null else 1.0)
 	if pack_bonus > 0.0:
 		d *= 1.0 + pack_bonus * linked_archers()
 	return d
@@ -411,6 +413,7 @@ func _process(delta: float) -> void:
 func _redraw_if_needed() -> void:
 	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
 	var state := [level, hp, max_hp, gear, focus_stacks(), linked_archers(), prism_sources().size(),
+			board != null and board.skill_damage_mult > 1.0, color,
 			effective_range() if selected else 0.0]
 	if anim or _anim_active or state != _drawn_state:
 		_drawn_state = state
@@ -776,7 +779,13 @@ func _draw_gear_badge() -> void:
 
 ## 종류마다 가운데 모양을 다르게 그린다.
 func _draw_glyph(c: Color, intensity: float) -> void:
-	draw_glyph(self, kind, size * 0.3, c, intensity)
+	var glyph := kind
+	if kind == "core" and core_type != "core":
+		glyph = "core_" + core_type
+	draw_glyph(self, glyph, size * 0.3, c, intensity)
+	# OVERDRIVE 중인 공격 타일: 바깥 테두리가 하나 더
+	if board != null and board.skill_damage_mult > 1.0 and attack != "none":
+		NeonDraw.hexagon(self, Vector2.ZERO, size * 1.0, Color(1.0, 0.95, 0.6), 0.8, 2.0)
 
 
 ## 타일 종류별 아이콘. canvas의 원점에 반지름 r 크기로 그린다 (상점 화면에서도 사용).
@@ -785,6 +794,21 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 	match kind:
 		"core":
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+		"core_cryo":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			for i in 3:
+				var d := Vector2.from_angle(PI * i / 3.0) * r * 0.6
+				canvas.draw_line(-d, d, Color(c, intensity), 1.5, true)
+		"core_aegis":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			canvas.draw_line(Vector2(0, -r * 0.55), Vector2(0, r * 0.55), Color(c, intensity), 2.5, true)
+			canvas.draw_line(Vector2(-r * 0.55, 0), Vector2(r * 0.55, 0), Color(c, intensity), 2.5, true)
+		"core_nova":
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			canvas.draw_circle(Vector2.ZERO, r * 0.22, Color(c, intensity))
+			for i in 6:
+				var d := Vector2.from_angle(TAU * i / 6.0 + PI / 6.0)
+				canvas.draw_line(d * r * 0.35, d * r * 0.7, Color(c, intensity), 1.5, true)
 		"laser":
 			var tri := PackedVector2Array()
 			for i in 4:

@@ -29,6 +29,7 @@ var _honeycomb: Honeycomb
 var _caption_title: Label
 var _caption_body: Label
 var _upgrade_list: VBoxContainer
+var _core_picker: CorePicker
 
 
 func _ready() -> void:
@@ -69,7 +70,10 @@ func refresh() -> void:
 		_result_label.text = "Clear waves to earn shards.\nSpend them here between runs."
 	_best_label.text = "Best wave  %d" % Meta.best_wave if Meta.best_wave > 0 else ""
 	_honeycomb.queue_redraw()
-	_show_caption(_honeycomb.hovered)
+	if _core_picker != null:
+		_core_picker.queue_redraw()
+	_show_caption(_honeycomb.hovered if _core_picker == null or _core_picker.hovered == "" \
+			else "core:" + _core_picker.hovered)
 	for child in _upgrade_list.get_children():
 		child.queue_free()
 	for i in Meta.UPGRADES.size():
@@ -126,7 +130,7 @@ func _build_left(parent: Control) -> void:
 	col.add_child(_spacer(10))
 	_best_label = Hud.make_label(INK_DIM, 20, 500)
 	col.add_child(_best_label)
-	col.add_child(_spacer(72))
+	col.add_child(_spacer(44))
 	var shard_row := HBoxContainer.new()
 	shard_row.add_theme_constant_override("separation", 24)
 	col.add_child(shard_row)
@@ -145,6 +149,22 @@ func _build_left(parent: Control) -> void:
 	var unit := Hud.make_label(SHARD_COLOR, 26, 600)
 	unit.text = "shards to spend"
 	col.add_child(unit)
+	col.add_child(_spacer(44))
+	var core_head := Hud.make_label(INK_DIM, 22, 600)
+	core_head.text = "Core and skill"
+	col.add_child(core_head)
+	col.add_child(_spacer(10))
+	_core_picker = CorePicker.new()
+	_core_picker.core_clicked.connect(_on_core_clicked)
+	_core_picker.hover_changed.connect(func(id: String) -> void:
+		_show_caption("none" if id == "" else "core:" + id))
+	col.add_child(_core_picker)
+
+
+func _on_core_clicked(id: String) -> void:
+	var changed := Meta.select_core(id) if Meta.is_core_unlocked(id) else Meta.buy_core(id)
+	if changed:
+		refresh()
 
 
 # ---------------------------------------------------------------- 가운데
@@ -192,6 +212,22 @@ func _show_caption(kind: String) -> void:
 		_caption_title.text = "Start a run"
 		_set_color(_caption_title, Hud.NEON_CYAN)
 		_caption_body.text = "Click the core or press Enter."
+		return
+	if kind.begins_with("core:"):
+		var id := kind.substr(5)
+		var cdef := CoreDefs.get_def(id)
+		_caption_title.text = "%s  -  %s" % [cdef["name"], cdef["skill_name"]]
+		_set_color(_caption_title, cdef["color"])
+		var how := ""
+		if Meta.core_type == id:
+			how = "Selected. Press Q in a run to use the skill (%ds cooldown)." % int(cdef["cooldown"])
+		elif Meta.is_core_unlocked(id):
+			how = "Click to use this core."
+		elif Meta.shards >= cdef["price"]:
+			how = "Click to unlock for %d shards." % cdef["price"]
+		else:
+			how = "Unlock for %d shards (%d more needed)." % [cdef["price"], cdef["price"] - Meta.shards]
+		_caption_body.text = "%s\n%s" % [cdef["desc"], how]
 		return
 	if kind == "none":
 		_caption_title.text = "Pick your tiles"
@@ -359,9 +395,9 @@ class Honeycomb extends Control:
 			else:
 				_draw_tile(pos, kind)
 
-	## START: 꽉 찬 밝은 육각형 + 바깥으로 퍼지는 고리. 화면에서 가장 밝은 것.
+	## START: 꽉 찬 밝은 육각형 + 바깥으로 퍼지는 고리. 화면에서 가장 밝은 것. 고른 코어 색.
 	func _draw_core(pos: Vector2) -> void:
-		var c := Hud.NEON_CYAN
+		var c: Color = CoreDefs.get_def(Meta.core_type)["color"]
 		var hot := hovered == ""
 		var k := fmod(_time * 0.8, 1.0)
 		NeonDraw.hexagon(self, pos, R * (0.95 + 0.35 * k), c, 0.8 * (1.0 - k), 2.0)
@@ -479,3 +515,73 @@ class FixedDigits extends Control:
 						font_size, k, Color(color, 0.12))
 			draw_string(_font, Vector2(x, base), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
 					color)
+
+
+## 코어 고르기: 작은 육각형 4개. 고른 코어는 꽉 차고, 잠긴 코어는 회색 + 가격.
+class CorePicker extends Control:
+	signal core_clicked(id: String)
+	signal hover_changed(id: String)
+
+	const R := 40.0
+	const GAP := 112.0
+
+	var hovered := ""
+	var _font: Font
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_font = Hud.font_weight(700)
+		custom_minimum_size = Vector2(GAP * CoreDefs.ORDER.size(), R * 2.0 + 44.0)
+
+	func _center(i: int) -> Vector2:
+		return Vector2(GAP * (i + 0.5) - (GAP - R * 2.2) * 0.5, R + 4.0)
+
+	func _id_at(p: Vector2) -> String:
+		for i in CoreDefs.ORDER.size():
+			if p.distance_to(_center(i)) <= R:
+				return CoreDefs.ORDER[i]
+		return ""
+
+	func _gui_input(event: InputEvent) -> void:
+		var motion := event as InputEventMouseMotion
+		if motion != null:
+			var id := _id_at(motion.position)
+			if id != hovered:
+				hovered = id
+				mouse_default_cursor_shape = CURSOR_ARROW if id == "" else Control.CURSOR_POINTING_HAND
+				hover_changed.emit(id)
+				queue_redraw()
+			return
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var id := _id_at(mb.position)
+			if id != "":
+				core_clicked.emit(id)
+				hover_changed.emit(id)
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_MOUSE_EXIT and hovered != "":
+			hovered = ""
+			hover_changed.emit("")
+			queue_redraw()
+
+	func _draw() -> void:
+		for i in CoreDefs.ORDER.size():
+			var id: String = CoreDefs.ORDER[i]
+			var def := CoreDefs.get_def(id)
+			var pos := _center(i)
+			var owned := Meta.is_core_unlocked(id)
+			var picked := Meta.core_type == id
+			var hot := hovered == id
+			var c: Color = def["color"] if owned else LOCKED_COLOR
+			NeonDraw.hexagon(self, pos, R * 0.92, c, (1.1 if picked else 0.5) + (0.3 if hot else 0.0),
+					3.0 if picked else 2.0, 0.35 if picked else (0.08 if hot else 0.02))
+			draw_set_transform(pos)
+			HexTile.draw_glyph(self, "core" if id == "core" else "core_" + id, R * 0.42, c, 1.0)
+			draw_set_transform(Vector2.ZERO)
+			var label: String = def["skill_name"] if owned else "%d" % def["price"]
+			var lc := Color(c, 0.95 if picked else 0.6) if owned \
+					else (SHARD_COLOR if Meta.shards >= def["price"] else Color(SHARD_COLOR, 0.45))
+			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			draw_string(_font, pos + Vector2(-w / 2.0, R + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT,
+					-1, 14, lc)
