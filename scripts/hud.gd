@@ -200,6 +200,11 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 				tile.income * Game.BANK_INTEREST_CAP])
 	if tile.attack == "laser" and tile.target_count() > 1:
 		lines.append("BEAMS %d" % tile.target_count())
+	if tile.pierce:
+		lines.append("PIERCING BEAM")
+	if tile.focus_max > 0:
+		lines.append("FOCUS +%d%% / HIT (MAX x%.1f)" % [roundi(tile.focus_step * 100.0),
+				1.0 + tile.focus_step * tile.focus_max])
 	if tile.attack == "spark":
 		lines.append("BOUNCES %d" % tile.bounces)
 	if tile.attack == "frost":

@@ -13,7 +13,8 @@ const DEFS := {
 	"laser": {
 		"name": "LASER", "color": Color(0.4, 1.0, 0.3), "attack": "laser",
 		"max_hp": 60.0, "damage": 6.0, "range": 290.0, "interval": 0.45, "income": 0,
-		"desc": "Fires at the nearest enemy.",
+		"pierce": true, "focus_step": 0.12, "focus_max": 6,
+		"desc": "Piercing beam that hits everything in a line. Gets stronger the longer it stays on one target.",
 	},
 	"spark": {
 		"name": "SPARK", "color": Color(1.0, 0.85, 0.1), "attack": "spark",

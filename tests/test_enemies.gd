@@ -137,6 +137,36 @@ func _run() -> void:
 	boss.queue_free()
 	core.hp = core.max_hp
 
+	# LASER: 광선이 줄 위 적을 관통하고, 같은 적을 계속 맞히면 피해가 커진다
+	var las := HexTile.new()
+	las.setup("laser")
+	board.add_child(las)
+	las.global_position = Vector2(-3000, -2000)
+	var front := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 0))
+	var back := _game.spawn_enemy("grunt", las.global_position + Vector2(220, 0))
+	var side := _game.spawn_enemy("grunt", las.global_position + Vector2(100, 160))
+	for e in [front, back, side]:
+		e.max_hp = 10000.0
+		e.hp = 10000.0
+	las._fire_laser()
+	var first_hit := 10000.0 - front.hp
+	_check(first_hit > 0.0 and back.hp < 10000.0, "laser pierces enemies in a line")
+	_check(side.hp == 10000.0, "laser misses enemies off the line")
+	for i in 8:
+		las._fire_laser()
+	var hp_before := front.hp
+	las._fire_laser()
+	var focused_hit := hp_before - front.hp
+	_check(absf(focused_hit - first_hit * (1.0 + las.focus_step * las.focus_max)) < 0.01,
+			"focus caps at x%.1f (first %.1f, now %.1f)" % [1.0 + las.focus_step * las.focus_max,
+			first_hit, focused_hit])
+	front.global_position += Vector2(0, 5000)
+	las._fire_laser()
+	_check(las.focus_stacks() == 0, "focus resets on a new target")
+	for e in [front, back, side]:
+		e.queue_free()
+	las.queue_free()
+
 	# 보스 웨이브: 일반 적 다음에 보스 1마리
 	_game._begin_wave()  # wave 5 -> 6
 	_game.wave = 9

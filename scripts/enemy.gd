@@ -39,7 +39,7 @@ var _slow_timer := 0.0
 var _burn_dps := 0.0
 var _burn_timer := 0.0
 var _burn_source: HexTile
-## 마지막으로 피해를 준 타일 (COLLECTOR 장비 보상용)
+## 마지막으로 피해를 준 타일
 var _last_source: HexTile
 var _crit_flash := 0.0
 
@@ -164,10 +164,7 @@ func _die(was_killed: bool) -> void:
 	_dead = true
 	killed = was_killed
 	remove_from_group(GROUP)
-	var bonus := 0
-	if was_killed and is_instance_valid(_last_source) and _last_source.gear == "collector":
-		bonus = GearDefs.COLLECTOR_BONUS
-	died.emit(self, reward + bonus if was_killed else 0)
+	died.emit(self, reward if was_killed else 0)
 	queue_free()
 
 

@@ -215,20 +215,14 @@ func _run() -> void:
 	near.queue_free()
 	away.queue_free()
 
-	# 장비 효과: IGNITER 화상, CRYO 감속, COLLECTOR 보상
+	# 장비 효과: IGNITER 화상
 	var victim := _spawn_enemy_at(Vector2(-700, -400))
 	core.equip("igniter")
 	core.apply_hit(victim, 1.0)
 	_check(victim.is_burning(), "igniter burns")
-	core.equip("cryo")
-	core.apply_hit(victim, 1.0)
-	_check(victim.is_slowed(), "cryo slows")
-	core.equip("collector")
-	var rewards: Array[int] = []
-	victim.reward = 2
-	victim.died.connect(func(_e: Enemy, r: int) -> void: rewards.append(r))
-	core.apply_hit(victim, 9999.0)
-	_check(rewards == [2 + GearDefs.COLLECTOR_BONUS], "collector bonus (got %s)" % [rewards])
+	victim.queue_free()
+	_check(not GearDefs.DEFS.has("cryo") and not GearDefs.DEFS.has("collector"),
+			"removed gear stays removed")
 
 	# 카드 풀에 장비 카드가 등장
 	var saw_gear := false

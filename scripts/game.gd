@@ -298,7 +298,7 @@ func wave_enemy_count(n: int) -> int:
 
 ## 적 체력: LATE_FROM 웨이브까지는 HP_GROWTH배씩, 그 뒤로는 HP_LATE_GROWTH배씩 늘어난다.
 const HP_GROWTH := 1.23
-const HP_LATE_GROWTH := 1.19
+const HP_LATE_GROWTH := 1.20
 const LATE_FROM := 15
 ## 처치 보상: 적 체력^REWARD_POWER × REWARD_SCALE. 적이 강해질수록 보상도 같이 커진다.
 const REWARD_SCALE := 0.3

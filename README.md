@@ -32,11 +32,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_meta.gd
 - SCOPE: 사거리 +40%
 - SPLITTER: 공격마다 대상 1명 추가, ORBIT은 구체 +1 (LASER, SPARK, ORBIT, CORE)
 - IGNITER: 맞은 적에게 3초 화상
-- CRYO COIL: 맞은 적 35% 감속 (LASER, SPARK, ORBIT, CORE)
 - CRIT LENS: 20% 확률로 3배 피해
 - DETONATOR: 이 타일이 처치한 적이 폭발해 주변 적에게 피해
 - BANK에는 장비를 달 수 없음
-- COLLECTOR: 이 타일이 처치한 적 보상 +$1
 
 ## 적 종류
 
