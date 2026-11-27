@@ -101,7 +101,7 @@ func _ready() -> void:
 	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	buttons.add_theme_constant_override("separation", 16)
 	root.add_child(buttons)
-	_pause_button = _make_button("PAUSE", pause_pressed)
+	_pause_button = _make_button(Loc.t("PAUSE"), pause_pressed)
 	_speed_button = _make_button("1x", speed_pressed)
 	if wants_fullscreen_button():
 		buttons.add_child(make_fullscreen_button())
@@ -165,9 +165,9 @@ func set_money(value: int) -> void:
 ## 목표(FINAL_WAVE)까지는 "WAVE 12 / 30", 무한 모드에서는 "WAVE 31  ENDLESS".
 func set_wave(value: int, endless := false) -> void:
 	if endless:
-		_wave_label.text = "WAVE %d  ENDLESS" % value
+		_wave_label.text = Loc.t("WAVE %d  ENDLESS") % value
 	else:
-		_wave_label.text = "WAVE %d / %d" % [value, EnemyDefs.FINAL_WAVE]
+		_wave_label.text = Loc.t("WAVE %d / %d") % [value, EnemyDefs.FINAL_WAVE]
 
 
 func _build_boss_bar(root: MarginContainer) -> void:
@@ -202,7 +202,7 @@ func set_boss_hp(hp: float, max_hp: float, enraged := false) -> void:
 		return
 	_boss_bar.max_value = max_hp
 	_boss_bar.value = hp
-	_boss_label.text = "%s  -  ENRAGED" % _boss_name if enraged else _boss_name
+	_boss_label.text = Loc.t("%s  -  ENRAGED") % _boss_name if enraged else _boss_name
 
 
 func hide_boss_bar() -> void:
@@ -229,9 +229,9 @@ func _build_victory() -> void:
 	center.add_theme_constant_override("separation", 22)
 	_victory.add_child(center)
 	var tag := _make_label(Color(gold, 0.75), 26, 600)
-	tag.text = "OVERLORD DEFEATED"
+	tag.text = Loc.t("OVERLORD DEFEATED")
 	var title := _make_label(gold, 120, 900, 0.4)
-	title.text = "VICTORY"
+	title.text = Loc.t("VICTORY")
 	_victory_sub = _make_label(Color(1, 1, 1, 0.9), 30, 500)
 	_victory_sub.label_settings.line_spacing = 10
 	for l in [tag, title, _victory_sub]:
@@ -241,13 +241,13 @@ func _build_victory() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 32)
 	center.add_child(row)
-	var endless := make_neon_button("CONTINUE  ENDLESS", gold)
+	var endless := make_neon_button(Loc.t("CONTINUE  ENDLESS"), gold)
 	endless.custom_minimum_size = Vector2(380, 72)
 	endless.add_theme_font_size_override("font_size", 26)
-	endless.tooltip_text = "Keep this run going. Every wave after %d adds shards." \
+	endless.tooltip_text = Loc.t("Keep this run going. Every wave after %d adds shards.") \
 			% EnemyDefs.FINAL_WAVE
 	endless.pressed.connect(func() -> void: endless_pressed.emit())
-	var end := make_neon_button("END RUN", NEON_CYAN)
+	var end := make_neon_button(Loc.t("END RUN"), NEON_CYAN)
 	end.custom_minimum_size = Vector2(300, 72)
 	end.add_theme_font_size_override("font_size", 26)
 	end.pressed.connect(func() -> void: end_run_pressed.emit())
@@ -257,7 +257,7 @@ func _build_victory() -> void:
 
 ## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수.
 func show_victory(wave: int, shards: int, clears: int) -> void:
-	_victory_sub.text = "All %d waves cleared   -   +%d shards\nClears  %d" % [wave, shards, clears]
+	_victory_sub.text = Loc.t("All %d waves cleared   -   +%d shards\nClears  %d") % [wave, shards, clears]
 	_victory.visible = true
 
 
@@ -275,7 +275,7 @@ func set_core(hp: float, max_hp: float) -> void:
 
 
 func set_paused(paused: bool) -> void:
-	_pause_button.text = "PLAY" if paused else "PAUSE"
+	_pause_button.text = Loc.t("PLAY") if paused else Loc.t("PAUSE")
 
 
 func set_speed(multiplier: float) -> void:
@@ -317,8 +317,8 @@ func is_overlay_visible() -> bool:
 ## 일시정지 화면 안내 문구: 터치 화면이면 탭, 아니면 Space/클릭.
 static func resume_hint() -> String:
 	if DisplayServer.is_touchscreen_available():
-		return "TAP TO RESUME"
-	return "SPACE OR CLICK TO RESUME"
+		return Loc.t("TAP TO RESUME")
+	return Loc.t("SPACE OR CLICK TO RESUME")
 
 
 func _on_overlay_input(event: InputEvent) -> void:
@@ -356,52 +356,52 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 	_set_label_color(_tile_title, tile.color)
 	var lines: Array[String] = []
 	if tile.attack != "none":
-		lines.append("DMG %.1f    RANGE %d" % [tile.damage(), roundi(tile.effective_range())])
+		lines.append(Loc.t("DMG %.1f    RANGE %d") % [tile.damage(), roundi(tile.effective_range())])
 		if tile.attack == "orbit":
-			lines.append("ORBS %d    HIT EVERY %.2f S" % [tile.orb_count(), tile.interval()])
+			lines.append(Loc.t("ORBS %d    HIT EVERY %.2f S") % [tile.orb_count(), tile.interval()])
 		else:
-			lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+			lines.append(Loc.t("RATE %.1f / S") % (1.0 / tile.interval()))
 	if tile.haste > 0.0:
-		lines.append("ADJACENT TILES +%d%% SPEED" % roundi(tile.haste * 100.0))
+		lines.append(Loc.t("ADJACENT TILES +%d%% SPEED") % roundi(tile.haste * 100.0))
 	elif tile.attack != "none" and tile.haste_bonus() > 0.0:
-		lines.append("BOOSTED +%d%% SPEED" % roundi(tile.haste_bonus() * 100.0))
+		lines.append(Loc.t("BOOSTED +%d%% SPEED") % roundi(tile.haste_bonus() * 100.0))
 	if tile.income > 0:
-		lines.append("INCOME $%d / WAVE" % tile.income)
-		lines.append("INTEREST %d%% OF YOUR $ (MAX $%d)" % [
+		lines.append(Loc.t("INCOME $%d / WAVE") % tile.income)
+		lines.append(Loc.t("INTEREST %d%% OF YOUR $ (MAX $%d)") % [
 				roundi((Game.BANK_INTEREST + Game.BANK_INTEREST_STEP * (tile.level - 1)) * 100.0),
 				tile.income * Game.BANK_INTEREST_CAP])
 	if tile.attack == "laser" and tile.target_count() > 1:
-		lines.append("BEAMS %d" % tile.target_count())
+		lines.append(Loc.t("BEAMS %d") % tile.target_count())
 	if tile.beam:
-		lines.append("LOCK-ON BEAM")
+		lines.append(Loc.t("LOCK-ON BEAM"))
 	if tile.focus_max > 0:
-		lines.append("FOCUS +%d%% / HIT (MAX x%.1f)" % [roundi(tile.focus_step * 100.0),
+		lines.append(Loc.t("FOCUS +%d%% / HIT (MAX x%.1f)") % [roundi(tile.focus_step * 100.0),
 				1.0 + tile.focus_step * tile.focus_max])
 	if tile.attack == "spark":
-		lines.append("BOUNCES %d" % tile.bounces)
+		lines.append(Loc.t("BOUNCES %d") % tile.bounces)
 	if tile.attack == "drone":
-		lines.append("DRONES %d" % tile.drone_count())
+		lines.append(Loc.t("DRONES %d") % tile.drone_count())
 	if tile.pack_bonus > 0.0:
-		lines.append("PACK %d ARCHERS (+%d%% DMG)" % [tile.linked_archers(),
+		lines.append(Loc.t("PACK %d ARCHERS (+%d%% DMG)") % [tile.linked_archers(),
 				roundi(tile.pack_bonus * tile.linked_archers() * 100.0)])
 	if tile.attack == "frost":
-		lines.append("SLOW %d%%" % roundi((1.0 - tile.frost_slow) * 100.0))
-	lines.append("HP %d / %d" % [ceili(tile.hp), ceili(tile.max_hp)])
+		lines.append(Loc.t("SLOW %d%%") % roundi((1.0 - tile.frost_slow) * 100.0))
+	lines.append(Loc.t("HP %d / %d") % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
 	if not tile.gears.is_empty():
 		var lines_g: Array[String] = []
 		for id in tile.gears:
-			lines_g.append("GEAR  %s" % GearDefs.get_def(id)["name"])
+			lines_g.append(Loc.t("GEAR  %s") % GearDefs.get_def(id)["name"])
 		if tile.gears.size() < tile.gear_slots():
-			lines_g.append("GEAR  EMPTY SLOT")
+			lines_g.append(Loc.t("GEAR  EMPTY SLOT"))
 		_tile_gear.text = "\n".join(lines_g)
 		_set_label_color(_tile_gear, GearDefs.get_def(tile.gears[-1])["color"])
 		_tile_gear.visible = true
 	else:
 		_tile_gear.visible = false
-	_tile_next.text = "NEXT LEVEL\n" + "\n".join(tile.upgrade_preview())
+	_tile_next.text = Loc.t("NEXT LEVEL") + "\n" + "\n".join(tile.upgrade_preview())
 	var cost := tile.upgrade_cost()
-	_upgrade_button.text = "UPGRADE  $%d" % cost
+	_upgrade_button.text = Loc.t("UPGRADE  $%d") % cost
 	_upgrade_button.disabled = money < cost
 
 
@@ -414,9 +414,9 @@ func _build_actions(root: MarginContainer) -> void:
 	_skill_box = VBoxContainer.new()
 	_skill_box.add_theme_constant_override("separation", 6)
 	_actions.add_child(_skill_box)
-	_move_button = make_neon_button("MOVE", Color.WHITE)
+	_move_button = make_neon_button(Loc.t("MOVE"), Color.WHITE)
 	_move_button.custom_minimum_size = Vector2(300, 52)
-	_move_button.tooltip_text = "Move or swap one tile per wave. Right-click cancels."
+	_move_button.tooltip_text = Loc.t("Move or swap one tile per wave. Right-click cancels.")
 	_move_button.pressed.connect(func() -> void: move_pressed.emit())
 	_actions.add_child(_move_button)
 
@@ -440,9 +440,9 @@ func set_skill(skill_name: String, color: Color, cooldown: float, max_cooldown: 
 		_skill_bar.custom_minimum_size = Vector2(300, 8)
 		_skill_box.add_child(_skill_bar)
 	if active:
-		_skill_button.text = "%s  ON" % skill_name
+		_skill_button.text = Loc.t("%s  ON") % skill_name
 	elif cooldown > 0.0:
-		_skill_button.text = "%s  %ds" % [skill_name, ceili(cooldown)]
+		_skill_button.text = Loc.t("%s  %ds") % [skill_name, ceili(cooldown)]
 	else:
 		_skill_button.text = "%s  [Q]" % skill_name
 	_skill_button.disabled = cooldown > 0.0 and not active
@@ -455,9 +455,9 @@ func set_move(charges: int, active: bool) -> void:
 	if _move_button == null:
 		return
 	if active:
-		_move_button.text = "CANCEL MOVE  [M]"
+		_move_button.text = Loc.t("CANCEL MOVE  [M]")
 	else:
-		_move_button.text = "MOVE TILE  %d  [M]" % charges
+		_move_button.text = Loc.t("MOVE TILE  %d  [M]") % charges
 	_move_button.disabled = charges <= 0 and not active
 
 
@@ -476,10 +476,10 @@ func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
 	_tile_gear = _make_label(Color.WHITE, 20, 700)
 	_tile_next = _make_label(Color(0.45, 1.0, 0.5), 18, 600)
-	var close := make_neon_button("CLOSE", Color(1, 1, 1, 0.7))
+	var close := make_neon_button(Loc.t("CLOSE"), Color(1, 1, 1, 0.7))
 	close.custom_minimum_size = Vector2(0, 52)
 	close.pressed.connect(func() -> void: close_tile_pressed.emit())
-	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
+	_upgrade_button = _make_button(Loc.t("UPGRADE"), upgrade_pressed)
 	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
 	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
 	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
@@ -502,7 +502,7 @@ func _build_choice_overlay() -> void:
 	center.add_theme_constant_override("separation", 36)
 	_choice_overlay.add_child(center)
 	var title := _make_label(Color.WHITE, 44, 800, 0.25)
-	title.text = "CHOOSE ONE"
+	title.text = Loc.t("CHOOSE ONE")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	center.add_child(title)
 	_choice_row = HBoxContainer.new()
@@ -532,7 +532,7 @@ func _make_card(option: Dictionary, index: int) -> Button:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(box)
 	var tag := _make_label(Color(color, 0.7), 16, 600)
-	tag.text = option.get("tag", "")
+	tag.text = Loc.t(option.get("tag", ""))
 	var title := _make_label(color, 34, 800, 0.2)
 	title.text = option["title"]
 	var desc := _make_label(Color(1, 1, 1, 0.85), 19, 500)
@@ -592,7 +592,7 @@ static func wants_fullscreen_button() -> bool:
 
 ## FULL 버튼 (F11과 같음). 브라우저에서는 주소창을 없애 태블릿 화면을 넓게 쓴다.
 static func make_fullscreen_button() -> Button:
-	var b := make_neon_button("FULL", NEON_CYAN)
+	var b := make_neon_button(Loc.t("FULL"), NEON_CYAN)
 	b.custom_minimum_size = Vector2(130, 60)
 	b.add_theme_font_size_override("font_size", 24)
 	b.pressed.connect(toggle_fullscreen)
@@ -616,6 +616,8 @@ static func font_weight(weight: int) -> Font:
 	f.base_font = FONT
 	var tag := TextServerManager.get_primary_interface().name_to_tag("wght")
 	f.variation_opentype = {tag: weight}
+	# 한글은 Orbitron에 없으므로 같은 굵기의 한글 폰트로 (Loc 참고)
+	f.fallbacks = [Loc.korean_font(weight)]
 	return f
 
 

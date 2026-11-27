@@ -126,7 +126,7 @@ func _run() -> void:
 	var hud := _game.hud
 	_game.toggle_pause()
 	_check(paused and hud.is_overlay_visible(), "paused with overlay")
-	_check(hud._pause_button.text == "PLAY", "pause button shows PLAY")
+	_check(hud._pause_button.text == Loc.t("PLAY"), "pause button shows PLAY")
 	_check(hud._pause_button.get_parent().get_parent().get_index() > hud._overlay.get_index(),
 			"pause button drawn above the pause overlay")
 	var tap := InputEventMouseButton.new()
@@ -134,4 +134,4 @@ func _run() -> void:
 	tap.pressed = true
 	hud._on_overlay_input(tap)
 	_check(not paused and not hud.is_overlay_visible(), "tap on overlay resumes")
-	_check(hud._pause_button.text == "PAUSE", "pause button back to PAUSE")
+	_check(hud._pause_button.text == Loc.t("PAUSE"), "pause button back to PAUSE")
