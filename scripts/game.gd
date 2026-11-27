@@ -18,6 +18,8 @@ signal game_over
 
 enum State { INTERMISSION, WAVE, CHOOSING, PLACING, EQUIPPING }
 
+## 게임 기본 속도. 화면의 "1x"가 이 속도이고 "2x"는 그 두 배.
+const BASE_TIME_SCALE := 1.5
 const FIRST_WAVE_DELAY := 1.5
 const INTERMISSION := 1.5
 const SPAWN_MARGIN := 40.0
@@ -66,7 +68,7 @@ static var _skip_hub_once := false
 
 
 func _ready() -> void:
-	Engine.time_scale = 1.0
+	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)
 	board.placement_finished.connect(_on_placement_finished)
@@ -263,7 +265,7 @@ func toggle_pause() -> void:
 
 func toggle_speed() -> void:
 	speed_multiplier = 2.0 if speed_multiplier == 1.0 else 1.0
-	Engine.time_scale = speed_multiplier
+	Engine.time_scale = BASE_TIME_SCALE * speed_multiplier
 	hud.set_speed(speed_multiplier)
 
 
@@ -379,6 +381,6 @@ func _on_restart_pressed() -> void:
 
 
 func _restart() -> void:
-	Engine.time_scale = 1.0
+	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	get_tree().reload_current_scene()

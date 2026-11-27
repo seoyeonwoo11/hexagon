@@ -35,9 +35,9 @@ func _process(_delta: float) -> bool:
 		_game.choices_offered.connect(_auto_choose)
 		# 일시정지/배속 토글
 		_game.toggle_speed()
-		_check(Engine.time_scale == 2.0, "2x speed")
+		_check(Engine.time_scale == Game.BASE_TIME_SCALE * 2.0, "2x speed")
 		_game.toggle_speed()
-		_check(Engine.time_scale == 1.0, "back to 1x")
+		_check(Engine.time_scale == Game.BASE_TIME_SCALE, "back to 1x")
 		_game.toggle_pause()
 		_check(paused, "paused")
 		_game.toggle_pause()

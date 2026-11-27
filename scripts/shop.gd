@@ -19,6 +19,9 @@ const SIDE_MARGIN := 120
 ## 임시(테스트용): + 키나 숫자 옆 + 버튼으로 SHARD 지급. 출시 전에 false로.
 const DEBUG_FREE_SHARDS := true
 const DEBUG_SHARD_AMOUNT := 10
+## SHARD 숫자용 고정폭 글꼴: 숫자마다 폭이 같아서 값이 바뀌어도 흔들리지 않는다.
+const NUMBER_FONT := preload("res://assets/fonts/ShareTechMono-Regular.ttf")
+const NUMBER_SIZE := 150
 
 var _result_label: Label
 var _best_label: Label
@@ -128,7 +131,14 @@ func _build_left(parent: Control) -> void:
 	var shard_row := HBoxContainer.new()
 	shard_row.add_theme_constant_override("separation", 24)
 	col.add_child(shard_row)
-	_shards_value = Hud.make_label(SHARD_COLOR, 132, 900, 0.3)
+	_shards_value = Hud.make_label(SHARD_COLOR, NUMBER_SIZE, 400, 0.3)
+	_shards_value.label_settings.font = NUMBER_FONT
+	# 얇은 고정폭 글꼴에 같은 색 외곽선을 둘러 굵기를 맞춘다
+	_shards_value.label_settings.outline_size = 6
+	_shards_value.label_settings.outline_color = SHARD_COLOR
+	# 세 자리 폭을 미리 잡아 두어 자릿수가 바뀌어도 옆 버튼이 움직이지 않게 한다
+	_shards_value.custom_minimum_size.x = NUMBER_FONT.get_string_size("000",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, NUMBER_SIZE).x
 	shard_row.add_child(_shards_value)
 	if DEBUG_FREE_SHARDS:
 		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
