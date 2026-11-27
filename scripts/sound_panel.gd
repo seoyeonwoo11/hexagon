@@ -14,6 +14,8 @@ var _sfx_value: Label
 var _mute_button: Button
 var _was_paused := false
 var _syncing := false
+## 창을 만든 때의 언어. 언어를 바꾸면(씬을 다시 불러와도 이 창은 남아 있음) 다음에 열 때 다시 만든다.
+var _built_lang := ""
 
 
 func _init() -> void:
@@ -23,6 +25,18 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	var owner_sfx := get_parent() as Sfx
+	if owner_sfx != null:
+		owner_sfx.settings_changed.connect(_sync)
+	_build()
+
+
+func _build() -> void:
+	for c in get_children():
+		remove_child(c)
+		c.queue_free()
+	Loc.ensure_loaded()
+	_built_lang = Loc.lang
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.6)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -45,14 +59,14 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", 26)
 	box.add_child(col)
 	var title := Hud.make_label(COLOR, 40, 800, 0.25)
-	title.text = "SOUND"
+	title.text = Loc.t("SOUND")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
-	var music := _slider_row("MUSIC", Sfx.music_volume)
+	var music := _slider_row(Loc.t("MUSIC"), Sfx.music_volume)
 	_music_slider = music[0]
 	_music_value = music[1]
 	col.add_child(music[2])
-	var sfx := _slider_row("EFFECTS", Sfx.sfx_volume)
+	var sfx := _slider_row(Loc.t("EFFECTS"), Sfx.sfx_volume)
 	_sfx_slider = sfx[0]
 	_sfx_value = sfx[1]
 	col.add_child(sfx[2])
@@ -66,24 +80,21 @@ func _ready() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 24)
 	col.add_child(row)
-	_mute_button = Hud.make_neon_button("MUTE", MUTED_COLOR)
+	_mute_button = Hud.make_neon_button(Loc.t("MUTE"), MUTED_COLOR)
 	_mute_button.custom_minimum_size = Vector2(240, 64)
 	_mute_button.add_theme_font_size_override("font_size", 24)
 	_mute_button.pressed.connect(func() -> void: Sfx.set_muted(not Sfx.muted))
-	var close := Hud.make_neon_button("CLOSE", COLOR)
+	var close := Hud.make_neon_button(Loc.t("CLOSE"), COLOR)
 	close.custom_minimum_size = Vector2(240, 64)
 	close.add_theme_font_size_override("font_size", 24)
 	close.pressed.connect(close_panel)
 	row.add_child(_mute_button)
 	row.add_child(close)
 	var hint := Hud.make_label(Color(1, 1, 1, 0.45), 18, 500)
-	hint.text = "N  -  MUTE / UNMUTE"
+	hint.text = Loc.t("N  -  MUTE / UNMUTE")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.visible = not DisplayServer.is_touchscreen_available()
 	col.add_child(hint)
-	var owner_sfx := get_parent() as Sfx
-	if owner_sfx != null:
-		owner_sfx.settings_changed.connect(_sync)
 	_sync()
 
 
@@ -164,7 +175,7 @@ func _sync() -> void:
 	_music_slider.value = roundf(Sfx.music_volume * 100.0)
 	_sfx_slider.value = roundf(Sfx.sfx_volume * 100.0)
 	_syncing = false
-	_mute_button.text = "UNMUTE" if Sfx.muted else "MUTE"
+	_mute_button.text = Loc.t("UNMUTE") if Sfx.muted else Loc.t("MUTE")
 	_update_labels()
 
 
@@ -181,6 +192,8 @@ func open() -> void:
 		return
 	_was_paused = get_tree().paused
 	get_tree().paused = true
+	if Loc.lang != _built_lang:
+		_build()
 	_sync()
 	visible = true
 
@@ -218,7 +231,7 @@ func _input(event: InputEvent) -> void:
 
 ## 게임 화면과 시작 화면 오른쪽 위에 다는 SOUND 버튼. 음소거면 MUTED로 바뀐다.
 static func make_button() -> Button:
-	var b := Hud.make_neon_button("SOUND", COLOR)
+	var b := Hud.make_neon_button(Loc.t("SOUND"), COLOR)
 	b.custom_minimum_size = Vector2(150, 60)
 	b.add_theme_font_size_override("font_size", 24)
 	b.pressed.connect(Sfx.open_panel)
@@ -239,5 +252,5 @@ class ButtonSync extends Node:
 			s.settings_changed.connect(refresh)
 
 	func refresh() -> void:
-		button.text = "MUTED" if Sfx.muted else "SOUND"
+		button.text = Loc.t("MUTED") if Sfx.muted else Loc.t("SOUND")
 		button.add_theme_color_override("font_color", MUTED_COLOR if Sfx.muted else COLOR)

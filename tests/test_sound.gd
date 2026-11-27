@@ -104,12 +104,12 @@ func _run() -> void:
 	Sfx.set_music_volume(0.6)
 
 	# SOUND 버튼: HUD에 있고 음소거면 MUTED
-	var button := _find_button(_game.hud, "SOUND")
+	var button := _find_button(_game.hud, Loc.t("SOUND"))
 	_check(button != null, "SOUND button in the HUD")
 	Sfx.set_muted(true)
-	_check(button != null and button.text == "MUTED", "button shows MUTED")
+	_check(button != null and button.text == Loc.t("MUTED"), "button shows MUTED")
 	Sfx.set_muted(false)
-	_check(button != null and button.text == "SOUND", "button back to SOUND")
+	_check(button != null and button.text == Loc.t("SOUND"), "button back to SOUND")
 
 	# 설정 창: 열면 멈추고, 닫으면 원래대로
 	var panel := Sfx.panel()
@@ -129,6 +129,13 @@ func _run() -> void:
 	panel._sfx_slider.value = 70
 	_check(is_equal_approx(Sfx.sfx_volume, 0.7), "sfx slider sets volume")
 	panel.close_panel()
+	# 언어를 바꾸면 다음에 열 때 글자를 다시 만든다
+	var before := Loc.lang
+	Loc.lang = "en" if before == "ko" else "ko"
+	Sfx.open_panel()
+	_check(panel._mute_button.text == Loc.t("MUTE"), "panel rebuilt in the new language")
+	panel.close_panel()
+	Loc.lang = before
 
 	# 일시정지 중에는 배경음을 줄인다
 	var idx := AudioServer.get_bus_index(Sfx.MUSIC_BUS)
