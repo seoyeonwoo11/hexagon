@@ -7,6 +7,8 @@ extends CanvasLayer
 ## - 가운데: 일시정지/게임 오버 오버레이 (화면을 어둡게 덮음)
 ## 일시정지 중에도 동작해야 하므로 PROCESS_MODE_ALWAYS.
 ## 단축키: Space = 일시정지, F = 배속 전환, R = 게임 오버 후 재시작, F11 = 전체 화면.
+## 터치(태블릿/웹): 모든 조작에 화면 버튼이 있다 (스킬, 옮기기, 정보 창 CLOSE, 전체 화면 FULL).
+## 탭은 왼쪽 클릭으로 처리된다 (Godot의 터치 → 마우스 흉내).
 
 signal pause_pressed
 signal speed_pressed
@@ -17,6 +19,7 @@ signal skill_pressed
 signal move_pressed
 signal endless_pressed
 signal end_run_pressed
+signal close_tile_pressed
 
 const NEON_CYAN := Color(0.0, 0.95, 1.0)
 const NEON_PINK := Color(1.0, 0.2, 0.8)
@@ -99,6 +102,8 @@ func _ready() -> void:
 	root.add_child(buttons)
 	_pause_button = _make_button("PAUSE", pause_pressed)
 	_speed_button = _make_button("1x", speed_pressed)
+	if wants_fullscreen_button():
+		buttons.add_child(make_fullscreen_button())
 	buttons.add_child(_pause_button)
 	buttons.add_child(_speed_button)
 
@@ -440,13 +445,15 @@ func _build_tile_panel(root: MarginContainer) -> void:
 	_tile_stats = _make_label(Color(1, 1, 1, 0.85), 20, 500)
 	_tile_gear = _make_label(Color.WHITE, 20, 700)
 	_tile_next = _make_label(Color(0.45, 1.0, 0.5), 18, 600)
-	var hint := _make_label(Color(1, 1, 1, 0.4), 15, 500)
-	hint.text = "RIGHT CLICK TO CLOSE"
+	var close := make_neon_button("CLOSE", Color(1, 1, 1, 0.7))
+	close.custom_minimum_size = Vector2(0, 52)
+	close.pressed.connect(func() -> void: close_tile_pressed.emit())
 	_upgrade_button = _make_button("UPGRADE", upgrade_pressed)
 	_upgrade_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
 	var disabled := _neon_box(Color(1, 1, 1, 0.3), 0.6, 0)
 	_upgrade_button.add_theme_stylebox_override("disabled", disabled)
-	for c in [_tile_title, _tile_stats, _tile_gear, _tile_next, _upgrade_button, hint]:
+	_upgrade_button.custom_minimum_size = Vector2(0, 64)
+	for c in [_tile_title, _tile_stats, _tile_gear, _tile_next, _upgrade_button, close]:
 		box.add_child(c)
 
 
@@ -547,8 +554,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+## 전체 화면 버튼을 보여 줄지: 웹(브라우저)이거나 터치 화면이면.
+static func wants_fullscreen_button() -> bool:
+	return OS.has_feature("web") or DisplayServer.is_touchscreen_available()
+
+
+## FULL 버튼 (F11과 같음). 브라우저에서는 주소창을 없애 태블릿 화면을 넓게 쓴다.
+static func make_fullscreen_button() -> Button:
+	var b := make_neon_button("FULL", NEON_CYAN)
+	b.custom_minimum_size = Vector2(130, 60)
+	b.add_theme_font_size_override("font_size", 24)
+	b.pressed.connect(toggle_fullscreen)
+	return b
+
+
 func _toggle_fullscreen() -> void:
-	var w := get_window()
+	toggle_fullscreen()
+
+
+static func toggle_fullscreen() -> void:
+	var w := (Engine.get_main_loop() as SceneTree).root
 	if w.mode == Window.MODE_FULLSCREEN or w.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
 		w.mode = Window.MODE_MAXIMIZED
 	else:

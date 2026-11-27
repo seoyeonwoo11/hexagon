@@ -43,6 +43,14 @@ func _ready() -> void:
 	_build_left(bg)
 	_build_center(bg)
 	_build_right(bg)
+	if Hud.wants_fullscreen_button():
+		var full := Hud.make_fullscreen_button()
+		full.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		full.offset_left = -40 - 130
+		full.offset_right = -40
+		full.offset_top = 40
+		full.offset_bottom = 100
+		bg.add_child(full)
 	refresh()
 
 
