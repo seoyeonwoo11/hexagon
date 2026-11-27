@@ -31,6 +31,8 @@ var placing_kind := ""
 ## 장착 중인 장비 id. 빈 문자열이면 장착 모드가 아님.
 var equipping_gear := ""
 var selected_tile: HexTile
+## 영구 강화(HARD SHELL)로 새 타일 최대 체력에 곱하는 값
+var tile_hp_mult := 1.0
 
 var _hover := Vector2i.ZERO
 var _has_hover := false
@@ -101,6 +103,9 @@ func place_tile(coord: Vector2i, kind := "laser") -> HexTile:
 	var tile := HexTile.new()
 	tile.name = "Tile_%d_%d" % [coord.x, coord.y]
 	tile.setup(kind)
+	if kind != "core":
+		tile.max_hp *= tile_hp_mult
+		tile.hp = tile.max_hp
 	tile.coord = coord
 	tile.size = hex_size
 	tile.board = self

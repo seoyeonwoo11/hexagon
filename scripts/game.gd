@@ -6,6 +6,9 @@ extends Node2D
 ##   INTERMISSION (잠깐 대기) -> WAVE (적 생성/전투) -> 모든 적 처치 ->
 ##   CHOOSING (카드 3장 중 선택) -> [타일 카드면 PLACING (칸 클릭해 배치),
 ##   장비 카드면 EQUIPPING (타일 클릭해 장착)] -> INTERMISSION ...
+##
+## 판 시작 전과 끝난 뒤에는 시작 화면(Shop)이 뜬다. 판이 끝나면 버틴 웨이브만큼 SHARD를 받고
+## (Meta.finish_run), Shop에서 영구 강화와 타일 구매를 한 뒤 START로 새 판을 시작한다.
 
 signal money_changed(money: int)
 signal wave_started(wave: int)
@@ -15,6 +18,8 @@ signal game_over
 
 enum State { INTERMISSION, WAVE, CHOOSING, PLACING, EQUIPPING }
 
+## 게임 기본 속도. 화면의 "1x"가 이 속도이고 "2x"는 그 두 배.
+const BASE_TIME_SCALE := 1.5
 const FIRST_WAVE_DELAY := 1.5
 const INTERMISSION := 1.5
 const SPAWN_MARGIN := 40.0
@@ -25,14 +30,25 @@ const CARD_TAG_GEAR := "GEAR"
 const GEAR_CARDS_IN_POOL := 3
 
 ## 강화 카드 종류. 새 카드는 여기와 _apply_boost에 추가한다.
+## desc의 {v}는 boost_value(id)로 바뀐다 (웨이브가 높을수록 효과가 커짐).
 const BOOSTS := [
-	{"id": "damage", "title": "OVERCHARGE", "desc": "All tiles deal +10% damage.",
+	{"id": "damage", "title": "OVERCHARGE", "desc": "All tiles deal +{v}% damage.",
 			"color": Color(1.0, 0.35, 0.45)},
-	{"id": "rate", "title": "OVERCLOCK", "desc": "All tiles attack 8% faster.",
+	{"id": "rate", "title": "OVERCLOCK", "desc": "All tiles attack {v}% faster.",
 			"color": Color(0.3, 1.0, 0.85)},
-	{"id": "repair", "title": "REINFORCE", "desc": "Core +15 max HP and repairs half its HP.",
+	{"id": "repair", "title": "REINFORCE", "desc": "Core +{v} max HP and repairs half its HP.",
 			"color": Color(0.0, 0.95, 1.0)},
+	{"id": "resonance", "title": "RESONANCE",
+			"desc": "From now on, all tiles gain +{v}% damage after every wave.",
+			"color": Color(1.0, 0.55, 0.95)},
 ]
+## 강화 카드 효과: 기본값 + 웨이브당 증가량 (후반 카드일수록 강하다)
+const BOOST_BASE := {"damage": 10.0, "rate": 8.0, "repair": 15.0, "resonance": 2.0}
+const BOOST_PER_WAVE := {"damage": 0.3, "rate": 0.2, "repair": 2.0, "resonance": 0.0}
+## BANK 이자: 웨이브 클리어 때 가진 돈의 BANK_INTEREST(강화마다 +1%p), 최대 수입 × BANK_INTEREST_CAP
+const BANK_INTEREST := 0.04
+const BANK_INTEREST_STEP := 0.01
+const BANK_INTEREST_CAP := 4
 
 @onready var board: Board = $Board
 @onready var hud: Hud = $HUD
@@ -52,10 +68,20 @@ var _spawn_interval := 1.0
 var _alive := 0
 var _intermission := FIRST_WAVE_DELAY
 var _boss_pending := false
+## RESONANCE 카드로 쌓인, 웨이브마다 공격력 배율에 더해지는 값 (0.02 = +2%p)
+var resonance := 0.0
+## 판이 시작됐는지 (시작 화면이 떠 있는 동안은 false)
+var started := false
+var shop: Shop
+
+## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
+static var hub_enabled := true
+## 시작 화면에서 START를 눌러 씬을 다시 불러왔을 때 한 번 시작 화면을 건너뛴다.
+static var _skip_hub_once := false
 
 
 func _ready() -> void:
-	Engine.time_scale = 1.0
+	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)
 	board.placement_finished.connect(_on_placement_finished)
@@ -69,11 +95,43 @@ func _ready() -> void:
 	hud.set_wave(wave)
 	hud.set_speed(speed_multiplier)
 	hud.set_paused(false)
+	Meta.ensure_loaded()
+	shop = Shop.new()
+	shop.start_pressed.connect(_on_shop_start)
+	add_child(shop)
+	if hub_enabled and not _skip_hub_once:
+		shop.open()
+	else:
+		start_run()
+	_skip_hub_once = false
+
+
+## 판 시작: 시작 화면을 닫고 영구 강화를 적용한다.
+func start_run() -> void:
+	if started:
+		return
+	started = true
+	shop.close()
+	board.damage_mult *= Meta.damage_mult()
+	board.rate_mult *= Meta.rate_mult()
+	board.tile_hp_mult = Meta.tile_hp_mult()
+	var core := board.core_tile()
+	core.max_hp = (core.max_hp + Meta.core_hp_bonus()) * Meta.tile_hp_mult()
+	core.hp = core.max_hp
+	add_money(Meta.start_money())
 	hud.show_banner("READY", Hud.NEON_CYAN)
 
 
+func _on_shop_start() -> void:
+	if not started:
+		start_run()
+	else:
+		_skip_hub_once = true
+		_restart()
+
+
 func _process(delta: float) -> void:
-	if is_over:
+	if is_over or not started:
 		return
 	var core := board.core_tile()
 	if core != null:
@@ -123,11 +181,14 @@ func make_options() -> Array:
 	var pool: Array = []
 	if not board.placeable_cells().is_empty():
 		for kind in TileDefs.PLACEABLE:
+			if not Meta.is_tile_unlocked(kind):
+				continue
 			var def := TileDefs.get_def(kind)
 			pool.append({"type": "tile", "kind": kind, "tag": CARD_TAG_TILE,
 					"title": def["name"], "desc": def["desc"], "color": def["color"]})
 	for boost in BOOSTS:
 		var opt: Dictionary = boost.duplicate()
+		opt["desc"] = (opt["desc"] as String).replace("{v}", "%d" % roundi(boost_value(opt["id"])))
 		opt["type"] = "boost"
 		opt["tag"] = CARD_TAG_BOOST
 		pool.append(opt)
@@ -166,16 +227,24 @@ func choose_option(index: int) -> void:
 		_start_intermission()
 
 
+## 강화 카드 수치 (퍼센트 또는 체력). 웨이브가 오를수록 커진다.
+func boost_value(id: String) -> float:
+	return BOOST_BASE[id] + BOOST_PER_WAVE[id] * maxi(wave - 1, 0)
+
+
 func _apply_boost(id: String) -> void:
+	var v := boost_value(id)
 	match id:
 		"damage":
-			board.damage_mult *= 1.1
+			board.damage_mult *= 1.0 + v / 100.0
 		"rate":
-			board.rate_mult *= 1.08
+			board.rate_mult *= 1.0 + v / 100.0
 		"repair":
 			var core := board.core_tile()
-			core.max_hp += 15.0
+			core.max_hp += v
 			core.hp = minf(core.hp + core.max_hp * 0.5, core.max_hp)
+		"resonance":
+			resonance += v / 100.0
 
 
 func _on_placement_finished(_tile: HexTile) -> void:
@@ -205,7 +274,7 @@ func alive_enemies() -> int:
 
 
 func toggle_pause() -> void:
-	if is_over:
+	if is_over or not started:
 		return
 	var tree := get_tree()
 	tree.paused = not tree.paused
@@ -218,7 +287,7 @@ func toggle_pause() -> void:
 
 func toggle_speed() -> void:
 	speed_multiplier = 2.0 if speed_multiplier == 1.0 else 1.0
-	Engine.time_scale = speed_multiplier
+	Engine.time_scale = BASE_TIME_SCALE * speed_multiplier
 	hud.set_speed(speed_multiplier)
 
 
@@ -227,12 +296,23 @@ func wave_enemy_count(n: int) -> int:
 	return mini(3 + n * 2, 45)
 
 
+## 적 체력: LATE_FROM 웨이브까지는 HP_GROWTH배씩, 그 뒤로는 HP_LATE_GROWTH배씩 늘어난다.
+const HP_GROWTH := 1.23
+const HP_LATE_GROWTH := 1.19
+const LATE_FROM := 15
+## 처치 보상: 적 체력^REWARD_POWER × REWARD_SCALE. 적이 강해질수록 보상도 같이 커진다.
+const REWARD_SCALE := 0.3
+const REWARD_POWER := 0.45
+
+
 func wave_enemy_hp(n: int) -> float:
-	return 6.0 * pow(1.23, n - 1) + n
+	var early := mini(n, LATE_FROM) - 1
+	var late := maxi(n - LATE_FROM, 0)
+	return 6.0 * pow(HP_GROWTH, early) * pow(HP_LATE_GROWTH, late) + n
 
 
-func wave_enemy_reward(n: int) -> int:
-	return 1 + n / 8
+func wave_enemy_reward(n: int) -> float:
+	return maxf(1.0, REWARD_SCALE * pow(wave_enemy_hp(n), REWARD_POWER))
 
 
 func _begin_wave() -> void:
@@ -258,14 +338,26 @@ func _hide_wave_message(for_wave: int) -> void:
 
 func _on_wave_cleared() -> void:
 	wave_cleared.emit(wave)
+	# RESONANCE는 더하기로 쌓인다 (곱하면 후반에 끝없이 불어남)
+	if resonance > 0.0:
+		board.damage_mult += resonance
+	var interest := 0
 	for tile in board.tiles.values():
 		if tile.income > 0:
+			interest += bank_interest(tile)
 			add_money(tile.income)
+	add_money(interest)
 	hud.hide_banner()
 	state = State.CHOOSING
 	current_options = make_options()
 	hud.show_choices(current_options)
 	choices_offered.emit(current_options)
+
+
+## BANK 한 칸이 이번 웨이브에 줄 이자 (지금 가진 돈 기준).
+func bank_interest(tile: HexTile) -> int:
+	var rate := BANK_INTEREST + BANK_INTEREST_STEP * (tile.level - 1)
+	return mini(floori(money * rate), tile.income * BANK_INTEREST_CAP)
 
 
 ## kind 종류의 적을 전역 위치 pos에 만든다. 능력치 = 웨이브 기본값 × 종류 배율.
@@ -319,14 +411,21 @@ func _on_core_destroyed() -> void:
 	hud.hide_banner()
 	hud.hide_choices()
 	hud.show_tile_panel(null, 0)
-	hud.show_overlay("GAME OVER", "REACHED WAVE %d  -  PRESS R TO RESTART" % wave, Hud.NEON_PINK)
+	Meta.finish_run(wave)
 	get_tree().paused = true
+	shop.open()
 	game_over.emit()
 
 
+## R 키: 판이 끝났으면 시작 화면을 건너뛰고 바로 새 판.
 func _on_restart_pressed() -> void:
 	if not is_over:
 		return
-	Engine.time_scale = 1.0
+	_skip_hub_once = true
+	_restart()
+
+
+func _restart() -> void:
+	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	get_tree().reload_current_scene()

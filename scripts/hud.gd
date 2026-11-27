@@ -189,8 +189,15 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 			lines.append("ORBS %d    HIT EVERY %.2f S" % [tile.orb_count(), tile.interval()])
 		else:
 			lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+	if tile.haste > 0.0:
+		lines.append("ADJACENT TILES +%d%% SPEED" % roundi(tile.haste * 100.0))
+	elif tile.attack != "none" and tile.haste_bonus() > 0.0:
+		lines.append("BOOSTED +%d%% SPEED" % roundi(tile.haste_bonus() * 100.0))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
+		lines.append("INTEREST %d%% OF YOUR $ (MAX $%d)" % [
+				roundi((Game.BANK_INTEREST + Game.BANK_INTEREST_STEP * (tile.level - 1)) * 100.0),
+				tile.income * Game.BANK_INTEREST_CAP])
 	if tile.attack == "laser" and tile.target_count() > 1:
 		lines.append("BEAMS %d" % tile.target_count())
 	if tile.attack == "spark":
@@ -294,6 +301,10 @@ func _make_card(option: Dictionary, index: int) -> Button:
 
 
 func _neon_box(color: Color, bg_alpha: float, glow: int) -> StyleBoxFlat:
+	return neon_box(color, bg_alpha, glow)
+
+
+static func neon_box(color: Color, bg_alpha: float, glow: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color(0, 0, 0, bg_alpha)
 	box.border_color = color
@@ -345,6 +356,10 @@ static func font_weight(weight: int) -> Font:
 ## glow: 글자 뒤 빛 번짐의 세기 (0이면 없음). 작은 글자에 번짐을 주면 뿌옇게 보이므로
 ## 큰 제목에만 약하게 쓴다.
 func _make_label(color: Color, font_size: int, weight: int, glow: float = 0.0) -> Label:
+	return make_label(color, font_size, weight, glow)
+
+
+static func make_label(color: Color, font_size: int, weight: int, glow: float = 0.0) -> Label:
 	var label := Label.new()
 	var settings := LabelSettings.new()
 	settings.font = font_weight(weight)
@@ -406,4 +421,34 @@ func _make_button(text: String, sig: Signal) -> Button:
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", hover)
 	button.pressed.connect(func() -> void: sig.emit())
+	return button
+
+
+## 다른 화면(Shop)에서도 쓰는 네온 버튼. 비활성 상태는 흐리게.
+static func make_neon_button(text: String, color: Color) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_override("font", font_weight(700))
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", color)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0, 0, 0, 0.6)
+	normal.border_color = color
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(6)
+	normal.shadow_color = Color(color, 0.35)
+	normal.shadow_size = 8
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(color, 0.15)
+	var disabled := normal.duplicate() as StyleBoxFlat
+	disabled.border_color = Color(1, 1, 1, 0.25)
+	disabled.shadow_size = 0
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", hover)
+	button.add_theme_stylebox_override("disabled", disabled)
 	return button

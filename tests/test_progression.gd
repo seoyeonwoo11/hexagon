@@ -14,6 +14,11 @@ func _check(cond: bool, msg: String) -> void:
 
 
 func _initialize() -> void:
+	# 시작 화면 없이 바로 시작, 실제 저장 파일 대신 테스트용 빈 진행 상태
+	Game.hub_enabled = false
+	Meta.save_path = "user://test_meta.cfg"
+	Meta.reset()
+	Meta.loaded = true
 	change_scene_to_file("res://scenes/main.tscn")
 
 
@@ -238,6 +243,60 @@ func _run() -> void:
 	bank.setup("bank")
 	_check(bank.income > 0, "bank has income")
 	bank.free()
+
+	# 후반 성장: 강화 카드는 웨이브가 높을수록 세다
+	var saved_wave := _game.wave
+	_game.wave = 1
+	var early_v := _game.boost_value("damage")
+	_game.wave = 21
+	_check(_game.boost_value("damage") > early_v * 1.5, "late boost cards are stronger")
+	_game.wave = saved_wave
+	# RESONANCE: 이후 웨이브를 넘길 때마다 공격력이 곱해진다
+	_game.resonance = 0.0
+	_game._apply_boost("resonance")
+	var res_v := _game.resonance
+	var mult_before := board.damage_mult
+	_game.state = Game.State.WAVE
+	_game._on_wave_cleared()
+	_check(absf(board.damage_mult - mult_before - res_v) < 0.001 and res_v > 0.0, "resonance grows damage per wave")
+	_game.hud.hide_choices()
+	_game.state = Game.State.INTERMISSION
+	_game.resonance = 0.0
+	# BANK 이자: 가진 돈의 4%, 최대 수입 × 4
+	var bank_t := HexTile.new()
+	bank_t.setup("bank")
+	_game.add_money(-_game.money + 500)
+	_check(_game.bank_interest(bank_t) == 20, "bank interest 4%% (got %d)" % _game.bank_interest(bank_t))
+	_game.add_money(10000)
+	_check(_game.bank_interest(bank_t) == bank_t.income * Game.BANK_INTEREST_CAP, "interest capped")
+	bank_t.free()
+	_game.add_money(-_game.money)
+
+	# BOOSTER: 맞닿은 타일만 공격 속도 +25%, 강화하면 +35%, 여러 개면 더해짐
+	var free_cells: Array[Vector2i] = []
+	for n in HexGrid.neighbors(core.coord):
+		if not board.tiles.has(n):
+			free_cells.append(n)
+	# 앞에서 무작위 카드로 BOOSTER가 이미 놓였을 수 있으므로 기존 보너스를 기준으로 비교
+	var bonus0 := core.haste_bonus()
+	var base_interval := core.interval() * (1.0 + bonus0)
+	var far_tile: HexTile = null
+	for t in board.tiles.values():
+		if HexGrid.distance(t.coord, core.coord) >= 2 and t.attack != "none":
+			far_tile = t
+	var far_before := far_tile.interval() if far_tile != null else 0.0
+	var booster := board.place_tile(free_cells[0], "booster")
+	_check(booster != null and booster.attack == "none", "booster placed")
+	_check(absf(base_interval / core.interval() - (1.25 + bonus0)) < 0.001, "adjacent tile 25% faster")
+	if far_tile != null and HexGrid.distance(far_tile.coord, booster.coord) > 1:
+		_check(far_tile.interval() == far_before, "non-adjacent tile unaffected")
+	_check(booster.boosted_neighbors().has(core), "booster lists core as boosted")
+	booster.upgrade()
+	_check(absf(base_interval / core.interval() - (1.35 + bonus0)) < 0.001, "upgraded booster +35%")
+	var booster2 := board.place_tile(free_cells[1], "booster")
+	_check(absf(base_interval / core.interval() - (1.60 + bonus0)) < 0.001, "two boosters stack")
+	_check(not GearDefs.ids().any(func(id: String) -> bool: return GearDefs.can_equip(id, booster2)),
+			"booster takes no gear")
 
 	# 그리드가 꽉 차면 타일 카드 없음
 	for cell in HexGrid.cells_in_radius(Vector2i.ZERO, board.grid_radius):

@@ -32,15 +32,21 @@ const DEFS := {
 		"orbs": 3,
 		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
 	},
+	"booster": {
+		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",
+		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
+		"haste": 0.25,
+		"desc": "Adjacent tiles attack 25% faster.",
+	},
 	"bank": {
 		"name": "BANK", "color": Color(0.8, 0.45, 1.0), "attack": "none",
 		"max_hp": 50.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 9,
-		"desc": "Earns money after every wave.",
+		"desc": "Earns money after every wave, plus interest on your savings.",
 	},
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "bank"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank"]
 
 
 static func get_def(kind: String) -> Dictionary:
