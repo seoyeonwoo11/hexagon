@@ -244,6 +244,30 @@ func _run() -> void:
 	_check(bank.income > 0, "bank has income")
 	bank.free()
 
+	# BOOSTER: 맞닿은 타일만 공격 속도 +25%, 강화하면 +35%, 여러 개면 더해짐
+	var free_cells: Array[Vector2i] = []
+	for n in HexGrid.neighbors(core.coord):
+		if not board.tiles.has(n):
+			free_cells.append(n)
+	var base_interval := core.interval()
+	var far_tile: HexTile = null
+	for t in board.tiles.values():
+		if HexGrid.distance(t.coord, core.coord) >= 2 and t.attack != "none":
+			far_tile = t
+	var far_before := far_tile.interval() if far_tile != null else 0.0
+	var booster := board.place_tile(free_cells[0], "booster")
+	_check(booster != null and booster.attack == "none", "booster placed")
+	_check(absf(base_interval / core.interval() - 1.25) < 0.001, "adjacent tile 25% faster")
+	if far_tile != null and HexGrid.distance(far_tile.coord, booster.coord) > 1:
+		_check(far_tile.interval() == far_before, "non-adjacent tile unaffected")
+	_check(booster.boosted_neighbors().has(core), "booster lists core as boosted")
+	booster.upgrade()
+	_check(absf(base_interval / core.interval() - 1.35) < 0.001, "upgraded booster +35%")
+	var booster2 := board.place_tile(free_cells[1], "booster")
+	_check(absf(base_interval / core.interval() - 1.60) < 0.001, "two boosters stack")
+	_check(not GearDefs.ids().any(func(id: String) -> bool: return GearDefs.can_equip(id, booster2)),
+			"booster takes no gear")
+
 	# 그리드가 꽉 차면 타일 카드 없음
 	for cell in HexGrid.cells_in_radius(Vector2i.ZERO, board.grid_radius):
 		if not board.tiles.has(cell):

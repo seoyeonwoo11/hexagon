@@ -189,6 +189,10 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 			lines.append("ORBS %d    HIT EVERY %.2f S" % [tile.orb_count(), tile.interval()])
 		else:
 			lines.append("RATE %.1f / S" % (1.0 / tile.interval()))
+	if tile.haste > 0.0:
+		lines.append("ADJACENT TILES +%d%% SPEED" % roundi(tile.haste * 100.0))
+	elif tile.attack != "none" and tile.haste_bonus() > 0.0:
+		lines.append("BOOSTED +%d%% SPEED" % roundi(tile.haste_bonus() * 100.0))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
 	if tile.attack == "laser" and tile.target_count() > 1:

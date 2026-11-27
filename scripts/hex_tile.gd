@@ -25,6 +25,8 @@ const EXTRA_BEAM_LEVELS: Array[int] = [3, 5]
 ## FROST: 강화마다 감속이 강해진다 (남는 속도 비율 ×0.88, 최저 0.25)
 const FROST_SLOW_STEP := 0.88
 const FROST_SLOW_MIN := 0.25
+## BOOSTER: 강화마다 맞닿은 타일 공격 속도 보너스 +10%p
+const UPG_HASTE := 0.10
 
 var kind := "laser"
 var display_name := "LASER"
@@ -45,6 +47,8 @@ var orbs := 0
 var extra_beams := 0
 ## FROST: 감속 시 남는 속도 비율 (낮을수록 강함)
 var frost_slow := FROST_SLOW
+## BOOSTER: 맞닿은 타일에 주는 공격 속도 보너스 (0.25 = 25% 빠르게)
+var haste := 0.0
 var level := 1
 var selected := false
 ## 장착한 장비 id (GearDefs). 빈 문자열이면 없음.
@@ -82,6 +86,7 @@ func setup(tile_kind: String) -> void:
 	bounces = def.get("bounces", 0)
 	bounce_range = def.get("bounce_range", 0.0)
 	orbs = def.get("orbs", 0)
+	haste = def.get("haste", 0.0)
 	if attack == "orbit" and _orbit_ring == null:
 		_orbit_ring = OrbitRing.new()
 		_orbit_ring.tile = self
@@ -95,7 +100,31 @@ func damage() -> float:
 
 ## 전체 강화 배율까지 반영한 실제 공격 간격(초).
 func interval() -> float:
-	return fire_interval / (board.rate_mult if board != null else 1.0)
+	return fire_interval / ((board.rate_mult if board != null else 1.0) * (1.0 + haste_bonus()))
+
+
+## 맞닿은 BOOSTER들이 주는 공격 속도 보너스 합 (여러 개면 더해진다).
+func haste_bonus() -> float:
+	if board == null:
+		return 0.0
+	var total := 0.0
+	for n in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(n)
+		if t != null and t != self and is_instance_valid(t) and t.haste > 0.0:
+			total += t.haste
+	return total
+
+
+## BOOSTER: 버프를 받는 맞닿은 공격 타일들.
+func boosted_neighbors() -> Array[HexTile]:
+	var result: Array[HexTile] = []
+	if board == null or haste <= 0.0:
+		return result
+	for n in HexGrid.neighbors(coord):
+		var t: HexTile = board.tiles.get(n)
+		if t != null and t != self and is_instance_valid(t) and t.attack != "none":
+			result.append(t)
+	return result
 
 
 ## 장비까지 반영한 실제 사거리.
@@ -179,6 +208,8 @@ func upgrade() -> void:
 			orbs = mini(orbs + 1, MAX_ORBS)
 		"frost":
 			frost_slow = maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)
+		"booster":
+			haste += UPG_HASTE
 		"laser", "core":
 			if EXTRA_BEAM_LEVELS.has(level):
 				extra_beams += 1
@@ -199,6 +230,9 @@ func upgrade_preview() -> Array[String]:
 			lines.append("INCOME $%d > $%d" % [income, income + UPG_INCOME])
 		"spark":
 			lines.append("+1 BOUNCE")
+		"booster":
+			lines.append("HASTE +%d%% > +%d%%" % [roundi(haste * 100.0),
+					roundi((haste + UPG_HASTE) * 100.0)])
 		"orbit":
 			if orbs < MAX_ORBS:
 				lines.append("+1 ORB")
@@ -362,8 +396,23 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.12), 1.0, true)
 	if attack == "orbit" and _orbit_ring != null:
 		_orbit_ring.queue_redraw()
+	if haste > 0.0:
+		_draw_boost_links(c)
 	if gear != "":
 		_draw_gear_badge()
+
+
+## BOOSTER: 버프를 주는 이웃 쪽 변 위에 바깥으로 흐르는 작은 화살표.
+func _draw_boost_links(c: Color) -> void:
+	var flow := fmod(_time * 1.5, 1.0)
+	for t in boosted_neighbors():
+		var dir := (t.position - position).normalized()
+		var side := Vector2(-dir.y, dir.x)
+		var center := dir * size * (0.62 + 0.3 * flow)
+		var w := size * 0.16
+		var chev := PackedVector2Array([center - dir * w + side * w, center,
+				center - dir * w - side * w])
+		NeonDraw.polyline(self, chev, c, 0.9 * (1.0 - flow * 0.6), 2.0)
 
 
 ## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지.
@@ -403,6 +452,13 @@ func _draw_glyph(c: Color, intensity: float) -> void:
 			draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
 			var a := orbit_angle
 			draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
+		"booster":
+			# 위로 향한 겹 화살표 두 개
+			for k in 2:
+				var y := r * (0.35 - 0.6 * k)
+				var chev := PackedVector2Array([Vector2(-r * 0.6, y + r * 0.35),
+						Vector2(0, y - r * 0.15), Vector2(r * 0.6, y + r * 0.35)])
+				NeonDraw.polyline(self, chev, c, intensity * 0.8, 2.0)
 		"bank":
 			var dia := PackedVector2Array([Vector2(0, -r), Vector2(r * 0.7, 0), Vector2(0, r),
 					Vector2(-r * 0.7, 0), Vector2(0, -r)])
