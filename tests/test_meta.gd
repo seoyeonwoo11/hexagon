@@ -45,6 +45,11 @@ func _run() -> void:
 	_game._process(10.0)
 	_check(_game.wave == wave_before, "no waves while in shop")
 
+	# 임시 지급 버튼: +10
+	_game.shop.add_debug_shards()
+	_check(Meta.shards == Shop.DEBUG_SHARD_AMOUNT, "debug +10 shards")
+	Meta.shards = 0
+
 	# 구매: SHARD 부족하면 실패, 충분하면 레벨업 + 차감, 최대 레벨에서 멈춤
 	_check(not Meta.buy_upgrade("core_hp"), "cannot buy without shards")
 	Meta.shards = 1000

@@ -16,6 +16,9 @@ const INK := Color(1, 1, 1, 0.85)
 const INK_DIM := Color(1, 1, 1, 0.5)
 const RULE := Color(1, 1, 1, 0.12)
 const SIDE_MARGIN := 120
+## 임시(테스트용): + 키나 숫자 옆 + 버튼으로 SHARD 지급. 출시 전에 false로.
+const DEBUG_FREE_SHARDS := true
+const DEBUG_SHARD_AMOUNT := 10
 
 var _result_label: Label
 var _best_label: Label
@@ -80,10 +83,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo \
-			and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER):
+	if key == null or not key.pressed or key.echo:
+		return
+	if key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER:
 		get_viewport().set_input_as_handled()
 		start_pressed.emit()
+	elif DEBUG_FREE_SHARDS and (key.keycode == KEY_KP_ADD or key.keycode == KEY_EQUAL
+			or key.keycode == KEY_PLUS or key.unicode == 43):
+		get_viewport().set_input_as_handled()
+		add_debug_shards()
+
+
+## 임시: SHARD 10개 지급 (저장됨).
+func add_debug_shards() -> void:
+	Meta.shards += DEBUG_SHARD_AMOUNT
+	Meta.save_data()
+	refresh()
 
 
 # ---------------------------------------------------------------- 왼쪽
@@ -110,8 +125,18 @@ func _build_left(parent: Control) -> void:
 	_best_label = Hud.make_label(INK_DIM, 20, 500)
 	col.add_child(_best_label)
 	col.add_child(_spacer(72))
+	var shard_row := HBoxContainer.new()
+	shard_row.add_theme_constant_override("separation", 24)
+	col.add_child(shard_row)
 	_shards_value = Hud.make_label(SHARD_COLOR, 132, 900, 0.3)
-	col.add_child(_shards_value)
+	shard_row.add_child(_shards_value)
+	if DEBUG_FREE_SHARDS:
+		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
+		plus.custom_minimum_size = Vector2(96, 56)
+		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		plus.tooltip_text = "Test only: +%d shards" % DEBUG_SHARD_AMOUNT
+		plus.pressed.connect(add_debug_shards)
+		shard_row.add_child(plus)
 	var unit := Hud.make_label(SHARD_COLOR, 26, 600)
 	unit.text = "shards to spend"
 	col.add_child(unit)
