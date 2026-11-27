@@ -428,38 +428,43 @@ func _draw_gear_badge() -> void:
 
 ## 종류마다 가운데 모양을 다르게 그린다.
 func _draw_glyph(c: Color, intensity: float) -> void:
-	var r := size * 0.3
+	draw_glyph(self, kind, size * 0.3, c, intensity, orbit_angle)
+
+
+## 타일 종류별 아이콘. canvas의 원점에 반지름 r 크기로 그린다 (상점 화면에서도 사용).
+static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, intensity: float,
+		angle := 0.0) -> void:
 	match kind:
 		"core":
-			NeonDraw.hexagon(self, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
+			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
 		"laser":
 			var tri := PackedVector2Array()
 			for i in 4:
 				var a := -PI / 2.0 + TAU * i / 3.0
 				tri.append(Vector2(cos(a), sin(a)) * r)
-			NeonDraw.polyline(self, tri, c, intensity * 0.8, 2.0)
+			NeonDraw.polyline(canvas, tri, c, intensity * 0.8, 2.0)
 		"spark":
 			var bolt := PackedVector2Array([Vector2(r * 0.25, -r), Vector2(-r * 0.35, r * 0.1),
 					Vector2(r * 0.35, -r * 0.1), Vector2(-r * 0.25, r)])
-			NeonDraw.polyline(self, bolt, c, intensity * 0.8, 2.0)
+			NeonDraw.polyline(canvas, bolt, c, intensity * 0.8, 2.0)
 		"frost":
 			for i in 3:
 				var a := PI * i / 3.0
 				var d := Vector2(cos(a), sin(a)) * r
-				NeonDraw.polyline(self, PackedVector2Array([-d, d]), c, intensity * 0.8, 2.0)
+				NeonDraw.polyline(canvas, PackedVector2Array([-d, d]), c, intensity * 0.8, 2.0)
 		"orbit":
-			draw_arc(Vector2.ZERO, r * 0.85, 0.0, TAU, 32, Color(c, 0.5 * intensity), 1.5, true)
-			draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
-			var a := orbit_angle
-			draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
+			canvas.draw_arc(Vector2.ZERO, r * 0.85, 0.0, TAU, 32, Color(c, 0.5 * intensity), 1.5, true)
+			canvas.draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
+			var a := angle
+			canvas.draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
 		"booster":
 			# 위로 향한 겹 화살표 두 개
 			for k in 2:
 				var y := r * (0.35 - 0.6 * k)
 				var chev := PackedVector2Array([Vector2(-r * 0.6, y + r * 0.35),
 						Vector2(0, y - r * 0.15), Vector2(r * 0.6, y + r * 0.35)])
-				NeonDraw.polyline(self, chev, c, intensity * 0.8, 2.0)
+				NeonDraw.polyline(canvas, chev, c, intensity * 0.8, 2.0)
 		"bank":
 			var dia := PackedVector2Array([Vector2(0, -r), Vector2(r * 0.7, 0), Vector2(0, r),
 					Vector2(-r * 0.7, 0), Vector2(0, -r)])
-			NeonDraw.polyline(self, dia, c, intensity * 0.8, 2.0)
+			NeonDraw.polyline(canvas, dia, c, intensity * 0.8, 2.0)
