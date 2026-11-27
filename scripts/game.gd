@@ -8,7 +8,7 @@ extends Node2D
 ##   장비 카드면 EQUIPPING (타일 클릭해 장착)] -> INTERMISSION ...
 ##
 ## 판 시작 전과 끝난 뒤에는 시작 화면(Shop)이 뜬다. 판이 끝나면 버틴 웨이브만큼 SHARD를 받고
-## (Meta.finish_run), Shop에서 영구 강화와 타일 구매를 한 뒤 START로 새 판을 시작한다.
+## (Meta.finish_run), 결과창(ResultsScreen)을 거쳐 Shop에서 영구 강화와 타일 구매를 한 뒤 START로 새 판을 시작한다.
 
 signal money_changed(money: int)
 signal wave_started(wave: int)
@@ -92,6 +92,13 @@ var endless := false
 var victory_shards := 0
 var final_boss: Enemy
 var _victory_open := false
+## 결과창용 판 기록: 적 종류별 처치 수, 번 돈(쓴 돈은 안 뺌), 실제 플레이 시간(초, 배속 무관)
+var kills := {}
+var money_earned := 0
+var run_time := 0.0
+var results: ResultsScreen
+## 판 시작 때의 최고 웨이브 (결과창의 NEW BEST 판단)
+var best_at_start := 0
 
 ## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
 static var hub_enabled := true
@@ -123,6 +130,10 @@ func _ready() -> void:
 	shop = Shop.new()
 	shop.start_pressed.connect(_on_shop_start)
 	add_child(shop)
+	results = ResultsScreen.new()
+	results.continue_pressed.connect(_on_results_continue)
+	results.retry_pressed.connect(_on_restart_pressed)
+	add_child(results)
 	if hub_enabled and not _skip_hub_once:
 		shop.open()
 	else:
@@ -137,13 +148,14 @@ func start_run() -> void:
 	started = true
 	shop.close()
 	board.stats.reset()
+	best_at_start = Meta.best_wave
 	board.damage_mult *= Meta.damage_mult()
 	board.rate_mult *= Meta.rate_mult()
 	board.tile_hp_mult = Meta.tile_hp_mult()
 	var core := board.core_tile()
 	core.max_hp = (core.max_hp + Meta.core_hp_bonus()) * Meta.tile_hp_mult()
 	core.hp = core.max_hp
-	add_money(Meta.start_money())
+	add_money(Meta.start_money(), false)
 	_apply_core_type(Meta.core_type)
 	move_charges = MOVES_PER_WAVE
 	_update_actions()
@@ -242,6 +254,7 @@ func _on_shop_start() -> void:
 func _process(delta: float) -> void:
 	if is_over or not started:
 		return
+	run_time += delta / Engine.time_scale
 	var core := board.core_tile()
 	if core != null:
 		hud.set_core(core.hp, core.max_hp)
@@ -392,8 +405,11 @@ func _start_intermission() -> void:
 	hud.show_banner("GET READY", Hud.NEON_CYAN)
 
 
-func add_money(amount: int) -> void:
+## earned: 결과창의 GOLD EARNED에 셀지 (시작 돈은 안 셈)
+func add_money(amount: int, earned := true) -> void:
 	money += amount
+	if earned and amount > 0:
+		money_earned += amount
 	hud.set_money(money)
 	money_changed.emit(money)
 
@@ -532,6 +548,8 @@ func _random_spawn_point() -> Vector2:
 
 func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 	_alive -= 1
+	if enemy.killed:
+		kills[enemy.kind] = kills.get(enemy.kind, 0) + 1
 	if reward > 0:
 		add_money(reward)
 	# SPLITTER: 처치되면 작은 적으로 갈라진다
@@ -597,7 +615,7 @@ func end_run_after_victory() -> void:
 	is_over = true
 	hud.hide_victory()
 	hud.show_tile_panel(null, 0)
-	shop.open()
+	_show_results()
 	game_over.emit()
 
 
@@ -616,8 +634,36 @@ func _on_core_destroyed() -> void:
 	else:
 		Meta.finish_run(wave)
 	get_tree().paused = true
-	shop.open()
+	_show_results()
 	game_over.emit()
+
+
+## 결과창에 넘길 이번 판 기록.
+func run_results() -> Dictionary:
+	return {
+		"victory": Meta.last_run_victory,
+		"endless": endless,
+		"wave": wave,
+		"best_wave": Meta.best_wave,
+		"new_best": wave > best_at_start,
+		"kills": kills,
+		"time": run_time,
+		"gold": money_earned,
+		"shards": Meta.last_run_shards,
+		"stats": board.stats,
+	}
+
+
+## 판이 끝나면 결과창 -> CONTINUE로 시작 화면 (RETRY/R은 바로 새 판).
+func _show_results() -> void:
+	results.show_results(run_results())
+
+
+func _on_results_continue() -> void:
+	if not results.is_open():
+		return
+	results.hide_results()
+	shop.open()
 
 
 ## R 키: 판이 끝났으면 시작 화면을 건너뛰고 바로 새 판.

@@ -117,8 +117,12 @@ func _run() -> void:
 	var shards := Meta.shards
 	_game._on_victory()
 	_game.end_run_after_victory()
-	_check(_game.is_over and _game.shop.is_open() and not _game.hud.is_victory_visible(),
-			"end run opens the start screen")
+	_check(_game.is_over and _game.results.is_open() and not _game.hud.is_victory_visible(),
+			"end run opens the results screen")
+	_check(_game.results.data["victory"] and _game.results.data["wave"] == _game.wave,
+			"results show the victory")
+	_game.results.continue_pressed.emit()
+	_check(_game.shop.is_open() and not _game.results.is_open(), "continue opens the start screen")
 	_check(Meta.shards == shards + expected and Meta.clears == 2, "end run keeps victory shards")
 	_game.get_tree().paused = false
 
