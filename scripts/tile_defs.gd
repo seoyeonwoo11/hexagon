@@ -28,7 +28,7 @@ const DEFS := {
 	},
 	"orbit": {
 		"name": "ORBIT", "color": Color(1.0, 0.3, 0.9), "attack": "orbit",
-		"max_hp": 60.0, "damage": 10.0, "range": 110.0, "interval": 0.35, "income": 0,
+		"max_hp": 60.0, "damage": 14.0, "range": 145.0, "interval": 0.35, "income": 0,
 		"orbs": 3,
 		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
 	},
