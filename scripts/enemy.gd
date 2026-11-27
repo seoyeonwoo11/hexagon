@@ -45,7 +45,7 @@ var _crit_flash := 0.0
 
 
 ## 종류와 웨이브 기본 능력치로 설정한다. add_child 전에 호출.
-func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: int,
+func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: float,
 		base_contact: float) -> void:
 	var def := EnemyDefs.get_def(enemy_kind)
 	kind = enemy_kind

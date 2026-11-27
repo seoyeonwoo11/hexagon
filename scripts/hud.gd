@@ -195,6 +195,9 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		lines.append("BOOSTED +%d%% SPEED" % roundi(tile.haste_bonus() * 100.0))
 	if tile.income > 0:
 		lines.append("INCOME $%d / WAVE" % tile.income)
+		lines.append("INTEREST %d%% OF YOUR $ (MAX $%d)" % [
+				roundi((Game.BANK_INTEREST + Game.BANK_INTEREST_STEP * (tile.level - 1)) * 100.0),
+				tile.income * Game.BANK_INTEREST_CAP])
 	if tile.attack == "laser" and tile.target_count() > 1:
 		lines.append("BEAMS %d" % tile.target_count())
 	if tile.attack == "spark":

@@ -188,7 +188,7 @@ func _detonate(pos: Vector2) -> void:
 
 
 func upgrade_cost() -> int:
-	return roundi(25.0 * pow(2.0, level - 1))
+	return roundi(25.0 * pow(1.8, level - 1))
 
 
 func upgrade() -> void:
@@ -228,6 +228,7 @@ func upgrade_preview() -> Array[String]:
 	match kind:
 		"bank":
 			lines.append("INCOME $%d > $%d" % [income, income + UPG_INCOME])
+			lines.append("INTEREST +%d%%" % roundi(Game.BANK_INTEREST_STEP * 100.0))
 		"spark":
 			lines.append("+1 BOUNCE")
 		"booster":
