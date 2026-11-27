@@ -124,8 +124,8 @@ func _build_center(parent: Control) -> void:
 	_honeycomb.set_anchors_preset(Control.PRESET_CENTER)
 	_honeycomb.offset_left = -300
 	_honeycomb.offset_right = 300
-	_honeycomb.offset_top = -330
-	_honeycomb.offset_bottom = 230
+	_honeycomb.offset_top = -380
+	_honeycomb.offset_bottom = 180
 	_honeycomb.start_pressed.connect(func() -> void: start_pressed.emit())
 	_honeycomb.tile_clicked.connect(_on_tile_clicked)
 	_honeycomb.hover_changed.connect(_show_caption)
@@ -135,8 +135,8 @@ func _build_center(parent: Control) -> void:
 	cap.set_anchors_preset(Control.PRESET_CENTER)
 	cap.offset_left = -300
 	cap.offset_right = 300
-	cap.offset_top = 250
-	cap.offset_bottom = 400
+	cap.offset_top = 200
+	cap.offset_bottom = 330
 	cap.add_theme_constant_override("separation", 8)
 	parent.add_child(cap)
 	_caption_title = Hud.make_label(Color.WHITE, 26, 800)
@@ -145,6 +145,29 @@ func _build_center(parent: Control) -> void:
 	for l in [_caption_title, _caption_body]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cap.add_child(l)
+
+	var start := Hud.make_neon_button("START RUN", Hud.NEON_CYAN)
+	start.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	start.offset_left = -200
+	start.offset_right = 200
+	start.offset_top = -150
+	start.offset_bottom = -70
+	start.add_theme_font_size_override("font_size", 34)
+	var filled := StyleBoxFlat.new()
+	filled.bg_color = Hud.NEON_CYAN
+	filled.set_corner_radius_all(6)
+	filled.shadow_color = Color(Hud.NEON_CYAN, 0.5)
+	filled.shadow_size = 18
+	var filled_hover := filled.duplicate() as StyleBoxFlat
+	filled_hover.bg_color = Hud.NEON_CYAN.lightened(0.35)
+	start.add_theme_stylebox_override("normal", filled)
+	start.add_theme_stylebox_override("hover", filled_hover)
+	start.add_theme_stylebox_override("pressed", filled_hover)
+	for key in ["font_color", "font_hover_color", "font_pressed_color"]:
+		start.add_theme_color_override(key, Color.BLACK)
+	start.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	start.pressed.connect(func() -> void: start_pressed.emit())
+	parent.add_child(start)
 
 
 func _on_tile_clicked(kind: String) -> void:
@@ -159,7 +182,7 @@ func _show_caption(kind: String) -> void:
 	if kind == "":
 		_caption_title.text = "Start a run"
 		_set_color(_caption_title, Hud.NEON_CYAN)
-		_caption_body.text = "Click the core or press Enter."
+		_caption_body.text = "Click here, the START RUN button, or press Enter."
 		return
 	if kind == "none":
 		_caption_title.text = "Your tiles"
@@ -313,15 +336,24 @@ class Honeycomb extends Control:
 			else:
 				_draw_tile(pos, kind)
 
+	## START: 꽉 찬 밝은 육각형 + 바깥으로 퍼지는 고리. 화면에서 가장 밝은 것.
 	func _draw_core(pos: Vector2) -> void:
 		var c := Hud.NEON_CYAN
 		var hot := hovered == ""
-		var pulse := 0.85 + 0.15 * sin(_time * 2.5)
-		NeonDraw.hexagon(self, pos, R * 0.92, c, pulse + (0.3 if hot else 0.0), 4.0,
-				0.22 if hot else 0.12)
-		NeonDraw.hexagon(self, pos, R * 0.74, c, 0.5, 1.5)
-		_text(pos + Vector2(0, 2), "START", 26, Color.WHITE if hot else c)
-		_text(pos + Vector2(0, 30), "Enter", 15, Color(c, 0.6))
+		var k := fmod(_time * 0.8, 1.0)
+		NeonDraw.hexagon(self, pos, R * (0.95 + 0.35 * k), c, 0.8 * (1.0 - k), 2.0)
+		var fill := c.lightened(0.35) if hot else c
+		var pts := HexGrid.corners(R * 0.92)
+		for i in pts.size():
+			pts[i] += pos
+		draw_colored_polygon(pts, fill)
+		NeonDraw.hexagon(self, pos, R * 0.92, c, 1.2, 4.0)
+		var ink := Color(0, 0, 0)
+		var tri := PackedVector2Array([pos + Vector2(-10, -38), pos + Vector2(14, -26),
+				pos + Vector2(-10, -14)])
+		draw_colored_polygon(tri, ink)
+		_text(pos + Vector2(0, 10), "START", 30, ink)
+		_text(pos + Vector2(0, 40), "Enter", 15, Color(ink, 0.7))
 
 	func _draw_tile(pos: Vector2, kind: String) -> void:
 		var def := TileDefs.get_def(kind)
