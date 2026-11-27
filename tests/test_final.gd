@@ -64,6 +64,24 @@ func _run() -> void:
 	boss._summon_cd = 0.0
 	boss._process(0.016)
 	_check(_game.alive_enemies() == before + boss.summon_count, "overlord summons minions")
+
+	# 일반 적만 더 단단해지고, 보스와 OVERLORD 부하는 wave_enemy_hp 그대로
+	var base := _game.wave_enemy_hp(final)
+	_check(is_equal_approx(boss.max_hp, base * EnemyDefs.DEFS["overlord"]["hp"]),
+			"overlord hp not scaled by the normal multiplier")
+	var minion: Enemy = _enemies().filter(func(e: Enemy) -> bool: return e.kind == "runner")[0]
+	_check(is_equal_approx(minion.max_hp, base * EnemyDefs.DEFS["runner"]["hp"]),
+			"overlord minions not scaled by the normal multiplier")
+	var grunt := _game.spawn_enemy("grunt", Vector2(-3000, 0))
+	_check(_game.normal_hp_mult(final) > 1.5
+			and is_equal_approx(grunt.max_hp, base * _game.normal_hp_mult(final)),
+			"normal enemies tougher in the late waves")
+	_check(is_equal_approx(_game.normal_hp_mult(1), 1.0)
+			and is_equal_approx(_game.normal_hp_mult(Game.NORMAL_HP_FROM), 1.0),
+			"early waves unchanged")
+	_check(is_equal_approx(_game.normal_hp_mult(final + 20), _game.normal_hp_mult(final)),
+			"multiplier stops growing in endless")
+	grunt.take_damage(1e12)
 	_check(is_equal_approx(boss._summon_cd, boss.summon_every), "summon timer reset")
 
 	# 분노: 체력 절반 아래로 빨라지고 더 자주 부른다
