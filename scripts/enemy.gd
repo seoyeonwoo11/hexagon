@@ -83,6 +83,9 @@ const RECOIL_TIME := 0.85
 ## 들이받는 순간 잠깐 멈추는 시간(히트스톱)과 화면 흔들림 세기(픽셀)
 const HITSTOP := 0.14
 const SHAKE := 14.0
+## COMET 꼬리가 몸 회전을 따라가는 빠르기(클수록 빨리 따라옴)와 최대로 휘는 각도
+const TAIL_FOLLOW := 9.0
+const TAIL_BEND_MAX := 1.3
 var _hitstop := 0.0
 var _dash_origin := Vector2.ZERO
 var _recoil_from := Vector2.ZERO
@@ -676,6 +679,38 @@ class _Body extends Node2D:
 	var enemy: Enemy
 	var _drawn_color := Color(0, 0, 0, 0)
 	var _drawn_state := -1
+	## COMET 꼬리: 꼬리 끝이 몸의 회전을 늦게 따라온다. 몸 기준 꼬리 끝의 휘어진 각도 (라디안).
+	var tail_bend := 0.0
+	var _tail_world := NAN
+
+	func _ready() -> void:
+		set_process(enemy.kind == "comet")
+
+	## 꼬리 끝 방향이 몸 방향을 지수적으로 따라간다. 휘는 정도가 바뀔 때만 다시 그린다.
+	func _process(delta: float) -> void:
+		var target := global_rotation
+		if is_nan(_tail_world):
+			_tail_world = target
+		_tail_world = lerp_angle(_tail_world, target, 1.0 - exp(-delta * TAIL_FOLLOW))
+		var bend := clampf(wrapf(_tail_world - target, -PI, PI), -TAIL_BEND_MAX, TAIL_BEND_MAX)
+		if absf(bend - tail_bend) > 0.003:
+			tail_bend = bend
+			queue_redraw()
+
+	## 꼬리 뿌리(x = -0.6r)에서 멀수록 더 많이 돌려서 꼬리가 활처럼 휜다.
+	func _bend(p: Vector2, r: float) -> Vector2:
+		var root := Vector2(-r * 0.6, 0)
+		var d := root.x - p.x
+		if d <= 0.0 or tail_bend == 0.0:
+			return p
+		var t := minf(d / (r * 2.8), 1.0)
+		return root + (p - root).rotated(tail_bend * t * (0.6 + 0.4 * t))
+
+	func _bent(pts: PackedVector2Array, r: float) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for p in pts:
+			out.append(_bend(p, r))
+		return out
 
 	func sync() -> void:
 		scale = Vector2.ONE * (1.0 + 0.2 * enemy._lunge)
@@ -816,11 +851,18 @@ class _Body extends Node2D:
 			var x := -r * 0.75 - gap * k
 			var h := r * (0.42 - 0.06 * k)
 			var chev := PackedVector2Array([Vector2(x - h * 0.9, h), Vector2(x, 0), Vector2(x - h * 0.9, -h)])
-			NeonDraw.polyline(self, chev, c, (1.0 if dashing else 0.7) * (1.0 - k * 0.16), 2.0)
-		if dashing:
+			NeonDraw.polyline(self, _bent(chev, r), c, (1.0 if dashing else 0.7) * (1.0 - k * 0.16), 2.0)
+		if dashing or absf(tail_bend) > 0.05:
+			# 돌진 중 꼬리 줄기. 튕겨 돌 때는 휘어진 꼬리를 따라 흐릿하게 남는다.
+			var a := 0.9 if dashing else minf(absf(tail_bend) * 1.2, 0.9)
 			for sy in [-0.75, 0.75]:
-				NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.9, sy * r),
-						Vector2(-r * 3.4, sy * r)]), Color(c, 0.45), 1.5)
+				var streak := PackedVector2Array()
+				for i in 7:
+					streak.append(_bend(Vector2(-r * (0.9 + 2.5 * i / 6.0), sy * r), r))
+				# 끝으로 갈수록 흐려지게 마디마다 따로
+				for i in 6:
+					NeonDraw.polyline(self, PackedVector2Array([streak[i], streak[i + 1]]),
+							c, a * (1.0 - i / 7.0), 1.5)
 		if enemy.is_winding_up() and enemy._aim_len > r * 1.6:
 			var end := enemy._aim_len / scale.x
 			var x := r * 1.7
