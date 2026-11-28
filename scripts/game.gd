@@ -118,6 +118,7 @@ static var _skip_hub_once := false
 
 func _ready() -> void:
 	Loc.ensure_loaded()
+	Graphics.apply()
 	Engine.time_scale = BASE_TIME_SCALE
 	get_tree().paused = false
 	board.core_destroyed.connect(_on_core_destroyed)

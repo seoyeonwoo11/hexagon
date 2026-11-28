@@ -38,6 +38,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_final.gd
 godot --headless --path . -s res://tests/test_loc.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_burn.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_shock.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_graphics.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_sound.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_stages.gd
 godot --headless --fixed-fps 60 --path . -s res://tests/test_stage_enemies.gd
@@ -201,6 +202,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 
 - 타일과 적은 모양이 바뀔 때만 다시 그림 (밝기 맥동은 투명도, 회전은 노드 rotation)
 - 한 번만 그리기: 변하지 않는 도형(적·보스 몸체와 장식, 타일 테두리와 아이콘)은 처음 한 번만 삼각형으로 쪼개 메시로 저장하고(`NeonDraw.cached`), 같은 종류의 적이나 같은 레벨 타일은 그 메시를 같이 씀. 화상 깜빡임이나 피격처럼 색이 계속 변할 때는 색을 1/64 단계로 맞춰 저장된 메시를 다시 씀
+- 화면 전체 빛 번짐(WorldEnvironment 글로우)은 기본으로 꺼 둠. 태블릿 해상도 측정에서 그리기 시간의 약 2/3를 차지했음 (소프트웨어 GL 기준 프레임 99ms → 33ms). 선 자체의 네온 번짐은 그대로 남고, 설정 창의 "빛 번짐" 버튼으로 다시 켤 수 있음 (`scripts/graphics.gd`, user://settings.cfg의 [graphics])
 - 타일의 자주 바뀌는 표시(체력 원호, 공격선, 집중 게이지, BOOSTER 화살표, 장비 배지)는 따로 그리는 자식 노드라 공격할 때마다 타일 전체를 다시 그리지 않음
 - ORBIT 구체, FROST 눈금, 적 몸체는 자식 노드를 돌려서 표현
 - BURN 불길: 작은 네온 정육각형 입자들이 쏟아져 나감. 입자는 노드가 아니라 배열 하나(타일마다 최대 80개)이고 전부 합쳐 그리기 3번 + 밑에 옅은 빛 부채꼴 1번. 피해 판정은 입자와 상관없이 부채꼴. 옮겨붙기 검사는 0.25초에 1번
