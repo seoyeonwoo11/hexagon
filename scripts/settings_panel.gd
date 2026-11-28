@@ -1,12 +1,14 @@
 class_name SettingsPanel
 extends CanvasLayer
 ## 설정 창: 시작 화면 오른쪽 위 설정 버튼으로 연다.
-## 언어 (한국어 <-> ENGLISH, 누르면 씬을 다시 불러옴), 소리 (소리 설정 창), 전체 화면, 닫기.
+## 언어 (한국어 <-> ENGLISH, 누르면 씬을 다시 불러옴), 소리 (소리 설정 창), 전체 화면,
+## 빛 번짐(글로우) 켜기/끄기 (Graphics), 닫기.
 ## Esc, 오른쪽 클릭, 빈 곳 클릭으로 닫는다.
 
 const COLOR := Color(1, 1, 1, 0.85)
 
 var _full: Button
+var _glow: Button
 
 
 func _init() -> void:
@@ -69,6 +71,14 @@ func _ready() -> void:
 		_sync())
 	col.add_child(_full)
 
+	_glow = _button("", COLOR)
+	_glow.name = "GlowButton"
+	_glow.tooltip_text = Loc.t("Screen-wide light bloom. Turning it off reduces lag.")
+	_glow.pressed.connect(func() -> void:
+		Graphics.set_glow(not Graphics.glow)
+		_sync())
+	col.add_child(_glow)
+
 	col.add_child(_gap(6))
 	var done := _button(Loc.t("CLOSE"), Hud.NEON_PINK)
 	done.pressed.connect(close)
@@ -90,6 +100,9 @@ func _gap(h: float) -> Control:
 
 
 func _sync() -> void:
+	if _glow != null:
+		Graphics.load_settings()
+		_glow.text = Loc.t("GLOW: ON") if Graphics.glow else Loc.t("GLOW: OFF")
 	if _full == null:
 		return
 	var on := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN \
