@@ -110,12 +110,22 @@ var _frost_field: FrostField
 var _drones: Array[Drone] = []
 var _flame: FlameJet
 var _shock: ShockWave
-## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태
+## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태 (몸체, 위에 얹는 표시)
 var _drawn_state := []
+var _drawn_overlay := []
 var _anim_active := false
+## 성능: 자주 바뀌는 표시(체력 원호, 공격선, 집중 게이지, BOOSTER 화살표, ARCHER 연결, 장비 배지)는
+## 이 자식 노드가 따로 그린다. 그래서 타일 몸체(테두리, 아이콘, 레벨 점)는 레벨/색이 바뀔 때만 다시 그리고,
+## 그 모양도 NeonDraw.cached로 같은 종류·레벨 타일끼리 같이 쓴다.
+var _overlay: _Overlay
 
 
 func setup(tile_kind: String) -> void:
+	if _overlay == null:
+		# 다른 자식(불길, 궤도 등)보다 먼저 넣어서 예전처럼 타일 그림 바로 위, 그것들 아래에 그려지게
+		_overlay = _Overlay.new()
+		_overlay.tile = self
+		add_child(_overlay)
 	var def := TileDefs.get_def(tile_kind)
 	kind = tile_kind
 	display_name = def["name"]
@@ -496,16 +506,22 @@ func _process(delta: float) -> void:
 
 
 ## 성능: 모양이 바뀔 때만 다시 그린다 (매 프레임 다시 그리면 타일이 많을 때 렉이 걸림).
-## 광선, 피격 깜빡임, BOOSTER 화살표는 움직이는 동안만 매 프레임 그린다.
+## 몸체는 레벨, 색(피격 깜빡임), 선택, OVERDRIVE가 바뀔 때만. 위에 얹는 표시는 체력/장비 등이 바뀔 때,
+## 그리고 공격선과 BOOSTER 화살표가 움직이는 동안만 매 프레임.
 func _redraw_if_needed() -> void:
-	var anim := _shot_time > 0.0 or _hit_flash > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
-	var state := [level, hp, max_hp, gears.duplicate(), focus_stacks(), linked_archers(),
-			board != null and board.skill_damage_mult > 1.0, color,
-			effective_range() if selected else 0.0]
-	if anim or _anim_active or state != _drawn_state:
-		_drawn_state = state
+	var c := _draw_color()
+	var body := [level, c, effective_range() if selected else 0.0, _overdrive(), core_type]
+	if body != _drawn_state:
+		_drawn_state = body
 		queue_redraw()
+	var anim := _shot_time > 0.0 or (haste > 0.0 and not boosted_neighbors().is_empty())
+	var over := [hp, max_hp, gears.duplicate(), focus_stacks(), linked_archers(), c, position]
+	if anim or _anim_active or over != _drawn_overlay:
+		_drawn_overlay = over
+		_overlay.queue_redraw()
 	_anim_active = anim
+	# 밝기 맥동(self_modulate)은 자식에게 안 옮겨 가므로 똑같이 맞춘다
+	_overlay.self_modulate = self_modulate
 	if _orbit_ring != null:
 		_orbit_ring.rotation = orbit_angle
 		_orbit_ring.sync()
@@ -723,16 +739,30 @@ func take_damage(amount: float) -> void:
 		destroyed.emit(self)
 
 
+## 피격 깜빡임이 섞인 색. 깜빡이는 동안은 1/64 단계로 맞춰 저장된 모양을 다시 쓴다.
+func _draw_color() -> Color:
+	if _hit_flash <= 0.0:
+		return color
+	return NeonDraw.quantize(color.lerp(Color(1.0, 0.15, 0.2), _hit_flash / HIT_FLASH_TIME))
+
+
+## OVERDRIVE 중인 공격 타일 (바깥 테두리가 하나 더)
+func _overdrive() -> bool:
+	return board != null and board.skill_damage_mult > 1.0 and attack != "none"
+
+
 func _draw() -> void:
-	# 타일 하나를 그리기 호출 1번으로 (NeonDraw 묶어 그리기)
+	# 타일 몸체는 한 번 만든 모양을 같은 종류·레벨·색 타일끼리 같이 쓴다 (NeonDraw.cached)
+	var c := _draw_color()
+	var key := "tile|%s|%s|%d|%s|%s|%s|%d" % [kind, core_type, level, size, NeonDraw.color_key(c),
+			effective_range() if selected else 0.0, 1 if _overdrive() else 0]
 	NeonDraw.begin(self)
-	_draw_parts()
+	NeonDraw.cached(self, key, _draw_parts.bind(c))
 	NeonDraw.flush()
 
 
-func _draw_parts() -> void:
+func _draw_parts(c: Color) -> void:
 	var pulse := 1.0
-	var c := color.lerp(Color(1.0, 0.15, 0.2), _hit_flash / HIT_FLASH_TIME)
 	if selected:
 		NeonDraw.arc(self, Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5)
 		NeonDraw.hexagon(self, Vector2.ZERO, size * 0.98, Color.WHITE, 0.9, 2.0)
@@ -747,26 +777,40 @@ func _draw_parts() -> void:
 	for i in range(level - 1):
 		var x := (i - (level - 2) / 2.0) * 8.0
 		NeonDraw.circle(self, Vector2(x, -size * 0.62), 2.2, c)
+
+
+## 몸체 위에 얹는 표시 (_Overlay가 그린다). 예전에 몸체 다음에 그리던 순서 그대로.
+func _draw_overlay(cv: CanvasItem) -> void:
+	var c := _draw_color()
 	# 체력이 깎였으면 남은 체력을 원호로 표시
 	if hp < max_hp:
 		var frac := hp / max_hp
-		NeonDraw.arc(self, Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32, Color(c, 0.8), 2.0)
+		NeonDraw.arc(cv, Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32, Color(c, 0.8), 2.0)
 	if _shot_time > 0.0:
 		for target in _shot_targets:
-			NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, target]), c,
+			NeonDraw.polyline(cv, PackedVector2Array([Vector2.ZERO, target]), c,
 					_shot_time / SHOT_TIME, minf(2.0 + 0.8 * (level - 1), 6.0))
 	if focus_max > 0:
-		_draw_focus_meter(c)
+		_draw_focus_meter(cv, c)
 	if haste > 0.0:
-		_draw_boost_links(c)
+		_draw_boost_links(cv, c)
 	if pack_bonus > 0.0:
-		_draw_pack_links(c)
+		_draw_pack_links(cv, c)
 	if not gears.is_empty():
-		_draw_gear_badges()
+		_draw_gear_badges(cv)
+
+
+class _Overlay extends Node2D:
+	var tile: HexTile
+
+	func _draw() -> void:
+		NeonDraw.begin(self)
+		tile._draw_overlay(self)
+		NeonDraw.flush()
 
 
 ## LASER: 집중 게이지. 가운데 삼각형 둘레에 쌓인 만큼 짧은 호가 켜진다.
-func _draw_focus_meter(c: Color) -> void:
+func _draw_focus_meter(cv: CanvasItem, c: Color) -> void:
 	var stacks := focus_stacks()
 	if stacks <= 0:
 		return
@@ -774,11 +818,11 @@ func _draw_focus_meter(c: Color) -> void:
 	var seg := TAU / focus_max
 	for i in stacks:
 		var a0 := -PI / 2.0 + seg * i + 0.08
-		NeonDraw.arc(self, Vector2.ZERO, r, a0, a0 + seg - 0.16, 8, Color(c.lerp(Color.WHITE, 0.3), 0.9), 2.5)
+		NeonDraw.arc(cv, Vector2.ZERO, r, a0, a0 + seg - 0.16, 8, Color(c.lerp(Color.WHITE, 0.3), 0.9), 2.5)
 
 
 ## BOOSTER: 버프를 주는 이웃 쪽 변 위에 바깥으로 흐르는 작은 화살표.
-func _draw_boost_links(c: Color) -> void:
+func _draw_boost_links(cv: CanvasItem, c: Color) -> void:
 	var flow := fmod(_time * 1.5, 1.0)
 	for t in boosted_neighbors():
 		var dir := (t.position - position).normalized()
@@ -787,11 +831,11 @@ func _draw_boost_links(c: Color) -> void:
 		var w := size * 0.16
 		var chev := PackedVector2Array([center - dir * w + side * w, center,
 				center - dir * w - side * w])
-		NeonDraw.polyline(self, chev, c, 0.9 * (1.0 - flow * 0.6), 2.0)
+		NeonDraw.polyline(cv, chev, c, 0.9 * (1.0 - flow * 0.6), 2.0)
 
 
 ## ARCHER: 맞닿은 ARCHER와 공유하는 변에 밝은 연결 막대. (두 타일이 같은 막대를 겹쳐 그림)
-func _draw_pack_links(c: Color) -> void:
+func _draw_pack_links(cv: CanvasItem, c: Color) -> void:
 	if board == null:
 		return
 	for n in HexGrid.neighbors(coord):
@@ -801,13 +845,13 @@ func _draw_pack_links(c: Color) -> void:
 		var dir := (t.position - position).normalized()
 		var side := Vector2(-dir.y, dir.x)
 		var mid := dir * size * 0.80
-		NeonDraw.polyline(self, PackedVector2Array([mid - side * size * 0.32,
+		NeonDraw.polyline(cv, PackedVector2Array([mid - side * size * 0.32,
 				mid + side * size * 0.32]), c.lerp(Color.WHITE, 0.4), 1.0, 3.0)
 
 
 ## 장비 표시: 타일 아래쪽 꼭짓점 근처의 작은 다이아몬드 배지. 칸마다 하나씩 나란히,
 ## 장비를 하나라도 단 타일에 빈 칸이 남아 있으면 그 칸은 흐린 테두리만.
-func _draw_gear_badges() -> void:
+func _draw_gear_badges(cv: CanvasItem) -> void:
 	var slots := gear_slots()
 	var r := 6.0
 	var gap := r * 2.6
@@ -817,10 +861,10 @@ func _draw_gear_badges() -> void:
 				center + Vector2(0, r), center + Vector2(-r, 0), center + Vector2(0, -r)])
 		if i < gears.size():
 			var gc: Color = GearDefs.get_def(gears[i])["color"]
-			NeonDraw.fill(self, dia, Color(gc, 0.35))
-			NeonDraw.polyline(self, dia, gc, 1.0, 1.5)
+			NeonDraw.fill(cv, dia, Color(gc, 0.35))
+			NeonDraw.polyline(cv, dia, gc, 1.0, 1.5)
 		else:
-			NeonDraw.polyline(self, dia, Color(1, 1, 1, 0.35), 0.6, 1.0)
+			NeonDraw.polyline(cv, dia, Color(1, 1, 1, 0.35), 0.6, 1.0)
 
 
 ## 종류마다 가운데 모양을 다르게 그린다.
@@ -830,7 +874,7 @@ func _draw_glyph(c: Color, intensity: float) -> void:
 		glyph = "core_" + core_type
 	draw_glyph(self, glyph, size * 0.3, c, intensity)
 	# OVERDRIVE 중인 공격 타일: 바깥 테두리가 하나 더
-	if board != null and board.skill_damage_mult > 1.0 and attack != "none":
+	if _overdrive():
 		NeonDraw.hexagon(self, Vector2.ZERO, size * 1.0, Color(1.0, 0.95, 0.6), 0.8, 2.0)
 
 

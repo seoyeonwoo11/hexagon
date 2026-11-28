@@ -9,6 +9,12 @@ extends RefCounted
 ## begin(canvas) ~ flush() 사이의 polyline / hexagon / line / arc / circle / fill 은
 ## 삼각형 배열 하나에 모았다가 flush()에서 한 번에 그린다. 그린 순서는 그대로 지켜진다.
 ## 묶지 않을 때 (begin 없이 부르면) 는 예전처럼 바로 그린다.
+##
+## 성능 (한 번만 그리기): 같은 모양을 매번 GDScript로 삼각형으로 다시 쪼개면 웹에서 특히 느리다.
+## cached(canvas, key, build)는 key 모양을 처음 한 번만 build로 만들어 메시로 저장해 두고,
+## 다음부터는 저장된 메시를 그대로 그린다 (같은 종류의 적, 같은 레벨의 타일은 메시 하나를 같이 씀).
+## 움직임(회전, 크기, 깜빡임)은 노드의 rotation / scale / modulate로만 바꾸고 다시 그리지 않는다.
+## 색이 계속 변하는 경우(화상 깜빡임 등)는 quantize()로 색을 1/64 단계로 맞춰 저장된 모양을 다시 쓴다.
 
 ## 성능: 겹 수가 그리기 양에 그대로 곱해진다. 실제 빛 번짐은 WorldEnvironment 글로우가 더해 줌.
 const GLOW_LAYERS := 2
@@ -19,6 +25,9 @@ static var _canvas: CanvasItem = null
 static var _pts := PackedVector2Array()
 static var _cols := PackedColorArray()
 static var _idx := PackedInt32Array()
+## key -> ArrayMesh (빈 모양이면 null). 너무 많아지면 비우고 다시 쌓는다.
+static var _meshes := {}
+const CACHE_MAX := 1500
 
 
 ## canvas의 _draw 안에서 부른다. 이후 NeonDraw 그리기는 모았다가 flush()에서 한 번에.
@@ -30,12 +39,80 @@ static func begin(canvas: CanvasItem) -> void:
 
 
 static func flush() -> void:
-	if _canvas != null and not _idx.is_empty():
-		RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), _idx, _pts, _cols)
+	if _canvas != null:
+		_emit()
 	_canvas = null
 	_pts.clear()
 	_cols.clear()
 	_idx.clear()
+
+
+## begin()~flush() 사이에서: key 모양을 저장해 둔 메시로 그린다. 없으면 build를 한 번 불러 만든다.
+## build 안의 NeonDraw 그리기만 저장된다. key에는 모양과 색을 바꾸는 값이 모두 들어 있어야 한다.
+## 그린 순서는 그대로 지켜진다 (앞에 모아 둔 것을 먼저 그린 다음 메시를 그림).
+static func cached(canvas: CanvasItem, key: String, build: Callable) -> void:
+	if not _batching(canvas):
+		build.call()
+		return
+	var mesh: ArrayMesh
+	if _meshes.has(key):
+		mesh = _meshes[key]
+	else:
+		var pts := _pts
+		var cols := _cols
+		var idx := _idx
+		_pts = PackedVector2Array()
+		_cols = PackedColorArray()
+		_idx = PackedInt32Array()
+		build.call()
+		mesh = _make_mesh()
+		_pts = pts
+		_cols = cols
+		_idx = idx
+		if _meshes.size() >= CACHE_MAX:
+			_meshes.clear()
+		_meshes[key] = mesh
+	if mesh == null:
+		return
+	_emit()
+	canvas.draw_mesh(mesh, null)
+
+
+## 지금까지 모은 삼각형을 그리기 명령 하나로 내보낸다.
+static func _emit() -> void:
+	if not _idx.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), _idx, _pts, _cols)
+	_pts.clear()
+	_cols.clear()
+	_idx.clear()
+
+
+static func _make_mesh() -> ArrayMesh:
+	if _idx.is_empty():
+		return null
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = _pts
+	arrays[Mesh.ARRAY_COLOR] = _cols
+	arrays[Mesh.ARRAY_INDEX] = _idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## 계속 변하는 색을 1/64 단계로 맞춘다 (눈으로는 구분 안 됨). 저장된 모양을 다시 쓰기 위해.
+static func quantize(c: Color) -> Color:
+	return Color(roundf(c.r * 64.0) / 64.0, roundf(c.g * 64.0) / 64.0, roundf(c.b * 64.0) / 64.0,
+			roundf(c.a * 64.0) / 64.0)
+
+
+## 색을 key에 넣을 문자열로
+static func color_key(c: Color) -> String:
+	return c.to_html()
+
+
+static func cache_size() -> int:
+	return _meshes.size()
 
 
 static func _batching(canvas: CanvasItem) -> bool:

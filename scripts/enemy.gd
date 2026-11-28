@@ -522,6 +522,15 @@ func body_color() -> Color:
 	return c
 
 
+## 그릴 때 쓰는 몸체 색. 계속 깜빡이는 동안(화상, 돌진 준비, 분노)은 1/64 단계로 맞춰서
+## 저장해 둔 모양(NeonDraw.cached)을 다시 쓴다. 눈으로는 차이가 안 보인다.
+func drawn_body_color() -> Color:
+	var c := body_color()
+	if not is_frozen() and (_windup_left > 0.0 or _crit_flash <= 0.0 and (enraged or is_burning())):
+		return NeonDraw.quantize(c)
+	return c
+
+
 ## factor 배 속도로 duration초 동안 느려진다 (여러 번 걸리면 가장 강한 감속 유지).
 func apply_slow(factor: float, duration: float) -> void:
 	if cc_immune():
@@ -714,7 +723,7 @@ class _Body extends Node2D:
 
 	func sync() -> void:
 		scale = Vector2.ONE * (1.0 + 0.2 * enemy._lunge)
-		var c := enemy.body_color()
+		var c := enemy.drawn_body_color()
 		var state := (1 if enemy.shield > 0.0 else 0) | (2 if enemy.is_dashing() else 0)
 		if not c.is_equal_approx(_drawn_color) or state != _drawn_state or enemy._pulse > 0.0 \
 				or _drawn_state & 4:
@@ -722,10 +731,30 @@ class _Body extends Node2D:
 			_drawn_state = state | (4 if enemy._pulse > 0.0 else 0)
 			queue_redraw()
 
+	## 성능: 변하지 않는 부분은 NeonDraw.cached로 한 번만 만들어 같은 종류의 적끼리 같이 쓴다.
+	## 다시 그릴 때마다 바뀌는 것(COMET 꼬리와 조준선, 회복/보호막 파동)만 새로 그린다.
 	func _draw() -> void:
 		NeonDraw.begin(self)
-		_draw_parts()
+		var key := _shape_key()
+		if enemy.kind == "comet":
+			NeonDraw.cached(self, key + "a", _draw_parts)
+			_draw_comet_motion(enemy.radius, _drawn_color)
+			NeonDraw.cached(self, key + "b", _draw_marks)
+		else:
+			NeonDraw.cached(self, key, _draw_static)
+		_draw_pulse()
 		NeonDraw.flush()
+
+	## 저장된 모양을 가려 쓰는 열쇠: 모양과 색을 바꾸는 값 전부.
+	func _shape_key() -> String:
+		return "enemy|%s|%s|%s|%d|%d|%d|%d" % [enemy.kind, enemy.radius, NeonDraw.color_key(_drawn_color),
+				enemy.sides, _drawn_state & 3, enemy._quake_next,
+				(1 if enemy.armor > 0.0 else 0) | (2 if enemy.crown else 0) | (4 if enemy.is_boss else 0) \
+				| (8 if enemy.is_final else 0) | (16 if enemy.star else 0) | (32 if enemy.face else 0)]
+
+	func _draw_static() -> void:
+		_draw_parts()
+		_draw_marks()
 
 	func _draw_parts() -> void:
 		var pts := enemy.shape_points()
@@ -757,6 +786,12 @@ class _Body extends Node2D:
 				_draw_bastion(r, c)
 			"overlord":
 				_draw_overlord(r, c)
+
+	## 몸 위의 표시: 왕관 고리, 장갑, DASHER 돌진 꼬리, 보호막 고리.
+	func _draw_marks() -> void:
+		var pts := enemy.shape_points()
+		var c := _drawn_color
+		var r := enemy.radius
 		if enemy.crown:
 			# 최종 보스: 바깥 왕관 고리 (별 끝마다 작은 삼각형)
 			var ring := PackedVector2Array()
@@ -782,6 +817,9 @@ class _Body extends Node2D:
 		if enemy.shield > 0.0:
 			NeonDraw.arc(self, Vector2.ZERO, r * 1.55 + 4.0, 0.0, TAU, 28,
 					Color(Enemy.SHIELD_COLOR, 0.75), 2.0)
+
+	func _draw_pulse() -> void:
+		var r := enemy.radius
 		if enemy._pulse > 0.0:
 			# 회복/보호막 파동: 가운데에서 aura_radius까지 퍼지는 고리
 			var t := 1.0 - enemy._pulse
@@ -844,6 +882,9 @@ class _Body extends Node2D:
 					Vector2(-r * 1.0, sy * r * 1.12), Vector2(-r * 0.62, sy * r * 0.62),
 					Vector2(r * 0.05, sy * r * 0.68)])
 			NeonDraw.polyline(self, wing, c, 0.85, 2.0)
+
+	## COMET에서 휘는 꼬리와 조준선 (다시 그릴 때마다 새로 만든다)
+	func _draw_comet_motion(r: float, c: Color) -> void:
 		var dashing := enemy.is_dashing()
 		var count := 5 if dashing else 3
 		var gap := r * (0.55 if dashing else 0.42)
@@ -974,15 +1015,21 @@ class _Deco extends Node2D:
 	var _drawn_state := -1
 
 	func sync() -> void:
-		var c := enemy.body_color()
+		var c := enemy.drawn_body_color()
 		var state := enemy._quake_next * 2 + (1 if enemy.shield > 0.0 else 0)
 		if not c.is_equal_approx(_drawn_color) or state != _drawn_state:
 			_drawn_color = c
 			_drawn_state = state
 			queue_redraw()
 
+	## 장식 전체가 변하지 않는 모양이라 한 번만 만들어 저장해 둔다 (NeonDraw.cached).
 	func _draw() -> void:
 		NeonDraw.begin(self)
+		NeonDraw.cached(self, "deco|%s|%s|%s|%d|%d" % [enemy.kind, enemy.radius,
+				NeonDraw.color_key(_drawn_color), _drawn_state, enemy.quake_at.size()], _draw_parts)
+		NeonDraw.flush()
+
+	func _draw_parts() -> void:
 		var c := _drawn_color
 		var r := enemy.radius
 		match enemy.kind:
@@ -1057,4 +1104,3 @@ class _Deco extends Node2D:
 					NeonDraw.polyline(self, dia, c, 0.85, 1.5)
 					NeonDraw.circle(self, at, 1.8, c.lightened(0.5))
 					NeonDraw.line(self, PackedVector2Array([at - d * 11.0, at - d * 19.0]), Color(c, 0.5), 1.2)
-		NeonDraw.flush()
