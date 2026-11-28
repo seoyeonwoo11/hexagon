@@ -136,10 +136,12 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - RETRY (R): 상점 없이 바로 새 판, CONTINUE (Enter/Space): 시작 화면으로
 
 
-- 게임을 켜면 시작 화면이 뜨고, START 또는 Enter로 판을 시작. 시작 화면에서는 스테이지, 코어, 출정 타일만 고름
-- 상점: 시작 화면 오른쪽 SHOP 버튼으로 여는 따로 된 창. 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼. Esc, 오른쪽 클릭, 돌아가기 버튼으로 닫음. 시작 화면에서 안 산 타일이나 코어를 누르면 그 탭이 바로 열림
+- 게임을 켜면 시작 화면이 뜸. 가운데 한 줄: 스테이지 고르기 -> 큰 START (또는 Enter) -> 버튼 3개 (가져갈 타일 / 코어 / 상점). 위 오른쪽에 가진 SHARD, 맨 아래에 지난 판 결과
+- 가져갈 타일, 코어 버튼은 출전 준비 창을 엶: 카드마다 넣기/빼기, 고르기. 안 산 타일이나 코어는 "상점에서 사기"로 상점 탭으로 넘어감
+- 상점 버튼은 상점 창을 엶: 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼
+- 창은 Esc, 오른쪽 클릭, 돌아가기 버튼으로 닫음
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). R을 누르면 상점 없이 바로 새 판
-- 코어 종류 (시작 화면 왼쪽 아래에서 고름, 판마다 1개):
+- 코어 종류 (시작 화면의 코어 버튼에서 고름, 판마다 1개):
   - CORE (기본): OVERDRIVE, 6초 동안 모든 타일 공격력 +60%, 쿨다운 35초
   - CRYO CORE (15): FREEZE, 모든 적 3.5초 정지 (움직이지도 때리지도 않음), 쿨다운 30초
   - AEGIS CORE (20): REPAIR, 모든 타일 최대 체력의 50% 회복, 쿨다운 40초
@@ -148,7 +150,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - 영구 강화 (처음엔 각 5레벨, 스테이지를 처음 깰 때마다 +3레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
 - 스테이지 보상 강화 (5레벨 고정): BOUNTY 처치 보상 +8% (1스테이지 클리어), SKILL TUNING 코어 스킬 쿨다운 -7% (4스테이지 클리어)
 - 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), BURN(20), DRONE HIVE(25)는 SHARD로 사야 함 (예전에 PRISM을 샀다면 PRISM이 빠지면서 SHARD 20개를 돌려받음)
-- 출정 타일: 시작 화면에서 풀린 타일을 클릭해 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
+- 가져갈 타일: 시작 화면의 가져갈 타일 버튼에서 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 
 ## 강화 (타일 정보 창의 UPGRADE)
@@ -200,8 +202,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 스테이지 진행, 저장/불러오기
 - `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
-- `scripts/shop.gd`: 시작 화면 (스테이지, 코어, 출정 타일, SHOP 버튼)
-- `scripts/shop_window.gd`: 상점 창 (영구 강화, 타일, 코어 구매)
+- `scripts/shop.gd`: 시작 화면 (스테이지, START, 버튼 3개)
+- `scripts/shop_window.gd`: 출전 준비 창 (가져갈 타일, 코어)과 상점 창 (영구 강화, 타일, 코어 구매)
 - `scripts/hud.gd`: 화면 위 정보와 버튼
 - `scripts/sfx.gd`: 효과음과 배경음 (`Sfx.play("kill")`, `Sfx.music("battle")`), 볼륨 설정
 - `scripts/sound_panel.gd`: 소리 설정 창과 SOUND 버튼

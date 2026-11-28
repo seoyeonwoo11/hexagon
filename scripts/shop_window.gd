@@ -1,16 +1,20 @@
 class_name ShopWindow
 extends CanvasLayer
-## 상점 창. 시작 화면(Shop)의 SHOP 버튼으로 연다. SHARD로 영구 강화, 타일, 코어를 산다.
+## 시작 화면(Shop) 버튼으로 여는 창. 두 묶음이 있다:
+##   출전 준비 (prep): 가져갈 타일 넣고 빼기 (loadout), 코어 고르기 (core)
+##   상점 (shop)     : SHARD로 영구 강화 (upgrades), 타일 (tiles), 코어 (cores) 사기
 ##
 ## 배치 (1920x1080 기준):
-##   위    : SHOP 제목, 탭 (UPGRADES / TILES / CORES), 가진 SHARD, 닫기 (Esc)
-##   가운데: 고른 탭의 카드들 (3칸씩). 카드마다 이름, 설명, 레벨, 사는 버튼
+##   위    : 제목, 그 묶음의 탭, 가진 SHARD, 닫기 (Esc, 오른쪽 클릭)
+##   가운데: 고른 탭의 카드들 (3칸씩). 카드마다 이름, 설명, 버튼
 ## 시작 화면 위에 덮어 그리고, 닫으면 시작 화면을 새로 그린다.
 
 signal closed
 
-const TABS: Array[String] = ["upgrades", "tiles", "cores"]
-const TAB_TITLES := {"upgrades": "UPGRADES", "tiles": "TILES", "cores": "CORES"}
+const GROUPS := {"prep": ["loadout", "core"], "shop": ["upgrades", "tiles", "cores"]}
+const GROUP_TITLES := {"prep": "PREPARE", "shop": "SHOP"}
+const TAB_TITLES := {"loadout": "TILES TO BRING", "core": "CORE",
+		"upgrades": "UPGRADES", "tiles": "TILES", "cores": "CORES"}
 const W := 1920.0
 ## 카드 3장 + 간격 2개 = 1680 (양옆 여백 120)
 const CARD := Vector2(541, 196)
@@ -20,6 +24,7 @@ const GAP := 28
 var tab := "upgrades"
 
 var _shards: Label
+var _title: Label
 var _tab_buttons := {}
 var _grid: GridContainer
 var _hint: Label
@@ -46,10 +51,9 @@ func _ready() -> void:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.add_child(frame)
 
-	var title := Hud.make_label(Shop.SHARD_COLOR, 64, 900, 0.35)
-	title.text = Loc.t("SHOP")
-	title.position = Vector2(120, 56)
-	frame.add_child(title)
+	_title = Hud.make_label(Shop.SHARD_COLOR, 64, 900, 0.35)
+	_title.position = Vector2(120, 56)
+	frame.add_child(_title)
 
 	var shard_box := HBoxContainer.new()
 	shard_box.add_theme_constant_override("separation", 14)
@@ -73,9 +77,9 @@ func _ready() -> void:
 	tabs.add_theme_constant_override("separation", 16)
 	tabs.position = Vector2(120, 172)
 	frame.add_child(tabs)
-	for id in TABS:
+	for id in TAB_TITLES:
 		var b := Hud.make_neon_button(Loc.t(TAB_TITLES[id]), Color.WHITE)
-		b.custom_minimum_size = Vector2(230, 58)
+		b.custom_minimum_size = Vector2(250, 58)
 		b.pressed.connect(func() -> void:
 			Sfx.play("click")
 			show_tab(id))
@@ -124,6 +128,11 @@ func show_tab(id: String) -> void:
 	refresh()
 
 
+## 지금 탭이 속한 묶음: "prep" 또는 "shop"
+func group() -> String:
+	return "prep" if GROUPS["prep"].has(tab) else "shop"
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -141,8 +150,13 @@ func refresh() -> void:
 	if _grid == null:
 		return
 	_shards.text = "%d" % Meta.shards
+	var g := group()
+	_title.text = Loc.t(GROUP_TITLES[g])
+	_title.label_settings.font_color = Shop.SHARD_COLOR if g == "shop" else Hud.NEON_CYAN
+	_title.label_settings.shadow_color = Color(_title.label_settings.font_color, 0.35)
 	for id in _tab_buttons:
 		var b: Button = _tab_buttons[id]
+		b.visible = GROUPS[g].has(id)
 		var on: bool = id == tab
 		b.add_theme_color_override("font_color", Color.WHITE if on else Color(1, 1, 1, 0.55))
 		var box := (b.get_theme_stylebox("normal") as StyleBoxFlat).duplicate() as StyleBoxFlat
@@ -154,6 +168,15 @@ func refresh() -> void:
 		_grid.remove_child(c)
 		c.queue_free()
 	match tab:
+		"loadout":
+			_hint.text = Loc.t("Pick up to %d tiles to bring. Only these show up as cards.") % Meta.max_loadout() \
+					+ "   %d / %d" % [Meta.loadout.size(), Meta.max_loadout()]
+			for kind in TileDefs.PLACEABLE:
+				_grid.add_child(_loadout_card(kind))
+		"core":
+			_hint.text = Loc.t("Each core has its own skill. Press Q in a run to use it.")
+			for id in CoreDefs.ORDER:
+				_grid.add_child(_core_pick_card(id))
 		"upgrades":
 			_hint.text = Loc.t("Permanent upgrades apply to every run. Clearing a stage for the first time raises every limit by %d.") \
 					% Meta.CAP_PER_STAGE
@@ -300,6 +323,66 @@ func _core_card(id: String) -> Control:
 	b.pressed.connect(func() -> void:
 		Sfx.play("coin" if Meta.buy_core(id) else "deny")
 		refresh())
+	col.add_child(b)
+	return parts[0]
+
+
+## 가져갈 타일 카드: 산 타일은 넣기/빼기, 안 산 타일은 상점의 타일 탭으로.
+func _loadout_card(kind: String) -> Control:
+	var def := TileDefs.get_def(kind)
+	var owned := Meta.is_tile_unlocked(kind)
+	var picked := Meta.in_loadout(kind)
+	var color: Color = def["color"] if owned else Shop.LOCKED_COLOR
+	var parts := _card(color, not picked)
+	var col: VBoxContainer = parts[1]
+	col.add_child(_title_row(def["name"], color, Loc.t("IN") if picked else "", kind, color))
+	col.add_child(_desc(Loc.t(def["desc"]), not owned))
+	var b: Button
+	if not owned:
+		b = _buy_button(Loc.t("Buy in the shop  (%d)") % Meta.TILE_PRICES[kind], true, Shop.SHARD_COLOR)
+		b.pressed.connect(func() -> void:
+			Sfx.play("click")
+			show_tab("tiles"))
+	elif picked:
+		b = _buy_button(Loc.t("REMOVE"), Meta.loadout.size() > 1, Color.WHITE)
+	else:
+		b = _buy_button(Loc.t("BRING") if not Meta.loadout_full() else Loc.t("LOADOUT FULL"),
+				not Meta.loadout_full(), Hud.NEON_CYAN)
+	if owned:
+		b.pressed.connect(func() -> void:
+			Sfx.play("click" if Meta.toggle_loadout(kind) else "deny")
+			refresh())
+	col.add_child(b)
+	return parts[0]
+
+
+## 코어 고르기 카드: 산 코어는 고르기, 안 산 코어는 상점의 코어 탭으로.
+func _core_pick_card(id: String) -> Control:
+	var def := CoreDefs.get_def(id)
+	var owned := Meta.is_core_unlocked(id)
+	var picked := Meta.core_type == id
+	var color: Color = def["color"] if owned or Meta.is_core_available(id) else Shop.LOCKED_COLOR
+	var parts := _card(color, not picked)
+	var col: VBoxContainer = parts[1]
+	col.add_child(_title_row(def["name"], color, Loc.t("COOLDOWN %ds") % int(def["cooldown"]),
+			"core" if id == "core" else "core_" + id, color))
+	col.add_child(_desc(Loc.t(def["desc"]), not owned))
+	var b: Button
+	if picked:
+		b = _buy_button(Loc.t("SELECTED"), false, Color.WHITE)
+	elif owned:
+		b = _buy_button(Loc.t("SELECT"), true, Hud.NEON_CYAN)
+		b.pressed.connect(func() -> void:
+			Sfx.play("click" if Meta.select_core(id) else "deny")
+			refresh())
+	elif not Meta.is_core_available(id):
+		b = _buy_button(Loc.t("Clear %s to unlock.") % StageDefs.title(StageDefs.stage_for_unlock("core:" + id)),
+				false, Shop.LOCKED_COLOR)
+	else:
+		b = _buy_button(Loc.t("Buy in the shop  (%d)") % def["price"], true, Shop.SHARD_COLOR)
+		b.pressed.connect(func() -> void:
+			Sfx.play("click")
+			show_tab("cores"))
 	col.add_child(b)
 	return parts[0]
 
