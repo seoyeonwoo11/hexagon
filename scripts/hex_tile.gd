@@ -12,7 +12,7 @@ const FROST_SLOW := 0.5
 const FROST_SLOW_TIME := 0.6
 ## ORBIT: 구체 회전 속도(라디안/초), 구체 반지름, 최대 구체 수
 const ORBIT_SPEED := 1.75
-const ORB_RADIUS := 12.0
+const ORB_RADIUS := 28.0
 const MAX_ORBS := 6
 ## 강화 1번마다: 공격력 ×1.5, 공격 간격 ×0.9 (초당 피해 약 1.67배), 사거리 +20, 최대 체력 +20
 const UPG_DAMAGE := 1.5

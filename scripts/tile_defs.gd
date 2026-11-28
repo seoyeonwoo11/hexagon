@@ -32,7 +32,7 @@ const DEFS := {
 	},
 	"orbit": {
 		"name": "ORBIT", "color": Color(1.0, 0.3, 0.9), "attack": "orbit",
-		"max_hp": 60.0, "damage": 65.0, "range": 145.0, "interval": 0.35, "income": 0,
+		"max_hp": 60.0, "damage": 45.0, "range": 145.0, "interval": 0.35, "income": 0,
 		"orbs": 3,
 		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
 	},
@@ -50,9 +50,9 @@ const DEFS := {
 	},
 	"burn": {
 		"name": "BURN", "color": Color(1.0, 0.42, 0.12), "attack": "burn",
-		"max_hp": 60.0, "damage": 4.0, "range": 230.0, "interval": 0.2, "income": 0,
+		"max_hp": 60.0, "damage": 5.0, "range": 290.0, "interval": 0.2, "income": 0,
 		"cone": 0.5, "burn_time": 2.5,
-		"desc": "Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.",
+		"desc": "Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Burns hardest up close. Fire spreads between enemies that touch.",
 	},
 	"shock": {
 		"name": "SHOCK", "color": Color(0.9, 0.92, 1.0), "attack": "shock",
