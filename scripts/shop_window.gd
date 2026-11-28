@@ -58,7 +58,7 @@ func _ready() -> void:
 	shard_box.size = Vector2(700, 60)
 	frame.add_child(shard_box)
 	_shards = Hud.make_label(Shop.SHARD_COLOR, 44, 900, 0.3)
-	var unit := Hud.make_shard_icon(52)
+	var unit := Hud.make_shard_icon(58)
 	var back := Hud.make_neon_button(Loc.t("BACK  (ESC)"), Hud.NEON_CYAN)
 	back.custom_minimum_size = Vector2(210, 60)
 	back.pressed.connect(close)
@@ -243,8 +243,8 @@ func _price_button(text: String, price: int) -> Button:
 	var word := Hud.make_label(Shop.SHARD_COLOR, 22, 700)
 	word.text = text
 	row.add_child(word)
-	row.add_child(_gap_x(10))
-	row.add_child(Hud.make_shard_icon(26))
+	row.add_child(_gap_x(2))
+	row.add_child(Hud.make_shard_icon(30))
 	var num := Hud.make_label(Shop.SHARD_COLOR, 22, 700)
 	num.name = "Price"
 	num.text = "%d" % price

@@ -643,7 +643,7 @@ static func toggle_fullscreen() -> void:
 const SHARD_ICON := preload("res://assets/ui/shard.svg")
 
 
-## SHARD 아이콘 그림 (h 높이, 정사각형)
+## SHARD 아이콘 그림 (h 높이, 폭은 그림 비율대로)
 static func make_shard_icon(h: float) -> TextureRect:
 	var t := TextureRect.new()
 	t.name = "ShardIcon"
@@ -651,23 +651,29 @@ static func make_shard_icon(h: float) -> TextureRect:
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	t.custom_minimum_size = Vector2(h, h)
+	t.custom_minimum_size = Vector2(h * shard_aspect(), h)
 	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
+
+
+## 그림의 폭 / 높이
+static func shard_aspect() -> float:
+	return float(SHARD_ICON.get_width()) / SHARD_ICON.get_height()
 
 
 ## 가격: 작은 SHARD 아이콘 + 숫자. center를 가운데로 그린다 (Control._draw 안에서).
 static func draw_shard_price(ci: CanvasItem, font: Font, center: Vector2, amount: int,
 		font_size: int, color: Color) -> void:
 	var s := "%d" % amount
-	var icon := font_size * 1.1
-	var gap := font_size * 0.2
+	var ih := font_size * 1.35
+	var iw := ih * shard_aspect()
+	var gap := font_size * 0.15
 	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	var x := center.x - (icon + gap + w) / 2.0
-	ci.draw_texture_rect(SHARD_ICON, Rect2(x, center.y - icon / 2.0, icon, icon), false,
+	var x := center.x - (iw + gap + w) / 2.0
+	ci.draw_texture_rect(SHARD_ICON, Rect2(x, center.y - ih / 2.0, iw, ih), false,
 			Color(1, 1, 1, color.a))
-	ci.draw_string(font, Vector2(x + icon + gap, center.y + font_size * 0.35), s,
+	ci.draw_string(font, Vector2(x + iw + gap, center.y + font_size * 0.35), s,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 

@@ -161,25 +161,35 @@ func _build_menu(parent: Control) -> void:
 
 	var title := Hud.make_label(Hud.NEON_CYAN, 92, 900, 0.35)
 	title.text = "HEXAGON"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
 	col.add_child(_spacer(36))
 
+	# 가진 SHARD: 결정 아이콘 + 큰 숫자, 메뉴 버튼 폭 가운데에
 	var shard_row := HBoxContainer.new()
-	shard_row.add_theme_constant_override("separation", 18)
+	shard_row.name = "ShardRow"
+	shard_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	shard_row.add_theme_constant_override("separation", 14)
 	col.add_child(shard_row)
-	shard_row.add_child(Hud.make_shard_icon(80))
+	shard_row.add_child(Hud.make_shard_icon(NUMBER_SIZE * 0.95))
 	_shards_value = FixedDigits.new()
 	_shards_value.font_size = NUMBER_SIZE
 	_shards_value.color = SHARD_COLOR
-	_shards_value.min_digits = 3
+	_shards_value.min_digits = 1
+	_shards_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shard_row.add_child(_shards_value)
 	if DEBUG_FREE_SHARDS:
+		# 테스트용 버튼은 배치에 끼지 않게 화면 오른쪽 아래 구석에
 		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
-		plus.custom_minimum_size = Vector2(84, 50)
-		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		plus.custom_minimum_size = Vector2(84, 44)
+		plus.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		plus.offset_left = -40 - 84
+		plus.offset_right = -40
+		plus.offset_top = -40 - 44
+		plus.offset_bottom = -40
 		plus.tooltip_text = Loc.t("Test only: +%d shards") % DEBUG_SHARD_AMOUNT
 		plus.pressed.connect(add_debug_shards)
-		shard_row.add_child(plus)
+		parent.add_child(plus)
 	col.add_child(_spacer(48))
 
 	var menu := VBoxContainer.new()
