@@ -625,6 +625,8 @@ class _Body extends Node2D:
 				_draw_wraith(r, c)
 			"bastion":
 				_draw_bastion(r, c)
+			"overlord":
+				_draw_overlord(r, c)
 		if enemy.crown:
 			# 최종 보스: 바깥 왕관 고리 (별 끝마다 작은 삼각형)
 			var ring := PackedVector2Array()
@@ -632,6 +634,7 @@ class _Body extends Node2D:
 			for i in 33:
 				ring.append(Vector2.from_angle(TAU * i / 32.0) * cr)
 			NeonDraw.polyline(self, ring, c, 0.6, 2.0)
+			NeonDraw.arc(self, Vector2.ZERO, cr - 6.0, 0.0, TAU, 40, Color(c, 0.4), 1.2)
 			for i in enemy.sides:
 				var a := TAU * i / enemy.sides + PI / enemy.sides
 				var d := Vector2.from_angle(a)
@@ -656,15 +659,35 @@ class _Body extends Node2D:
 			NeonDraw.arc(self, Vector2.ZERO, lerpf(r, enemy.aura_radius, t) / scale.x, 0.0, TAU, 40,
 					Color(pc, 0.6 * enemy._pulse), 2.5)
 
-	## MONOLITH: 네모 두 겹 (8각 별처럼 겹침), 가운데 빛나는 핵, 체력 구간을 넘을 때마다 금이 하나씩.
+	## MONOLITH: 바깥 네모 + 안쪽 네모 두 겹 (같은 방향 0.7배, 45도 돌린 0.86배), 모서리마다 안으로 꺾인 쐐기,
+	## 네 방향 눈금선, 가운데 두 겹 마름모 핵. 체력 구간을 넘을 때마다 금이 하나씩.
 	func _draw_monolith(r: float, c: Color) -> void:
 		_ring(r * 0.86, 4, c, 0.85)
+		var frame := PackedVector2Array()
+		for i in 5:
+			frame.append(Vector2.from_angle(TAU * i / 4.0) * r * 0.7)
+		NeonDraw.polyline(self, frame, c, 0.6, 1.5)
+		for i in 4:
+			var d := Vector2.from_angle(TAU * i / 4.0)
+			var n := d.orthogonal()
+			# 모서리 쐐기
+			NeonDraw.line(self, PackedVector2Array([d * r * 0.78 + n * r * 0.1, d * r * 0.62,
+					d * r * 0.78 - n * r * 0.1]), c.lightened(0.2), 2.0)
+			# 핵에서 뻗는 눈금 (45도 방향, 안쪽 네모 변 가운데까지)
+			var e := Vector2.from_angle(TAU * i / 4.0 + PI / 4.0)
+			NeonDraw.line(self, PackedVector2Array([e * r * 0.38, e * r * 0.5]), Color(c, 0.8), 2.0)
+			NeonDraw.line(self, PackedVector2Array([e * r * 0.53 + e.orthogonal() * 5.0,
+					e * r * 0.53 - e.orthogonal() * 5.0]), Color(c, 0.8), 1.5)
 		var core := PackedVector2Array()
 		for i in 4:
 			core.append(Vector2.from_angle(TAU * i / 4.0) * r * 0.3)
 		NeonDraw.fill(self, core, Color(c, 0.35))
 		core.append(core[0])
 		NeonDraw.polyline(self, core, c.lightened(0.3), 1.0, 2.0)
+		var gem := PackedVector2Array()
+		for i in 4:
+			gem.append(Vector2.from_angle(TAU * i / 4.0) * r * 0.13)
+		NeonDraw.fill(self, gem, Color(c.lightened(0.6), 0.95))
 		for i in enemy._quake_next:
 			var a := 0.5 + i * 2.2
 			var d := Vector2.from_angle(a)
@@ -738,21 +761,56 @@ class _Body extends Node2D:
 			NeonDraw.line(self, PackedVector2Array([Vector2(k * r * 0.16, r * (0.2 - absf(k) * 0.1)),
 					Vector2(k * r * 0.22, r * (0.75 - absf(k) * 0.15))]), Color(c, 0.6), 1.5)
 
-	## BASTION: 두꺼운 육각 성벽, 안쪽 성벽, 가운데 핵, 모서리마다 포탑.
+	## BASTION: 두 겹 육각 성벽 (0.84배 안쪽 벽, 변마다 벽돌 눈금 2개), 안쪽에 육각별(삼각형 두 개),
+	## 가운데 두 겹 육각 핵, 모서리마다 포탑 (받침 선 + 네모 머리 + 포신).
 	func _draw_bastion(r: float, c: Color) -> void:
-		_ring(r * 0.62, 6, c, 0.8)
+		var wall := PackedVector2Array()
+		for i in 7:
+			wall.append(Vector2.from_angle(TAU * i / 6.0) * r * 0.84)
+		NeonDraw.polyline(self, wall, c, 0.65, 1.5)
+		for i in 6:
+			var p0 := Vector2.from_angle(TAU * i / 6.0)
+			var p1 := Vector2.from_angle(TAU * (i + 1) / 6.0)
+			for t in [0.33, 0.67]:
+				var m: Vector2 = p0.lerp(p1, t)
+				NeonDraw.line(self, PackedVector2Array([m * r * 0.84, m * r]), Color(c, 0.7), 1.5)
+		for k in 2:
+			var tri := PackedVector2Array()
+			for i in 4:
+				tri.append(Vector2.from_angle(TAU * i / 3.0 + PI / 6.0 + k * PI / 3.0) * r * 0.6)
+			NeonDraw.polyline(self, tri, c, 0.75, 1.5)
+		_ring(r * 0.3, 6, c, 0.9)
 		var core := PackedVector2Array()
 		for i in 6:
-			core.append(Vector2.from_angle(TAU * i / 6.0) * r * 0.24)
-		NeonDraw.fill(self, core, Color(c, 0.45))
+			core.append(Vector2.from_angle(TAU * i / 6.0 + PI / 6.0) * r * 0.18)
+		NeonDraw.fill(self, core, Color(c.lightened(0.3), 0.75))
 		for i in 6:
 			var d := Vector2.from_angle(TAU * i / 6.0)
 			var n := d.orthogonal() * r * 0.09
 			var base := d * r
-			NeonDraw.line(self, PackedVector2Array([base, base + d * r * 0.22]), c, 3.0)
-			var cap := PackedVector2Array([base + d * r * 0.22 + n, base + d * r * 0.36 + n,
-					base + d * r * 0.36 - n, base + d * r * 0.22 - n, base + d * r * 0.22 + n])
-			NeonDraw.polyline(self, cap, c, 0.8, 1.5)
+			NeonDraw.line(self, PackedVector2Array([base, base + d * r * 0.2]), c, 3.0)
+			var cap := PackedVector2Array([base + d * r * 0.2 + n, base + d * r * 0.36 + n,
+					base + d * r * 0.36 - n, base + d * r * 0.2 - n, base + d * r * 0.2 + n])
+			NeonDraw.polyline(self, cap, c, 0.9, 1.5)
+			NeonDraw.line(self, PackedVector2Array([base + d * r * 0.36, base + d * r * 0.5]),
+					c.lightened(0.3), 2.0)
+
+	## OVERLORD: 바깥 별 안에 반 칸 돌린 별 (0.6배), 가운데 팔각 핵과 핵에서 뻗는 살 8개.
+	## 왕관 고리는 아래 crown에서.
+	func _draw_overlord(r: float, c: Color) -> void:
+		var inner := PackedVector2Array()
+		for i in enemy.sides * 2 + 1:
+			var a := PI * i / enemy.sides + PI / enemy.sides
+			inner.append(Vector2.from_angle(a) * r * (0.6 if i % 2 == 0 else 0.32))
+		NeonDraw.polyline(self, inner, c, 0.8, 1.8)
+		for i in enemy.sides:
+			var d := Vector2.from_angle(TAU * i / enemy.sides)
+			NeonDraw.line(self, PackedVector2Array([d * r * 0.2, d * r * 0.5]), Color(c, 0.65), 1.2)
+		var core := PackedVector2Array()
+		for i in 8:
+			core.append(Vector2.from_angle(TAU * i / 8.0 + PI / 8.0) * r * 0.17)
+		NeonDraw.fill(self, core, Color(c.lightened(0.4), 0.85))
+		NeonDraw.arc(self, Vector2.ZERO, r * 0.24, 0.0, TAU, 24, Color(c, 0.8), 1.5)
 
 	func _inner(pts: PackedVector2Array, k: float, c: Color, intensity := 0.7) -> void:
 		var inner := PackedVector2Array()
@@ -792,14 +850,23 @@ class _Deco extends Node2D:
 		var r := enemy.radius
 		match enemy.kind:
 			"monolith":
+				# 궤도 원 + 눈금 8개, 남은 돌조각 (두 겹 네모 + 가운데 점)
 				var left := enemy.quake_at.size() + 1 - enemy._quake_next
-				NeonDraw.arc(self, Vector2.ZERO, r * 1.6, 0.0, TAU, 48, Color(c, 0.18), 1.5)
+				NeonDraw.arc(self, Vector2.ZERO, r * 1.6, 0.0, TAU, 48, Color(c, 0.22), 1.5)
+				for i in 8:
+					var d := Vector2.from_angle(TAU * i / 8.0 + PI / 8.0)
+					NeonDraw.line(self, PackedVector2Array([d * r * 1.52, d * r * 1.68]), Color(c, 0.45), 1.5)
 				for i in left:
 					var at := Vector2.from_angle(TAU * i / 4.0) * r * 1.6
 					var sq := PackedVector2Array()
+					var sq2 := PackedVector2Array()
 					for k in 5:
-						sq.append(at + Vector2.from_angle(TAU * k / 4.0 + PI / 4.0) * r * 0.2)
+						var d := Vector2.from_angle(TAU * k / 4.0 + PI / 4.0)
+						sq.append(at + d * r * 0.22)
+						sq2.append(at + d.rotated(PI / 4.0) * r * 0.13)
 					NeonDraw.polyline(self, sq, c, 0.9, 2.0)
+					NeonDraw.line(self, sq2, Color(c, 0.7), 1.2)
+					NeonDraw.circle(self, at, 2.5, c.lightened(0.5))
 			"comet":
 				# 자이로 고리: 얇은 원 + 바깥을 향한 이빨 6개
 				NeonDraw.arc(self, Vector2.ZERO, r * 1.75, 0.0, TAU, 48, Color(c, 0.35), 1.5)
@@ -827,16 +894,30 @@ class _Deco extends Node2D:
 					NeonDraw.polyline(self, soul, c.lightened(0.3), 0.9, 1.5)
 					NeonDraw.circle(self, at, 2.0, Color(1.0, 1.0, 1.0, 0.9))
 			"bastion":
+				# 방패판 6장: 두 호를 이은 판 + 가운데 리벳. 보호막이 있으면 하늘색으로 밝고 판 안이 채워짐
 				var on := enemy.shield > 0.0
 				var pc := Enemy.SHIELD_COLOR if on else c
 				for i in 6:
 					var a := TAU * i / 6.0 + PI / 6.0
-					NeonDraw.arc(self, Vector2.ZERO, r * 1.5, a - 0.38, a + 0.38, 8,
-							Color(pc, 0.95 if on else 0.4), 5.0 if on else 2.5)
+					var plate := PackedVector2Array()
+					for k in 7:
+						plate.append(Vector2.from_angle(a - 0.36 + 0.72 * k / 6.0) * r * 1.62)
+					for k in 7:
+						plate.append(Vector2.from_angle(a + 0.3 - 0.6 * k / 6.0) * r * 1.42)
+					plate.append(plate[0])
+					if on:
+						NeonDraw.fill(self, PackedVector2Array([plate[0], plate[6], plate[7], plate[13]]),
+								Color(pc, 0.25))
+					NeonDraw.polyline(self, plate, pc, 0.95 if on else 0.5, 2.5 if on else 1.5)
+					NeonDraw.circle(self, Vector2.from_angle(a) * r * 1.52, 2.5, Color(pc, 0.9))
 			"overlord":
+				# 위성 8개: 두 겹 마름모 + 가운데 점, 몸 쪽으로 짧은 끈
 				for i in 8:
-					var at := Vector2.from_angle(TAU * i / 8.0) * r * 1.85
-					var dia := PackedVector2Array([at + Vector2(7, 0), at + Vector2(0, 5),
-							at + Vector2(-7, 0), at + Vector2(0, -5), at + Vector2(7, 0)])
-					NeonDraw.polyline(self, dia, c, 0.8, 1.5)
+					var d := Vector2.from_angle(TAU * i / 8.0)
+					var at := d * r * 1.9
+					var n := d.orthogonal()
+					var dia := PackedVector2Array([at + d * 8.0, at + n * 5.0, at - d * 8.0, at - n * 5.0, at + d * 8.0])
+					NeonDraw.polyline(self, dia, c, 0.85, 1.5)
+					NeonDraw.circle(self, at, 1.8, c.lightened(0.5))
+					NeonDraw.line(self, PackedVector2Array([at - d * 11.0, at - d * 19.0]), Color(c, 0.5), 1.2)
 		NeonDraw.flush()
