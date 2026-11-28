@@ -56,7 +56,7 @@ func _run() -> void:
 	var boss := _game._spawn_boss()
 	_check(boss.kind == "overlord" and boss.is_boss, "overlord spawned")
 	_check(_game.final_boss == boss and _game.hud.is_boss_bar_visible(), "boss bar shown")
-	var normal_boss_hp := _game.wave_enemy_hp(final) * EnemyDefs.DEFS["boss"]["hp"]
+	var normal_boss_hp := _game.wave_enemy_hp(final) * StageDefs.hp_mult(_game.stage) * EnemyDefs.DEFS["boss"]["hp"]
 	_check(boss.max_hp > normal_boss_hp * 2.0, "overlord much tougher than a normal boss")
 
 	# 소환: 타이머가 다 되면 부하 summon_count마리
@@ -66,7 +66,7 @@ func _run() -> void:
 	_check(_game.alive_enemies() == before + boss.summon_count, "overlord summons minions")
 
 	# 일반 적만 더 단단해지고, 보스와 OVERLORD 부하는 wave_enemy_hp 그대로
-	var base := _game.wave_enemy_hp(final)
+	var base := _game.wave_enemy_hp(final) * StageDefs.hp_mult(_game.stage)
 	_check(is_equal_approx(boss.max_hp, base * EnemyDefs.DEFS["overlord"]["hp"]),
 			"overlord hp not scaled by the normal multiplier")
 	var minion: Enemy = _enemies().filter(func(e: Enemy) -> bool: return e.kind == "runner")[0]
