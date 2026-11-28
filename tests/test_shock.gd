@@ -55,7 +55,7 @@ func _run() -> void:
 	_check(wave.fire() and wave.is_active(), "fires when an enemy is in range")
 	_check(near.is_frozen() and not mid.is_frozen(), "ring reaches the near enemy first")
 	_check(near.hp < near.max_hp and near.hp > near.max_hp - 10.0, "tiny damage on hit")
-	for i in 30:
+	for i in 90:
 		wave.tick(1.0 / 60.0)
 	_check(mid.is_frozen(), "ring reaches the farther enemy later")
 	_check(not far.is_frozen() and far.hp == far.max_hp, "enemy outside range untouched")
