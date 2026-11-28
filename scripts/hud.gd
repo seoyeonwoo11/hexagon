@@ -15,6 +15,7 @@ signal pause_pressed
 signal speed_pressed
 signal restart_pressed
 signal option_chosen(index: int)
+signal reroll_pressed
 signal upgrade_pressed
 signal skill_pressed
 signal move_pressed
@@ -48,6 +49,8 @@ var _move_button: Button
 var _speed_button: Button
 var _choice_overlay: ColorRect
 var _choice_row: HBoxContainer
+## 카드 아래 다시 뽑기 버튼 (판 안 돈으로, 웨이브마다 1번)
+var _reroll_button: Button
 var _tile_panel: PanelContainer
 var _tile_title: Label
 var _tile_stats: Label
@@ -361,6 +364,21 @@ func show_choices(options: Array) -> void:
 	_choice_overlay.visible = true
 
 
+## 다시 뽑기 버튼: cost = 다음 값, available = 이번 웨이브에 남았는지, affordable = 돈이 되는지.
+func set_reroll(cost: int, available: bool, affordable: bool) -> void:
+	if _reroll_button == null:
+		return
+	if available:
+		_reroll_button.text = Loc.t("REROLL  $%d") % cost
+	else:
+		_reroll_button.text = Loc.t("REROLL USED THIS WAVE")
+	_reroll_button.disabled = not available or not affordable
+
+
+func reroll_text() -> String:
+	return _reroll_button.text
+
+
 func hide_choices() -> void:
 	_choice_overlay.visible = false
 
@@ -537,6 +555,13 @@ func _build_choice_overlay() -> void:
 	_choice_row.add_theme_constant_override("separation", 32)
 	_choice_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(_choice_row)
+	_reroll_button = make_neon_button("", NEON_YELLOW)
+	_reroll_button.custom_minimum_size = Vector2(360, 60)
+	_reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_reroll_button.add_theme_font_size_override("font_size", 24)
+	_reroll_button.tooltip_text = Loc.t("Draw 3 new cards. Once per wave, and every reroll costs more.")
+	_reroll_button.pressed.connect(func() -> void: reroll_pressed.emit())
+	center.add_child(_reroll_button)
 
 
 func _make_card(option: Dictionary, index: int) -> Button:

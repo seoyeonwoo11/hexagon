@@ -87,6 +87,29 @@ func _run() -> void:
 		_check(titles.size() == 3, "options are distinct")
 		tile_counts[n_tiles] = true
 	_check(tile_counts.size() >= 3, "card mix varies (tile counts seen: %s)" % [tile_counts.keys()])
+
+	# 다시 뽑기(리롤): 돈이 들고, 카드가 뜰 때마다 1번, 값은 판 전체에서 쌓여 오른다
+	_game.add_money(-_game.money)
+	_game._on_wave_cleared()
+	_check(_game.state == Game.State.CHOOSING and _game.current_options.size() == 3, "cards offered")
+	var first_cost := _game.reroll_cost()
+	_check(first_cost == Game.REROLL_BASE, "first reroll costs base")
+	_check(not _game.reroll(), "reroll fails without money")
+	_check(_game.hud.reroll_text() == Loc.t("REROLL  $%d") % first_cost, "reroll button shows cost")
+	_game.add_money(first_cost * 3 + 7)
+	_check(_game.reroll(), "reroll succeeds")
+	_check(_game.money == first_cost * 2 + 7, "reroll cost deducted")
+	_check(_game.current_options.size() == 3 and _game.state == Game.State.CHOOSING, "new cards after reroll")
+	_check(not _game.reroll(), "only one reroll per wave")
+	_check(_game.money == first_cost * 2 + 7, "failed reroll costs nothing")
+	_check(_game.hud.reroll_text() == Loc.t("REROLL USED THIS WAVE"), "reroll button shows used")
+	_check(_game.reroll_cost() == first_cost * 2, "next reroll costs double")
+	# 다음 카드: 다시 1번, 값은 그대로 오른 채
+	_game._on_wave_cleared()
+	_check(_game.reroll_cost() == first_cost * 2, "reroll cost carries over waves")
+	_check(_game.reroll(), "reroll again next wave")
+	_check(_game.reroll_cost() == first_cost * 4, "cost keeps growing")
+	_game.add_money(-_game.money)
 	# 타일 카드와 강화 카드가 모두 있는 구성을 골라 아래 흐름을 확인
 	_game.state = Game.State.CHOOSING
 	var tile_idx := -1
