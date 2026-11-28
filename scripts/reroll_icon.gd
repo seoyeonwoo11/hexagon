@@ -26,13 +26,13 @@ func _draw() -> void:
 	var glow := 0.0 if dim else 1.0
 	# 빛 번짐 한 겹 + 밝은 중심선
 	if glow > 0.0:
-		draw_arc(c, r, ARC_FROM, ARC_TO, 32, Color(col, 0.18), 9.0, true)
-	draw_arc(c, r, ARC_FROM, ARC_TO, 32, col.lightened(0.3 * glow), 3.5, true)
+		draw_arc(c, r, ARC_FROM, ARC_TO, 32, Color(col, 0.18), 13.0, true)
+	draw_arc(c, r, ARC_FROM, ARC_TO, 32, col.lightened(0.3 * glow), 6.0, true)
 	# 끝에 화살촉 (시계 방향으로 도는 쪽을 가리킴)
 	var end := c + Vector2.from_angle(ARC_TO) * r
 	var tangent := Vector2.from_angle(ARC_TO + PI / 2.0)
 	var normal := Vector2.from_angle(ARC_TO)
-	var a := r * 0.62
+	var a := r * 0.75
 	var head := PackedVector2Array([
 		end + tangent * a * 1.3,
 		end + normal * a,

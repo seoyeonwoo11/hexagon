@@ -586,7 +586,7 @@ func _build_choice_overlay() -> void:
 	_reroll_icon.color = NEON_YELLOW
 	_reroll_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_reroll_icon)
-	_reroll_coin = CoinIcon.new(26.0)
+	_reroll_coin = CoinIcon.new(20.0)
 	_reroll_coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_reroll_coin)
 	_reroll_cost = _make_label(NEON_YELLOW, 24, 700)
