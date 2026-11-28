@@ -673,10 +673,17 @@ func take_damage(amount: float) -> void:
 
 
 func _draw() -> void:
+	# 타일 하나를 그리기 호출 1번으로 (NeonDraw 묶어 그리기)
+	NeonDraw.begin(self)
+	_draw_parts()
+	NeonDraw.flush()
+
+
+func _draw_parts() -> void:
 	var pulse := 1.0
 	var c := color.lerp(Color(1.0, 0.15, 0.2), _hit_flash / HIT_FLASH_TIME)
 	if selected:
-		draw_arc(Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5, true)
+		NeonDraw.arc(self, Vector2.ZERO, effective_range(), 0.0, TAU, 96, Color(c, 0.35), 1.5)
 		NeonDraw.hexagon(self, Vector2.ZERO, size * 0.98, Color.WHITE, 0.9, 2.0)
 	var lv := level - 1
 	NeonDraw.hexagon(self, Vector2.ZERO, size * 0.9, c, minf(pulse + 0.08 * lv, 1.4),
@@ -688,12 +695,11 @@ func _draw() -> void:
 	# 레벨 표시: 위쪽에 작은 점
 	for i in range(level - 1):
 		var x := (i - (level - 2) / 2.0) * 8.0
-		draw_circle(Vector2(x, -size * 0.62), 2.2, c)
+		NeonDraw.circle(self, Vector2(x, -size * 0.62), 2.2, c)
 	# 체력이 깎였으면 남은 체력을 원호로 표시
 	if hp < max_hp:
 		var frac := hp / max_hp
-		draw_arc(Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32,
-				Color(c, 0.8), 2.0, true)
+		NeonDraw.arc(self, Vector2.ZERO, size * 0.55, -PI / 2.0, -PI / 2.0 + TAU * frac, 32, Color(c, 0.8), 2.0)
 	if _shot_time > 0.0:
 		for target in _shot_targets:
 			NeonDraw.polyline(self, PackedVector2Array([Vector2.ZERO, target]), c,
@@ -717,8 +723,7 @@ func _draw_focus_meter(c: Color) -> void:
 	var seg := TAU / focus_max
 	for i in stacks:
 		var a0 := -PI / 2.0 + seg * i + 0.08
-		draw_arc(Vector2.ZERO, r, a0, a0 + seg - 0.16, 8,
-				Color(c.lerp(Color.WHITE, 0.3), 0.9), 2.5, true)
+		NeonDraw.arc(self, Vector2.ZERO, r, a0, a0 + seg - 0.16, 8, Color(c.lerp(Color.WHITE, 0.3), 0.9), 2.5)
 
 
 ## BOOSTER: 버프를 주는 이웃 쪽 변 위에 바깥으로 흐르는 작은 화살표.
@@ -761,7 +766,7 @@ func _draw_gear_badges() -> void:
 				center + Vector2(0, r), center + Vector2(-r, 0), center + Vector2(0, -r)])
 		if i < gears.size():
 			var gc: Color = GearDefs.get_def(gears[i])["color"]
-			draw_colored_polygon(dia, Color(gc, 0.35))
+			NeonDraw.fill(self, dia, Color(gc, 0.35))
 			NeonDraw.polyline(self, dia, gc, 1.0, 1.5)
 		else:
 			NeonDraw.polyline(self, dia, Color(1, 1, 1, 0.35), 0.6, 1.0)
@@ -788,28 +793,27 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
 			for i in 3:
 				var d := Vector2.from_angle(PI * i / 3.0) * r * 0.6
-				canvas.draw_line(-d, d, Color(c, intensity), 1.5, true)
+				NeonDraw.line(canvas, PackedVector2Array([-d, d]), Color(c, intensity), 1.5)
 		"core_aegis":
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
-			canvas.draw_line(Vector2(0, -r * 0.55), Vector2(0, r * 0.55), Color(c, intensity), 2.5, true)
-			canvas.draw_line(Vector2(-r * 0.55, 0), Vector2(r * 0.55, 0), Color(c, intensity), 2.5, true)
+			NeonDraw.line(canvas, PackedVector2Array([Vector2(0, -r * 0.55), Vector2(0, r * 0.55)]), Color(c, intensity), 2.5)
+			NeonDraw.line(canvas, PackedVector2Array([Vector2(-r * 0.55, 0), Vector2(r * 0.55, 0)]), Color(c, intensity), 2.5)
 		"core_nova":
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
-			canvas.draw_circle(Vector2.ZERO, r * 0.22, Color(c, intensity))
+			NeonDraw.circle(canvas, Vector2.ZERO, r * 0.22, Color(c, intensity))
 			for i in 6:
 				var d := Vector2.from_angle(TAU * i / 6.0 + PI / 6.0)
-				canvas.draw_line(d * r * 0.35, d * r * 0.7, Color(c, intensity), 1.5, true)
+				NeonDraw.line(canvas, PackedVector2Array([d * r * 0.35, d * r * 0.7]), Color(c, intensity), 1.5)
 		"core_warp":
 			# 가운데 점 + 바깥으로 향하는 꺾쇠 셋 (날려 보냄)
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r, c, intensity * 0.8, 2.0)
-			canvas.draw_circle(Vector2.ZERO, r * 0.16, Color(c, intensity))
+			NeonDraw.circle(canvas, Vector2.ZERO, r * 0.16, Color(c, intensity))
 			for i in 3:
 				var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 3.0)
 				var side := d.orthogonal() * r * 0.2
 				var tip := d * r * 0.68
 				var back := d * r * 0.42
-				canvas.draw_polyline(PackedVector2Array([back + side, tip, back - side]),
-						Color(c, intensity), 1.8, true)
+				NeonDraw.line(canvas, PackedVector2Array([back + side, tip, back - side]), Color(c, intensity), 1.8)
 		"laser":
 			var tri := PackedVector2Array()
 			for i in 4:
@@ -826,20 +830,19 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 				var d := Vector2(cos(a), sin(a)) * r
 				NeonDraw.polyline(canvas, PackedVector2Array([-d, d]), c, intensity * 0.8, 2.0)
 		"orbit":
-			canvas.draw_arc(Vector2.ZERO, r * 0.85, 0.0, TAU, 32, Color(c, 0.5 * intensity), 1.5, true)
-			canvas.draw_circle(Vector2.ZERO, r * 0.25, Color(c, intensity))
+			NeonDraw.arc(canvas, Vector2.ZERO, r * 0.85, 0.0, TAU, 32, Color(c, 0.5 * intensity), 1.5)
+			NeonDraw.circle(canvas, Vector2.ZERO, r * 0.25, Color(c, intensity))
 			var a := angle
-			canvas.draw_circle(Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
+			NeonDraw.circle(canvas, Vector2(cos(a), sin(a)) * r * 0.85, r * 0.22, Color(c, intensity))
 		"drone":
 			# 가운데 작은 육각형(벌집) + 둘레의 드론 세 개
 			NeonDraw.hexagon(canvas, Vector2.ZERO, r * 0.45, c, intensity * 0.8, 2.0)
 			for i in 3:
 				var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 3.0) * r * 0.95
-				canvas.draw_circle(d, r * 0.22, Color(c, intensity))
+				NeonDraw.circle(canvas, d, r * 0.22, Color(c, intensity))
 		"archer":
 			# 활: 왼쪽 반원 + 시위, 오른쪽으로 화살
-			canvas.draw_arc(Vector2(r * 0.1, 0), r * 0.85, PI * 0.55, PI * 1.45, 16,
-					Color(c, intensity), 2.0, true)
+			NeonDraw.arc(canvas, Vector2(r * 0.1, 0), r * 0.85, PI * 0.55, PI * 1.45, 16, Color(c, intensity), 2.0)
 			var top := Vector2(r * 0.1, 0) + Vector2.from_angle(PI * 0.55) * r * 0.85
 			var bot := Vector2(r * 0.1, 0) + Vector2.from_angle(PI * 1.45) * r * 0.85
 			NeonDraw.polyline(canvas, PackedVector2Array([top, Vector2(-r * 0.15, 0), bot]),

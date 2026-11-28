@@ -304,6 +304,11 @@ class _Body extends Node2D:
 			queue_redraw()
 
 	func _draw() -> void:
+		NeonDraw.begin(self)
+		_draw_parts()
+		NeonDraw.flush()
+
+	func _draw_parts() -> void:
 		var pts := enemy.shape_points()
 		var c := _drawn_color
 		NeonDraw.polyline(self, pts, c, 1.0, 3.5 if enemy.is_boss else 2.5)

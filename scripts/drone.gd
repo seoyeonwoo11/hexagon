@@ -68,9 +68,16 @@ func _target_ok(e: Variant) -> bool:
 
 
 func _draw() -> void:
+	# 그리기 호출 1번으로 (NeonDraw 묶어 그리기)
+	NeonDraw.begin(self)
+	_draw_parts()
+	NeonDraw.flush()
+
+
+func _draw_parts() -> void:
 	var c := Color.WHITE if _drawn_flash else hive.color if is_instance_valid(hive) else Color.WHITE
 	# 앞을 향한 작은 화살촉 + 꼬리 불빛
 	var pts := PackedVector2Array([Vector2(-SIZE * 0.8, -SIZE * 0.7), Vector2(SIZE, 0),
 			Vector2(-SIZE * 0.8, SIZE * 0.7), Vector2(-SIZE * 0.35, 0), Vector2(-SIZE * 0.8, -SIZE * 0.7)])
 	NeonDraw.polyline(self, pts, c, 1.0, 2.0)
-	draw_circle(Vector2(-SIZE * 0.9, 0), 2.5, Color(c, 0.7))
+	NeonDraw.circle(self, Vector2(-SIZE * 0.9, 0), 2.5, Color(c, 0.7))
