@@ -399,6 +399,17 @@ def s_skill_nova():
     return finish(mix(boom, ring, sub), 0.75)
 
 
+def s_skill_warp():
+    # 빨려 들어갔다가 튕겨 나가는 소리: 내려가는 휘파람 + 올라가는 펑
+    d = 0.75
+    t = t_of(d)
+    down = sine(sweep(1800, 220, 0.25, 0.6), 0.25) * env(int(0.25 * SR), 0.01, None, 0.05) * 0.5
+    up = saw(sweep(90, 900, d, 0.4), d) + saw(sweep(91, 905, d, 0.4), d)
+    up = sweep_lp(up, 300, 4000) * (0.75 + 0.25 * np.sin(2 * np.pi * 22 * t)) * env(len(t), 0.005, None, 0.35)
+    sub = sine(sweep(70, 35, 0.6), 0.6) * env(int(0.6 * SR), 0.002, 0.25) * 0.7
+    return finish(echo(mix(down, at(up * 0.6, 0.2), at(sub, 0.2)), 0.11, 0.3, 3), 0.65)
+
+
 def s_gameover():
     notes = [(69, 0.0), (65, 0.32), (62, 0.64), (57, 1.0)]
     lead = mix(*[at(lp(tone(midi(n), 0.9, saw, attack=0.01, decay=0.35, release=0.2), 2000), s) for n, s in notes])

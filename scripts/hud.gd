@@ -63,6 +63,11 @@ var _boss_name := ""
 ## 최종 보스 클리어 화면
 var _victory: ColorRect
 var _victory_sub: Label
+var _victory_tag: Label
+var _victory_unlocks: Label
+## 이번 판의 스테이지 (웨이브 표시 위에 작게)
+var stage := 1
+var _stage_label: Label
 
 
 func _ready() -> void:
@@ -81,8 +86,10 @@ func _ready() -> void:
 	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.add_theme_constant_override("separation", 6)
 	root.add_child(info)
+	_stage_label = _make_label(NEON_CYAN, 22, 800, 0.25)
 	_wave_label = _make_label(NEON_CYAN, 44, 800, 0.25)
 	_money_label = _make_label(NEON_YELLOW, 30, 700)
+	info.add_child(_stage_label)
 	info.add_child(_wave_label)
 	info.add_child(_money_label)
 	var core_row := HBoxContainer.new()
@@ -164,11 +171,15 @@ func set_money(value: int) -> void:
 
 
 ## 목표(FINAL_WAVE)까지는 "WAVE 12 / 30", 무한 모드에서는 "WAVE 31  ENDLESS".
+## 그 위 작은 글씨로 스테이지 (스테이지 색).
 func set_wave(value: int, endless := false) -> void:
 	if endless:
 		_wave_label.text = Loc.t("WAVE %d  ENDLESS") % value
 	else:
 		_wave_label.text = Loc.t("WAVE %d / %d") % [value, EnemyDefs.FINAL_WAVE]
+	_stage_label.text = StageDefs.title(stage)
+	_stage_label.label_settings.font_color = StageDefs.color(stage)
+	_stage_label.label_settings.shadow_color = Color(StageDefs.color(stage), 0.25)
 
 
 func _build_boss_bar(root: MarginContainer) -> void:
@@ -229,13 +240,17 @@ func _build_victory() -> void:
 	center.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_theme_constant_override("separation", 22)
 	_victory.add_child(center)
-	var tag := _make_label(Color(gold, 0.75), 26, 600)
-	tag.text = Loc.t("OVERLORD DEFEATED")
+	_victory_tag = _make_label(Color(gold, 0.75), 26, 600)
+	_victory_tag.text = Loc.t("OVERLORD DEFEATED")
 	var title := _make_label(gold, 120, 900, 0.4)
 	title.text = Loc.t("VICTORY")
 	_victory_sub = _make_label(Color(1, 1, 1, 0.9), 30, 500)
 	_victory_sub.label_settings.line_spacing = 10
-	for l in [tag, title, _victory_sub]:
+	# 처음 깬 스테이지면 새로 풀린 것들 (한 줄에 하나)
+	_victory_unlocks = _make_label(Color.WHITE, 28, 700)
+	_victory_unlocks.label_settings.line_spacing = 8
+	_victory_unlocks.visible = false
+	for l in [_victory_tag, title, _victory_sub, _victory_unlocks]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		center.add_child(l)
 	var row := HBoxContainer.new()
@@ -256,9 +271,16 @@ func _build_victory() -> void:
 	row.add_child(end)
 
 
-## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수.
-func show_victory(wave: int, shards: int, clears: int) -> void:
+## 최종 보스 클리어 화면. shards: 이번에 받은 SHARD, clears: 지금까지 클리어 횟수,
+## cleared_stage: 깬 스테이지, unlocks: 처음 깨서 새로 풀린 것들 (StageDefs.reward_lines, 번역된 글).
+func show_victory(wave: int, shards: int, clears: int, cleared_stage := 1,
+		unlocks: Array[String] = []) -> void:
+	var c := StageDefs.color(cleared_stage)
+	_victory_tag.text = Loc.t("%s CLEARED  -  OVERLORD DEFEATED") % StageDefs.title(cleared_stage)
 	_victory_sub.text = Loc.t("All %d waves cleared   -   +%d shards\nClears  %d") % [wave, shards, clears]
+	_victory_unlocks.text = "\n".join(unlocks)
+	_victory_unlocks.label_settings.font_color = c
+	_victory_unlocks.visible = not unlocks.is_empty()
 	_victory.visible = true
 
 
@@ -615,6 +637,44 @@ static func toggle_fullscreen() -> void:
 		w.mode = Window.MODE_MAXIMIZED
 	else:
 		w.mode = Window.MODE_FULLSCREEN
+
+
+## SHARD 아이콘 (assets/ui/shard.svg). 글자 "샤드" 대신 쓴다.
+const SHARD_ICON := preload("res://assets/ui/shard.svg")
+
+
+## SHARD 아이콘 그림 (h 높이, 폭은 그림 비율대로)
+static func make_shard_icon(h: float) -> TextureRect:
+	var t := TextureRect.new()
+	t.name = "ShardIcon"
+	t.texture = SHARD_ICON
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	t.custom_minimum_size = Vector2(h * shard_aspect(), h)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
+## 그림의 폭 / 높이
+static func shard_aspect() -> float:
+	return float(SHARD_ICON.get_width()) / SHARD_ICON.get_height()
+
+
+## 가격: 작은 SHARD 아이콘 + 숫자. center를 가운데로 그린다 (Control._draw 안에서).
+static func draw_shard_price(ci: CanvasItem, font: Font, center: Vector2, amount: int,
+		font_size: int, color: Color) -> void:
+	var s := "%d" % amount
+	var ih := font_size * 1.35
+	var iw := ih * shard_aspect()
+	var gap := font_size * 0.15
+	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var x := center.x - (iw + gap + w) / 2.0
+	ci.draw_texture_rect(SHARD_ICON, Rect2(x, center.y - ih / 2.0, iw, ih), false,
+			Color(1, 1, 1, color.a))
+	ci.draw_string(font, Vector2(x + iw + gap, center.y + font_size * 0.35), s,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 
 static func font_weight(weight: int) -> Font:

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="104" height="136" viewBox="0 0 104 136">
+  <!-- SHARD: 네온사인 결정. 게임의 다른 그림(NeonDraw)처럼 넓고 옅은 선 두 겹 + 밝은 중심선, 안은 거의 비움 -->
+  <polygon points="52,12 83,40 74,108 52,124 30,108 21,40" fill="#8cffbf" fill-opacity="0.07"/>
+  <g fill="none" stroke="#8cffbf" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="52,12 83,40 74,108 52,124 30,108 21,40" stroke-width="22" stroke-opacity="0.13"/>
+    <polygon points="52,12 83,40 74,108 52,124 30,108 21,40" stroke-width="14" stroke-opacity="0.13"/>
+    <polyline points="21,40 52,52 83,40" stroke-width="10" stroke-opacity="0.10"/>
+    <line x1="52" y1="52" x2="52" y2="124" stroke-width="10" stroke-opacity="0.10"/>
+  </g>
+  <g fill="none" stroke="#c4ffdf" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="52,12 83,40 74,108 52,124 30,108 21,40" stroke-width="7"/>
+    <polyline points="21,40 52,52 83,40" stroke-width="4.5" stroke-opacity="0.8"/>
+    <line x1="52" y1="52" x2="52" y2="124" stroke-width="4.5" stroke-opacity="0.8"/>
+  </g>
+</svg>

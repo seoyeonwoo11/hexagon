@@ -101,7 +101,7 @@ func _ready() -> void:
 
 
 ## 결과창을 연다. d의 키:
-##   victory (클리어했나), endless (무한 모드까지 갔나), wave, best_wave, new_best,
+##   victory (클리어했나), endless (무한 모드까지 갔나), stage, wave, best_wave (그 스테이지), new_best,
 ##   kills ({적 종류: 수}), time (실제 플레이 초), gold (번 돈), shards (받은 SHARD),
 ##   stats (DamageStats)
 func show_results(d: Dictionary) -> void:
@@ -114,6 +114,7 @@ func show_results(d: Dictionary) -> void:
 		_tag.text = Loc.t("OVERLORD DEFEATED")
 	else:
 		_tag.text = Loc.t("CORE DESTROYED")
+	_tag.text = "%s  -  %s" % [StageDefs.title(d.get("stage", 1)), _tag.text]
 	_title.text = Loc.t("VICTORY") if won else Loc.t("GAME OVER")
 	_set_color(_tag, Color(color, 0.75))
 	_set_color(_title, color)

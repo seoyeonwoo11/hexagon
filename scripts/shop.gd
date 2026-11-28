@@ -1,13 +1,13 @@
 class_name Shop
 extends CanvasLayer
-## 시작 화면 겸 상점. 게임을 켤 때와 판이 끝났을 때 나온다.
+## 시작 화면. 게임을 켤 때와 판이 끝났을 때 나온다. 사는 것은 따로 연 상점 창(ShopWindow)에서.
+## 설명 글은 두지 않는다 (모양과 색, 숫자로만 보여 줌).
 ##
 ## 배치 (1920x1080 기준):
-##   왼쪽  : 게임 이름, 지난 판 결과, 가진 SHARD
-##   가운데: 벌집 모양 보드. 가운데 육각형이 START, 둘레가 타일.
-##           잠긴 타일은 클릭해서 구매, 풀린 타일은 클릭해서 출정 타일(최대 6종)에 넣거나 뺀다
-##   오른쪽: 영구 강화 목록 (이름, 설명, 육각형 레벨 표시, 구매 버튼)
-## 벌집 아래 설명 줄은 마우스를 올린 칸을 설명한다.
+##   왼쪽  : 큰 벌집 모양 보드와 그 위 스테이지 고르기 (깬 스테이지 다음까지 열림, 깬 스테이지는 아래 점)
+##           벌집 한가운데는 고른 코어: 누르면 코어 고르기 창(CorePanel)
+##           둘레 타일: 풀린 타일은 클릭해서 가져갈 타일(최대 6종)에 넣거나 빼고, 잠긴 타일은 상점 창
+##   오른쪽: 게임 이름, 가진 SHARD, 메뉴 버튼 3개 (게임 시작 / 상점 / 설정)
 
 signal start_pressed
 
@@ -20,16 +20,17 @@ const SIDE_MARGIN := 120
 ## 임시(테스트용): + 키나 숫자 옆 + 버튼으로 SHARD 지급. 출시 전에 false로.
 const DEBUG_FREE_SHARDS := true
 const DEBUG_SHARD_AMOUNT := 10
-const NUMBER_SIZE := 132
+const NUMBER_SIZE := 100
+## 벌집 한가운데의 화면 가운데 기준 위치 (오른쪽 메뉴 자리를 비키도록 왼쪽으로)
+const BOARD_OFFSET := Vector2(-260, 70)
 
-var _result_label: Label
-var _best_label: Label
 var _shards_value: FixedDigits
 var _honeycomb: Honeycomb
-var _caption_title: Label
-var _caption_body: Label
-var _upgrade_list: VBoxContainer
-var _core_picker: CorePicker
+var _window: ShopWindow
+var _settings: SettingsPanel
+var _cores: CorePanel
+var _root: ColorRect
+var _stage_picker: StagePicker
 
 
 func _ready() -> void:
@@ -40,44 +41,37 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
-	_build_left(bg)
+	_root = bg
 	_build_center(bg)
-	_build_right(bg)
-	# 소리 설정 버튼: 오른쪽 위 줄(FULL, 언어) 바로 아래, 오른쪽 끝에 맞춤
-	var sound := SoundPanel.make_button()
-	sound.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	sound.offset_left = -40 - 150
-	sound.offset_right = -40
-	sound.offset_top = 116
-	sound.offset_bottom = 176
-	bg.add_child(sound)
-	if Hud.wants_fullscreen_button():
-		var full := Hud.make_fullscreen_button()
-		full.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		full.offset_left = -40 - 130
-		full.offset_right = -40
-		full.offset_top = 40
-		full.offset_bottom = 100
-		bg.add_child(full)
-	_build_language_button(bg)
+	_build_top(bg)
+	_build_menu(bg)
+	_window = ShopWindow.new()
+	# 상점 창이 떠 있는 동안 시작 화면은 숨긴다 (글로우가 비쳐 보이지 않게)
+	_window.closed.connect(func() -> void:
+		_root.visible = true
+		refresh())
+	add_child(_window)
+	# 언어, 소리, 전체 화면은 설정 창 안에
+	_settings = SettingsPanel.new()
+	add_child(_settings)
+	_cores = CorePanel.new()
+	_cores.shop_requested.connect(func() -> void: open_window("cores"))
+	_cores.closed.connect(refresh)
+	add_child(_cores)
 	refresh()
 
 
-## 오른쪽 위 언어 전환 버튼 (한국어 <-> ENGLISH). 누르면 씬을 다시 불러와 모든 글자를 바꾼다.
-func _build_language_button(parent: Control) -> void:
-	var b := Hud.make_neon_button(Loc.other_lang_name(), Color(1, 1, 1, 0.75))
-	b.name = "LanguageButton"
-	b.custom_minimum_size = Vector2(170, 60)
-	b.add_theme_font_size_override("font_size", 22)
-	b.tooltip_text = "Language / 언어"
-	var right := -40.0 - (130.0 + 16.0 if Hud.wants_fullscreen_button() else 0.0)
-	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	b.offset_left = right - 170.0
-	b.offset_right = right
-	b.offset_top = 40
-	b.offset_bottom = 100
-	b.pressed.connect(switch_language)
-	parent.add_child(b)
+func open_settings() -> void:
+	_settings.open()
+
+
+## 코어 고르기 창 (벌집 한가운데 코어를 누르면)
+func open_cores() -> void:
+	_cores.open()
+
+
+func is_cores_open() -> bool:
+	return _cores != null and _cores.is_open()
 
 
 func switch_language() -> void:
@@ -94,6 +88,23 @@ func open() -> void:
 
 func close() -> void:
 	visible = false
+	if _window != null:
+		_window.visible = false
+		_root.visible = true
+	if _cores != null:
+		_cores.close()
+		_settings.close()
+
+
+## 상점 창 열기. tab: "upgrades", "tiles", "cores" ("" 이면 마지막 탭)
+func open_window(tab := "") -> void:
+	Sfx.play("click")
+	_root.visible = false
+	_window.open(tab)
+
+
+func is_window_open() -> bool:
+	return _window != null and _window.is_open()
 
 
 func is_open() -> bool:
@@ -104,37 +115,17 @@ func refresh() -> void:
 	if _shards_value == null:
 		return
 	_shards_value.set_value(Meta.shards)
-	if Meta.last_run_victory and Meta.last_run_wave > EnemyDefs.FINAL_WAVE:
-		_result_label.text = Loc.t("Cleared! Endless until wave %d\n+%d shards") \
-				% [Meta.last_run_wave, Meta.last_run_shards]
-	elif Meta.last_run_victory:
-		_result_label.text = Loc.t("OVERLORD defeated!\n+%d shards") % Meta.last_run_shards
-	elif Meta.last_run_wave > 0:
-		_result_label.text = Loc.t("Run ended on wave %d\n+%d shards") \
-				% [Meta.last_run_wave, Meta.last_run_shards]
-	else:
-		_result_label.text = Loc.t("Beat the OVERLORD on wave %d.\nClear waves to earn shards.") % EnemyDefs.FINAL_WAVE
-	_best_label.text = Loc.t("Best wave  %d") % Meta.best_wave if Meta.best_wave > 0 else ""
-	if Meta.clears > 0:
-		_best_label.text += Loc.t("    Clears  %d") % Meta.clears
 	_honeycomb.queue_redraw()
-	if _core_picker != null:
-		_core_picker.queue_redraw()
-	_show_caption(_honeycomb.hovered if _core_picker == null or _core_picker.hovered == "" \
-			else "core:" + _core_picker.hovered)
-	for child in _upgrade_list.get_children():
-		child.queue_free()
-	for i in Meta.UPGRADES.size():
-		if i > 0:
-			var rule := ColorRect.new()
-			rule.color = RULE
-			rule.custom_minimum_size = Vector2(0, 1)
-			_upgrade_list.add_child(rule)
-		_upgrade_list.add_child(_upgrade_row(Meta.UPGRADES[i]))
+	if is_cores_open():
+		_cores.refresh()
+	if _stage_picker != null:
+		_stage_picker.queue_redraw()
+	if _window != null and _window.is_open():
+		_window.refresh()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or is_window_open() or _settings.is_open() or is_cores_open():
 		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
@@ -155,66 +146,90 @@ func add_debug_shards() -> void:
 	refresh()
 
 
-# ---------------------------------------------------------------- 왼쪽
+# ---------------------------------------------------------------- 오른쪽 (이름, SHARD, 메뉴)
 
-func _build_left(parent: Control) -> void:
+func _build_menu(parent: Control) -> void:
 	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	col.offset_left = SIDE_MARGIN
-	col.offset_top = -300
-	col.offset_bottom = 300
-	col.offset_right = SIDE_MARGIN + 520
+	col.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	col.offset_right = -SIDE_MARGIN
+	col.offset_left = -SIDE_MARGIN - 520
+	col.offset_top = -340
+	col.offset_bottom = 340
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 0)
 	parent.add_child(col)
 
 	var title := Hud.make_label(Hud.NEON_CYAN, 92, 900, 0.35)
 	title.text = "HEXAGON"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
-	col.add_child(_spacer(28))
-	_result_label = Hud.make_label(INK, 26, 500)
-	_result_label.label_settings.line_spacing = 8
-	col.add_child(_result_label)
-	col.add_child(_spacer(10))
-	_best_label = Hud.make_label(INK_DIM, 20, 500)
-	col.add_child(_best_label)
-	col.add_child(_spacer(44))
+	col.add_child(_spacer(36))
+
+	# 가진 SHARD: 결정 아이콘 + 큰 숫자, 메뉴 버튼 폭 가운데에
 	var shard_row := HBoxContainer.new()
-	shard_row.add_theme_constant_override("separation", 24)
+	shard_row.name = "ShardRow"
+	shard_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	shard_row.add_theme_constant_override("separation", 14)
 	col.add_child(shard_row)
+	shard_row.add_child(Hud.make_shard_icon(NUMBER_SIZE * 0.95))
 	_shards_value = FixedDigits.new()
 	_shards_value.font_size = NUMBER_SIZE
 	_shards_value.color = SHARD_COLOR
-	_shards_value.min_digits = 3
+	_shards_value.min_digits = 1
+	_shards_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shard_row.add_child(_shards_value)
 	if DEBUG_FREE_SHARDS:
+		# 테스트용 버튼은 배치에 끼지 않게 화면 오른쪽 아래 구석에
 		var plus := Hud.make_neon_button("+%d" % DEBUG_SHARD_AMOUNT, SHARD_COLOR)
-		plus.custom_minimum_size = Vector2(96, 56)
-		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		plus.custom_minimum_size = Vector2(84, 44)
+		plus.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		plus.offset_left = -40 - 84
+		plus.offset_right = -40
+		plus.offset_top = -40 - 44
+		plus.offset_bottom = -40
 		plus.tooltip_text = Loc.t("Test only: +%d shards") % DEBUG_SHARD_AMOUNT
 		plus.pressed.connect(add_debug_shards)
-		shard_row.add_child(plus)
-	var unit := Hud.make_label(SHARD_COLOR, 26, 600)
-	unit.text = Loc.t("shards to spend")
-	col.add_child(unit)
-	col.add_child(_spacer(44))
-	var core_head := Hud.make_label(INK_DIM, 22, 600)
-	core_head.text = Loc.t("Core and skill")
-	col.add_child(core_head)
-	col.add_child(_spacer(10))
-	_core_picker = CorePicker.new()
-	_core_picker.core_clicked.connect(_on_core_clicked)
-	_core_picker.hover_changed.connect(func(id: String) -> void:
-		_show_caption("none" if id == "" else "core:" + id))
-	col.add_child(_core_picker)
+		parent.add_child(plus)
+	col.add_child(_spacer(48))
+
+	var menu := VBoxContainer.new()
+	menu.name = "Menu"
+	menu.add_theme_constant_override("separation", 18)
+	col.add_child(menu)
+	menu.add_child(_menu_button("StartButton", Loc.t("NEW GAME"), Hud.NEON_CYAN,
+			func() -> void: start_pressed.emit()))
+	menu.add_child(_menu_button("ShopButton", Loc.t("SHOP"), SHARD_COLOR, func() -> void: open_window()))
+	menu.add_child(_menu_button("SettingsButton", Loc.t("SETTINGS"), Color(1, 1, 1, 0.8), open_settings))
 
 
+func _menu_button(id: String, text: String, color: Color, action: Callable) -> Button:
+	var b := Hud.make_neon_button(text, color)
+	b.name = id
+	b.custom_minimum_size = Vector2(520, 86)
+	b.add_theme_font_size_override("font_size", 34)
+	b.pressed.connect(action)
+	return b
+
+
+## 산 코어는 고르고, 안 산 코어는 상점 창의 CORES 탭을 연다. (코어 고르기 창에서 씀)
 func _on_core_clicked(id: String) -> void:
-	var owned := Meta.is_core_unlocked(id)
-	var changed := Meta.select_core(id) if owned else Meta.buy_core(id)
-	Sfx.play(("click" if owned else "coin") if changed else "deny")
-	if changed:
-		refresh()
+	_cores._on_core_clicked(id)
+
+
+# ---------------------------------------------------------------- 위 (스테이지)
+
+func _build_top(parent: Control) -> void:
+	_stage_picker = StagePicker.new()
+	_stage_picker.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	var w := StagePicker.GAP * StageDefs.count()
+	_stage_picker.offset_left = BOARD_OFFSET.x - w / 2.0
+	_stage_picker.offset_right = BOARD_OFFSET.x + w / 2.0
+	_stage_picker.offset_top = 40
+	_stage_picker.offset_bottom = 40 + StagePicker.HEIGHT
+	_stage_picker.stage_clicked.connect(func(n: int) -> void:
+		if Meta.select_stage(n):
+			refresh())
+	parent.add_child(_stage_picker)
 
 
 # ---------------------------------------------------------------- 가운데
@@ -222,140 +237,31 @@ func _on_core_clicked(id: String) -> void:
 func _build_center(parent: Control) -> void:
 	_honeycomb = Honeycomb.new()
 	_honeycomb.set_anchors_preset(Control.PRESET_CENTER)
-	_honeycomb.offset_left = -300
-	_honeycomb.offset_right = 300
-	_honeycomb.offset_top = -330
-	_honeycomb.offset_bottom = 230
-	_honeycomb.start_pressed.connect(func() -> void: start_pressed.emit())
+	# 벌집 한가운데가 Control 가운데에 오도록 위아래 대칭으로 잡는다
+	var half := Vector2(Honeycomb.R * 3.6, Honeycomb.R * 4.0)
+	_honeycomb.offset_left = BOARD_OFFSET.x - half.x
+	_honeycomb.offset_right = BOARD_OFFSET.x + half.x
+	_honeycomb.offset_top = BOARD_OFFSET.y - half.y
+	_honeycomb.offset_bottom = BOARD_OFFSET.y + half.y
+	_honeycomb.core_pressed.connect(open_cores)
 	_honeycomb.tile_clicked.connect(_on_tile_clicked)
-	_honeycomb.hover_changed.connect(_show_caption)
 	parent.add_child(_honeycomb)
 
-	var cap := VBoxContainer.new()
-	cap.set_anchors_preset(Control.PRESET_CENTER)
-	cap.offset_left = -300
-	cap.offset_right = 300
-	cap.offset_top = 250
-	cap.offset_bottom = 400
-	cap.add_theme_constant_override("separation", 8)
-	parent.add_child(cap)
-	_caption_title = Hud.make_label(Color.WHITE, 26, 800)
-	_caption_body = Hud.make_label(INK, 19, 500)
-	_caption_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	for l in [_caption_title, _caption_body]:
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cap.add_child(l)
 
-
+## 산 타일은 출정 타일에 넣거나 빼고, 안 산 타일은 상점 창의 TILES 탭을 연다.
 func _on_tile_clicked(kind: String) -> void:
-	var owned := Meta.is_tile_unlocked(kind)
-	var changed := Meta.toggle_loadout(kind) if owned else Meta.buy_tile(kind)
-	Sfx.play(("click" if owned else "coin") if changed else "deny")
+	if not Meta.is_tile_unlocked(kind):
+		open_window("tiles")
+		return
+	var changed := Meta.toggle_loadout(kind)
+	Sfx.play("click" if changed else "deny")
 	if changed:
 		refresh()
 
 
-## 벌집 아래 설명. kind가 ""이면 START 안내, "none"이면 기본 문구.
-func _show_caption(kind: String) -> void:
-	if _caption_title == null:
-		return
-	if kind == "":
-		_caption_title.text = Loc.t("Start a run")
-		_set_color(_caption_title, Hud.NEON_CYAN)
-		_caption_body.text = Loc.t("Click the core or press Enter.")
-		return
-	if kind.begins_with("core:"):
-		var id := kind.substr(5)
-		var cdef := CoreDefs.get_def(id)
-		_caption_title.text = "%s  -  %s" % [cdef["name"], cdef["skill_name"]]
-		_set_color(_caption_title, cdef["color"])
-		var how := ""
-		if Meta.core_type == id:
-			how = Loc.t("Selected. Press Q in a run to use the skill (%ds cooldown).") % int(cdef["cooldown"])
-		elif Meta.is_core_unlocked(id):
-			how = Loc.t("Click to use this core.")
-		elif Meta.shards >= cdef["price"]:
-			how = Loc.t("Click to unlock for %d shards.") % cdef["price"]
-		else:
-			how = Loc.t("Unlock for %d shards (%d more needed).") % [cdef["price"], cdef["price"] - Meta.shards]
-		_caption_body.text = "%s\n%s" % [Loc.t(cdef["desc"]), how]
-		return
-	if kind == "none":
-		_caption_title.text = Loc.t("Pick your tiles")
-		_set_color(_caption_title, Color.WHITE)
-		_caption_body.text = Loc.t("Pick up to %d tiles to bring. Only these show up as cards.\nClick a tile to add or remove it.") % Meta.MAX_LOADOUT
-		return
-	var def := TileDefs.get_def(kind)
-	_caption_title.text = def["name"]
-	_set_color(_caption_title, def["color"])
-	var action := ""
-	if Meta.in_loadout(kind):
-		action = Loc.t("In your loadout. Click to remove.") if Meta.loadout.size() > 1 \
-				else Loc.t("In your loadout (you need at least one).")
-	elif Meta.is_tile_unlocked(kind):
-		action = Loc.t("Loadout full (%d/%d). Remove a tile first.") % [Meta.loadout.size(), Meta.MAX_LOADOUT] \
-				if Meta.loadout_full() else Loc.t("Click to add to your loadout (%d/%d).") \
-				% [Meta.loadout.size(), Meta.MAX_LOADOUT]
-	else:
-		var price: int = Meta.TILE_PRICES[kind]
-		if Meta.shards >= price:
-			action = Loc.t("Click to unlock for %d shards") % price
-		else:
-			action = Loc.t("Unlock for %d shards (%d more needed)") % [price, price - Meta.shards]
-	_caption_body.text = "%s\n%s" % [Loc.t(def["desc"]), action]
-
-
-# ---------------------------------------------------------------- 오른쪽
-
-func _build_right(parent: Control) -> void:
-	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	col.offset_right = -SIDE_MARGIN
-	col.offset_left = -SIDE_MARGIN - 470
-	col.offset_top = -330
-	col.offset_bottom = 330
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 18)
-	parent.add_child(col)
-	var heading := Hud.make_label(INK_DIM, 22, 600)
-	heading.text = Loc.t("Permanent upgrades")
-	col.add_child(heading)
-	_upgrade_list = VBoxContainer.new()
-	_upgrade_list.add_theme_constant_override("separation", 16)
-	col.add_child(_upgrade_list)
-
-
-func _upgrade_row(u: Dictionary) -> Control:
-	var id: String = u["id"]
-	var lv := Meta.level(id)
-	var cost := Meta.upgrade_cost(id)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	var text := VBoxContainer.new()
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_theme_constant_override("separation", 6)
-	row.add_child(text)
-	var name_label := Hud.make_label(u["color"], 24, 800)
-	name_label.text = u["title"]
-	var desc := Hud.make_label(INK, 17, 500)
-	desc.text = Loc.t(u["desc"])
-	var pips := LevelPips.new()
-	pips.level = lv
-	pips.max_level = u["max"]
-	pips.color = u["color"]
-	for c in [name_label, desc, pips]:
-		text.add_child(c)
-	var b := Hud.make_neon_button(Loc.t("Maxed") if cost < 0 else "%d" % cost, SHARD_COLOR)
-	b.custom_minimum_size = Vector2(110, 54)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.disabled = cost < 0 or Meta.shards < cost
-	b.tooltip_text = "" if cost < 0 else Loc.t("Buy level %d for %d shards") % [lv + 1, cost]
-	b.pressed.connect(func() -> void:
-		if Meta.buy_upgrade(id):
-			Sfx.play("coin")
-			refresh())
-	row.add_child(b)
-	return row
+## 배율 표시: 1.5 -> "1.5", 2.0 -> "2"
+static func _num(v: float) -> String:
+	return ("%.2f" % v).rstrip("0").rstrip(".")
 
 
 func _spacer(h: float) -> Control:
@@ -369,14 +275,16 @@ func _set_color(label: Label, color: Color) -> void:
 	label.label_settings.font_color = color
 
 
-## 가운데 벌집: START 코어 + 둘레 타일 6칸. 게임 보드와 같은 육각형 좌표를 쓴다.
+## 벌집: 한가운데 고른 코어 (누르면 코어 고르기) + 둘레 타일. 게임 보드와 같은 육각형 좌표를 쓴다.
 class Honeycomb extends Control:
-	signal start_pressed
+	signal core_pressed
 	signal tile_clicked(kind: String)
-	## "" = START 위, "none" = 아무것도 아님, 그 외 = 타일 종류
+	## "" = 가운데 코어, "none" = 아무것도 아님, 그 외 = 타일 종류
 	signal hover_changed(kind: String)
 
-	const R := 76.0
+	const R := 112.0
+	## 76 기준으로 맞춘 글자와 간격을 R에 맞춰 키운다
+	const K := R / 76.0
 	## 둘레 6칸 다음에 놓을 칸 (오른쪽 위, 왼쪽 아래, 위, 오른쪽 아래). 타일 종류가 늘면 여기에 추가.
 	## 바로 아래 칸은 LOADOUT 글자 자리라 비워 둔다.
 	const EXTRA_CELLS: Array[Vector2i] = [Vector2i(2, -1), Vector2i(-2, 1), Vector2i(1, -2), Vector2i(1, 1)]
@@ -388,6 +296,7 @@ class Honeycomb extends Control:
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		_font = Hud.font_weight(700)
 		_cells[Vector2i.ZERO] = ""
 		var slots: Array[Vector2i] = []
@@ -424,7 +333,7 @@ class Honeycomb extends Control:
 		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 			var k := _kind_at(mb.position)
 			if k == "":
-				start_pressed.emit()
+				core_pressed.emit()
 			elif k != "none":
 				tile_clicked.emit(k)
 				hover_changed.emit(k)
@@ -438,8 +347,8 @@ class Honeycomb extends Control:
 		var c0 := _center()
 		# 아래쪽: 출정 타일 수 (위쪽 끝 칸은 9번째, 오른쪽 아래 칸은 10번째 타일 자리)
 		var full := Meta.loadout_full()
-		_text(c0 + Vector2(0, R * 3.05), Loc.t("LOADOUT  %d / %d") % [Meta.loadout.size(), Meta.MAX_LOADOUT],
-				20, Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
+		_text(c0 + Vector2(0, R * 3.05), "%d / %d" % [Meta.loadout.size(), Meta.max_loadout()],
+				roundi(20 * K), Color(1, 1, 1, 0.95) if full else Color(1, 1, 1, 0.7))
 		for cell in _cells:
 			var kind: String = _cells[cell]
 			var pos: Vector2 = c0 + HexGrid.axial_to_pixel(cell, R)
@@ -448,24 +357,19 @@ class Honeycomb extends Control:
 			else:
 				_draw_tile(pos, kind)
 
-	## START: 꽉 찬 밝은 육각형 + 바깥으로 퍼지는 고리. 화면에서 가장 밝은 것. 고른 코어 색.
+	## 고른 코어: 밝은 육각형 + 바깥으로 퍼지는 고리 + 코어 모양. 누르면 코어 고르기 창.
 	func _draw_core(pos: Vector2) -> void:
-		var c: Color = CoreDefs.get_def(Meta.core_type)["color"]
+		var id := Meta.core_type
+		var c: Color = CoreDefs.get_def(id)["color"]
 		var hot := hovered == ""
 		var k := fmod(_time * 0.8, 1.0)
 		NeonDraw.hexagon(self, pos, R * (0.95 + 0.35 * k), c, 0.8 * (1.0 - k), 2.0)
-		var fill := c.lightened(0.35) if hot else c
-		var pts := HexGrid.corners(R * 0.92)
-		for i in pts.size():
-			pts[i] += pos
-		draw_colored_polygon(pts, fill)
-		NeonDraw.hexagon(self, pos, R * 0.92, c, 1.2, 4.0)
-		var ink := Color(0, 0, 0)
-		var tri := PackedVector2Array([pos + Vector2(-10, -38), pos + Vector2(14, -26),
-				pos + Vector2(-10, -14)])
-		draw_colored_polygon(tri, ink)
-		_text(pos + Vector2(0, 10), Loc.t("START"), 30, ink)
-		_text(pos + Vector2(0, 40), "Enter", 15, Color(ink, 0.7))
+		NeonDraw.hexagon(self, pos, R * 0.92, c, 1.5 if hot else 1.2, 4.0, 0.45 if hot else 0.3)
+		if hot:
+			NeonDraw.hexagon(self, pos, R * 0.98, Color.WHITE, 0.6, 1.5)
+		draw_set_transform(pos)
+		HexTile.draw_glyph(self, "core" if id == "core" else "core_" + id, R * 0.4, c, 1.0)
+		draw_set_transform(Vector2.ZERO)
 
 	func _draw_tile(pos: Vector2, kind: String) -> void:
 		var def := TileDefs.get_def(kind)
@@ -482,21 +386,20 @@ class Honeycomb extends Control:
 				fill + (0.08 if hot else 0.0))
 		if hot:
 			NeonDraw.hexagon(self, pos, R * 0.96, Color.WHITE, 0.6, 1.5)
-		draw_set_transform(pos + Vector2(0, -12))
+		draw_set_transform(pos + Vector2(0, -12 * K))
 		HexTile.draw_glyph(self, kind, R * 0.24, c, intensity, _time * 2.4)
 		draw_set_transform(Vector2.ZERO)
-		var name_size := 13 if def["name"].length() > 7 else 15
-		_text(pos + Vector2(0, 24), def["name"], name_size, Color(c, 0.95 if picked else 0.6))
+		var name_size := roundi((13 if def["name"].length() > 7 else 15) * K)
+		_text(pos + Vector2(0, 24 * K), def["name"], name_size, Color(c, 0.95 if picked else 0.6))
 		if not owned:
 			var price: int = Meta.TILE_PRICES[kind]
 			var afford := Meta.shards >= price
 			var pc := SHARD_COLOR if afford else Color(SHARD_COLOR, 0.45)
-			_text(pos + Vector2(0, 44), "%d" % price, 17, pc)
+			Hud.draw_shard_price(self, _font, pos + Vector2(0, 44 * K), price, roundi(17 * K), pc)
 		elif picked:
 			# 출정 표시: 위쪽 꼭짓점 근처 작은 꽉 찬 육각형
-			NeonDraw.hexagon(self, pos + Vector2(0, -R * 0.6), 5.0, c, 1.0, 1.0, 1.0)
-		else:
-			_text(pos + Vector2(0, 44), Loc.t("OFF"), 13, Color(c, 0.5))
+			NeonDraw.hexagon(self, pos + Vector2(0, -R * 0.6), 5.0 * K, c, 1.0, 1.0, 1.0)
+
 
 	## pos를 글자 가운데(기준선 근처)로 하여 쓴다.
 	func _text(pos: Vector2, s: String, font_size: int, color: Color) -> void:
@@ -516,7 +419,8 @@ class LevelPips extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := 8.0
+		# 스테이지를 깰수록 칸이 늘어난다 (최대 20칸). 많으면 작게 그려 한 줄에 맞춘다.
+		var r := 8.0 if max_level <= 12 else 6.0
 		for i in max_level:
 			var pos := Vector2(r + 2 + i * (r * 2.3), size.y / 2.0)
 			if i < level:
@@ -575,23 +479,26 @@ class CorePicker extends Control:
 	signal core_clicked(id: String)
 	signal hover_changed(id: String)
 
-	const R := 40.0
-	const GAP := 112.0
+	var r := 40.0
+	var gap := 102.0
+	## 육각형 아래에 코어 이름을 쓴다 (게임 시작 창)
+	var show_names := false
 
 	var hovered := ""
 	var _font: Font
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		_font = Hud.font_weight(700)
-		custom_minimum_size = Vector2(GAP * CoreDefs.ORDER.size(), R * 2.0 + 44.0)
+		custom_minimum_size = Vector2(gap * CoreDefs.ORDER.size(), r * 2.0 + (70.0 if show_names else 44.0))
 
 	func _center(i: int) -> Vector2:
-		return Vector2(GAP * (i + 0.5) - (GAP - R * 2.2) * 0.5, R + 4.0)
+		return Vector2(gap * (i + 0.5), r + 4.0)
 
 	func _id_at(p: Vector2) -> String:
 		for i in CoreDefs.ORDER.size():
-			if p.distance_to(_center(i)) <= R:
+			if p.distance_to(_center(i)) <= r:
 				return CoreDefs.ORDER[i]
 		return ""
 
@@ -624,17 +531,98 @@ class CorePicker extends Control:
 			var def := CoreDefs.get_def(id)
 			var pos := _center(i)
 			var owned := Meta.is_core_unlocked(id)
+			var available := Meta.is_core_available(id)
 			var picked := Meta.core_type == id
 			var hot := hovered == id
 			var c: Color = def["color"] if owned else LOCKED_COLOR
-			NeonDraw.hexagon(self, pos, R * 0.92, c, (1.1 if picked else 0.5) + (0.3 if hot else 0.0),
+			NeonDraw.hexagon(self, pos, r * 0.92, c, (1.1 if picked else 0.5) + (0.3 if hot else 0.0),
 					3.0 if picked else 2.0, 0.35 if picked else (0.08 if hot else 0.02))
 			draw_set_transform(pos)
-			HexTile.draw_glyph(self, "core" if id == "core" else "core_" + id, R * 0.42, c, 1.0)
+			HexTile.draw_glyph(self, "core" if id == "core" else "core_" + id, r * 0.42, c, 1.0)
 			draw_set_transform(Vector2.ZERO)
-			var label: String = def["skill_name"] if owned else "%d" % def["price"]
-			var lc := Color(c, 0.95 if picked else 0.6) if owned \
-					else (SHARD_COLOR if Meta.shards >= def["price"] else Color(SHARD_COLOR, 0.45))
-			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-			draw_string(_font, pos + Vector2(-w / 2.0, R + 22.0), label, HORIZONTAL_ALIGNMENT_LEFT,
-					-1, 14, lc)
+			var below := r + 22.0
+			if show_names:
+				var nm: String = def["name"]
+				var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+				draw_string(_font, pos + Vector2(-nw / 2.0, r + 26.0), nm, HORIZONTAL_ALIGNMENT_LEFT,
+						-1, 17, Color(c, 0.95 if picked else 0.6))
+				below = r + 54.0
+			# 안 산 코어: SHARD 가격 (스테이지를 깨야 살 수 있으면 가격도 없음)
+			if not owned and available:
+				var pc := SHARD_COLOR if Meta.shards >= def["price"] else Color(SHARD_COLOR, 0.45)
+				Hud.draw_shard_price(self, _font, pos + Vector2(0, below - 5.0), def["price"],
+						16 if show_names else 14, pc)
+
+
+## 스테이지 고르기: 육각형 StageDefs.count()개를 가로로. 고른 스테이지는 꽉 차고,
+## 깬 스테이지는 아래에 CLEAR, 잠긴 스테이지는 회색 + LOCKED, 나머지는 최고 웨이브.
+class StagePicker extends Control:
+	signal stage_clicked(n: int)
+	## 0 = 아무것도 아님
+	signal hover_changed(n: int)
+
+	const R := 36.0
+	const GAP := 104.0
+	const HEIGHT := 122.0
+
+	var hovered := 0
+	var _font: Font
+	var _font_big: Font
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_font = Hud.font_weight(700)
+		_font_big = Hud.font_weight(900)
+
+	func _center(i: int) -> Vector2:
+		return Vector2(GAP * (i + 0.5), 26.0 + R)
+
+	func _stage_at(p: Vector2) -> int:
+		for i in StageDefs.count():
+			if p.distance_to(_center(i)) <= R:
+				return i + 1
+		return 0
+
+	func _gui_input(event: InputEvent) -> void:
+		var motion := event as InputEventMouseMotion
+		if motion != null:
+			var n := _stage_at(motion.position)
+			if n != hovered:
+				hovered = n
+				mouse_default_cursor_shape = CURSOR_ARROW if n == 0 else Control.CURSOR_POINTING_HAND
+				hover_changed.emit(n)
+				queue_redraw()
+			return
+		var mb := event as InputEventMouseButton
+		if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var n := _stage_at(mb.position)
+			if n > 0:
+				stage_clicked.emit(n)
+				hover_changed.emit(n)
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_MOUSE_EXIT and hovered != 0:
+			hovered = 0
+			hover_changed.emit(0)
+			queue_redraw()
+
+	func _draw() -> void:
+		for i in StageDefs.count():
+			var n := i + 1
+			var pos := _center(i)
+			var open := Meta.is_stage_unlocked(n)
+			var picked := Meta.stage == n
+			var hot := hovered == n
+			var c: Color = StageDefs.color(n) if open else LOCKED_COLOR
+			NeonDraw.hexagon(self, pos, R * 0.92, c, (1.1 if picked else 0.5) + (0.3 if hot else 0.0),
+					3.0 if picked else 2.0, 0.85 if picked else (0.08 if hot else 0.02))
+			var num_color := Color.BLACK if picked else Color(c, 0.95 if open else 0.6)
+			_text(pos + Vector2(0, 2), "%d" % n, 30, num_color, _font_big)
+			# 깬 스테이지: 아래에 작은 꽉 찬 육각형
+			if Meta.is_stage_cleared(n):
+				NeonDraw.hexagon(self, pos + Vector2(0, R + 14.0), 5.0, c, 1.0, 1.0, 1.0)
+
+	func _text(pos: Vector2, s: String, font_size: int, color: Color, font: Font) -> void:
+		var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		draw_string(font, pos + Vector2(-w / 2.0, font_size * 0.35), s,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)

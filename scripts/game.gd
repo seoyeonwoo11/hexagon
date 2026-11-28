@@ -97,8 +97,10 @@ var kills := {}
 var money_earned := 0
 var run_time := 0.0
 var results: ResultsScreen
-## 판 시작 때의 최고 웨이브 (결과창의 NEW BEST 판단)
+## 판 시작 때의 최고 웨이브 (결과창의 NEW BEST 판단, 이 스테이지 기준)
 var best_at_start := 0
+## 이번 판의 스테이지 (StageDefs). 적 체력과 피해, 받는 SHARD가 스테이지 배율만큼 커진다.
+var stage := 1
 
 ## false면 시작 화면 없이 바로 판을 시작한다 (테스트, 자동 플레이용).
 static var hub_enabled := true
@@ -151,7 +153,10 @@ func start_run() -> void:
 	shop.close()
 	Sfx.music("battle")
 	board.stats.reset()
-	best_at_start = Meta.best_wave
+	stage = Meta.stage
+	hud.stage = stage
+	hud.set_wave(wave)
+	best_at_start = Meta.stage_best_wave(stage)
 	board.damage_mult *= Meta.damage_mult()
 	board.rate_mult *= Meta.rate_mult()
 	board.tile_hp_mult = Meta.tile_hp_mult()
@@ -162,7 +167,7 @@ func start_run() -> void:
 	_apply_core_type(Meta.core_type)
 	move_charges = MOVES_PER_WAVE
 	_update_actions()
-	hud.show_banner(Loc.t("READY"), Hud.NEON_CYAN)
+	hud.show_banner(Loc.t("%s  -  READY") % StageDefs.title(stage), StageDefs.color(stage))
 
 
 ## 코어 종류를 코어 타일에 입힌다 (색, 이름, 가운데 모양). 스킬은 바로 쓸 수 있는 상태로 시작.
@@ -202,6 +207,17 @@ func use_skill() -> bool:
 			for t in board.tiles.values():
 				t.hp = minf(t.hp + t.max_hp * power, t.max_hp)
 			fx_radius = 420.0
+		"warp":
+			# 코어에서 먼 쪽으로 순간 이동. 보스는 덜 밀린다.
+			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+				var e := node as Enemy
+				if not e.is_alive():
+					continue
+				var away := e.global_position - core.global_position
+				if away.length() < 1.0:
+					away = Vector2.from_angle(randf() * TAU)
+				var push: float = def["boss_power"] if e.is_boss else power
+				e.global_position += away.normalized() * push
 		"nova":
 			fx_radius = def["radius"]
 			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
@@ -210,7 +226,7 @@ func use_skill() -> bool:
 					var frac := CoreDefs.NOVA_BOSS_POWER if e.is_boss else power
 					# 장갑과 상관없이 최대 체력의 일정 비율
 					e.take_damage(e.max_hp * frac / maxf(1.0 - e.armor, 0.01), core)
-	skill_cooldown = def["cooldown"]
+	skill_cooldown = skill_cooldown_max()
 	Sfx.play("skill_" + def["skill"])
 	var fx := SkillFx.new()
 	fx.color = def["color"]
@@ -241,9 +257,14 @@ func _on_move_finished(_tile: HexTile) -> void:
 	_update_actions()
 
 
+## 코어 스킬 쿨다운 (영구 강화 SKILL TUNING만큼 짧아짐)
+func skill_cooldown_max() -> float:
+	return CoreDefs.get_def(core_type)["cooldown"] * Meta.cooldown_mult()
+
+
 func _update_actions() -> void:
 	var def := CoreDefs.get_def(core_type)
-	hud.set_skill(def["skill_name"], def["color"], skill_cooldown, def["cooldown"],
+	hud.set_skill(def["skill_name"], def["color"], skill_cooldown, skill_cooldown_max(),
 			_skill_active > 0.0)
 	hud.set_move(move_charges, board.moving)
 
@@ -540,14 +561,16 @@ func bank_interest(tile: HexTile) -> int:
 
 ## kind 종류의 적을 전역 위치 pos에 만든다. 능력치 = 웨이브 기본값 × 종류 배율.
 ## normal이면(보스도 OVERLORD 부하도 아니면) normal_hp_mult를 더 곱한다.
+## 스테이지 배율은 모든 적의 체력과 피해에 곱한다 (보상은 그대로, BOUNTY만 곱함).
 func spawn_enemy(kind: String, pos: Vector2, normal := true) -> Enemy:
 	var enemy := Enemy.new()
 	enemy.board = board
-	var base_hp := wave_enemy_hp(wave)
+	var base_hp := wave_enemy_hp(wave) * StageDefs.hp_mult(stage)
 	if normal and not EnemyDefs.get_def(kind).get("is_boss", false):
 		base_hp *= normal_hp_mult(wave)
 	enemy.setup(kind, base_hp, minf(55.0 + wave * 2.5, 140.0),
-			wave_enemy_reward(wave), 10.0 + wave * 0.5)
+			wave_enemy_reward(wave) * Meta.bounty_mult(),
+			(10.0 + wave * 0.5) * StageDefs.damage_mult(stage))
 	enemy.died.connect(_on_enemy_died)
 	if enemy.summon_kind != "":
 		enemy.summoned.connect(_on_enemy_summoned)
@@ -617,14 +640,14 @@ func _on_victory() -> void:
 	if board.moving:
 		board.cancel_move()
 	_victory_open = true
-	victory_shards = Meta.finish_victory()
+	victory_shards = Meta.finish_victory(stage)
 	hud.hide_banner()
 	hud.hide_boss_bar()
 	hud.show_tile_panel(null, 0)
 	get_tree().paused = true
 	Sfx.music("")
 	Sfx.play("victory")
-	hud.show_victory(wave, victory_shards, Meta.clears)
+	hud.show_victory(wave, victory_shards, Meta.clears, stage, Meta.last_unlocks)
 	victory.emit()
 
 
@@ -664,9 +687,10 @@ func _on_core_destroyed() -> void:
 	hud.hide_boss_bar()
 	if endless:
 		# 클리어 때 받은 몫은 빼고 그 뒤 웨이브만큼 더
-		Meta.finish_run(wave, Meta.shards_for_run(EnemyDefs.FINAL_WAVE + 1), victory_shards)
+		Meta.finish_run(wave, Meta.shards_for_run(EnemyDefs.FINAL_WAVE + 1, stage), victory_shards,
+				stage)
 	else:
-		Meta.finish_run(wave)
+		Meta.finish_run(wave, 0, 0, stage)
 	get_tree().paused = true
 	Sfx.music("")
 	Sfx.play("gameover")
@@ -679,8 +703,9 @@ func run_results() -> Dictionary:
 	return {
 		"victory": Meta.last_run_victory,
 		"endless": endless,
+		"stage": stage,
 		"wave": wave,
-		"best_wave": Meta.best_wave,
+		"best_wave": Meta.stage_best_wave(stage),
 		"new_best": wave > best_at_start,
 		"kills": kills,
 		"time": run_time,
@@ -699,6 +724,7 @@ func _on_results_continue() -> void:
 	if not results.is_open():
 		return
 	results.hide_results()
+	Meta.advance_after_clear()
 	shop.open()
 
 
