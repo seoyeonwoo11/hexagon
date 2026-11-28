@@ -14,7 +14,7 @@ const TURN_SPEED := 7.0
 const LINGER := 0.22
 const GROW_TIME := 0.12
 ## 화상 초당 피해 = 공격 1번의 피해 × BURN_DPS_RATIO
-const BURN_DPS_RATIO := 1.2
+const BURN_DPS_RATIO := 1.5
 ## 옮겨붙기: 최대 횟수, 옮겨붙을 때 화상 세기 비율, "맞닿음"으로 보는 몸 사이 여유 거리, 검사 간격
 const SPREAD_HOPS := 2
 const SPREAD_RATIO := 0.6

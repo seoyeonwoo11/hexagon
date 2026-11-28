@@ -235,8 +235,8 @@ func _run() -> void:
 			a2 = board.place_tile(n, "archer")
 			break
 	_check(a2 != null and a1.linked_archers() == 1 and a2.linked_archers() == 1, "archers link")
-	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * (1.0 + a1.pack_bonus)) < 0.001 and is_equal_approx(a1.pack_bonus, 0.35),
-			"linked archer +35%% dmg (%.2f)" % a1.damage())
+	_check(absf(a1.damage() - a1.base_damage * board.damage_mult * (1.0 + a1.pack_bonus)) < 0.001 and is_equal_approx(a1.pack_bonus, 0.25),
+			"linked archer +25%% dmg (%.2f)" % a1.damage())
 	a2.take_damage(1e9)
 	_check(a1.linked_archers() == 0, "link breaks when neighbor archer dies")
 	a1.take_damage(1e9)

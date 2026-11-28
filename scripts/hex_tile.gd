@@ -27,14 +27,16 @@ const BEAM_RETARGET := 0.1
 const UPG_FOCUS := 0.03
 ## DRONE HIVE: 최대 드론 수, 이 레벨에 도달하면 드론 +1
 const MAX_DRONES := 6
-const DRONE_LEVELS: Array[int] = [3, 5, 7]
+const DRONE_LEVELS: Array[int] = [2, 4, 6]
 ## ARCHER: 강화마다 맞닿은 ARCHER 1개당 공격력 보너스 +10%p
-const UPG_PACK := 0.10
+const UPG_PACK := 0.05
 ## FROST: 강화마다 감속이 강해진다 (남는 속도 비율 ×0.88, 최저 0.25)
 const FROST_SLOW_STEP := 0.88
 const FROST_SLOW_MIN := 0.25
 ## BOOSTER: 강화마다 맞닿은 타일 공격 속도 보너스 +10%p
-const UPG_HASTE := 0.10
+const UPG_HASTE := 0.05
+## BOOSTER 여러 개가 맞닿으면 가장 센 것만 전부, 나머지는 이 비율만큼 더해진다
+const EXTRA_BOOSTER_RATIO := 0.5
 
 var kind := "laser"
 var display_name := "LASER"
@@ -222,19 +224,37 @@ func _exit_tree() -> void:
 
 ## 전체 강화 배율까지 반영한 실제 공격 간격(초).
 func interval() -> float:
-	return fire_interval / ((board.rate_mult if board != null else 1.0) * (1.0 + haste_bonus()))
+	return fire_interval / speed_mult()
 
 
-## 맞닿은 BOOSTER들이 주는 공격 속도 보너스 합 (여러 개면 더해진다).
+## 맞닿은 BOOSTER들이 주는 공격 속도 보너스. 가장 센 것은 전부, 나머지는 EXTRA_BOOSTER_RATIO만큼.
 func haste_bonus() -> float:
 	if board == null:
 		return 0.0
-	var total := 0.0
+	var hastes: Array[float] = []
 	for n in HexGrid.neighbors(coord):
 		var t: HexTile = board.tiles.get(n)
 		if t != null and t != self and is_instance_valid(t) and t.haste > 0.0:
-			total += t.haste
-	return total
+			hastes.append(t.haste)
+	return stack_haste(hastes)
+
+
+## BOOSTER 보너스 여러 개를 합친 값: 가장 센 것 + 나머지 × EXTRA_BOOSTER_RATIO.
+static func stack_haste(hastes: Array[float]) -> float:
+	if hastes.is_empty():
+		return 0.0
+	var sorted := hastes.duplicate()
+	sorted.sort()
+	var top: float = sorted.pop_back()
+	var rest := 0.0
+	for h in sorted:
+		rest += h
+	return top + rest * EXTRA_BOOSTER_RATIO
+
+
+## 공격 속도 배율 (전체 강화 × BOOSTER). ORBIT 구슬이 도는 속도에도 쓴다.
+func speed_mult() -> float:
+	return (board.rate_mult if board != null else 1.0) * (1.0 + haste_bonus())
 
 
 ## BOOSTER: 버프를 받는 맞닿은 공격 타일들.
@@ -469,7 +489,8 @@ func _redraw_if_needed() -> void:
 
 ## ORBIT: 구체를 돌리고, 닿은 적을 때린다. 같은 구체는 같은 적을 interval()마다 한 번만 때린다.
 func _process_orbit(delta: float) -> void:
-	orbit_angle = fmod(orbit_angle + ORBIT_SPEED * delta, TAU)
+	# 공격 속도가 오르면 구슬도 빨리 돈다 (BOOSTER, 전체 강화)
+	orbit_angle = fmod(orbit_angle + ORBIT_SPEED * speed_mult() * delta, TAU)
 	for key in _orb_hit_cd.keys():
 		_orb_hit_cd[key] -= delta
 		if _orb_hit_cd[key] <= 0.0:
