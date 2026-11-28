@@ -327,7 +327,7 @@ func _run() -> void:
 	bank_t.free()
 	_game.add_money(-_game.money)
 
-	# BOOSTER: 맞닿은 타일만 공격 속도 +25%, 강화하면 +35%, 여러 개면 더해짐
+	# BOOSTER: 맞닿은 타일만 공격 속도 +25%, 강화하면 +30%, 여러 개면 가장 센 것 + 나머지 절반
 	var free_cells: Array[Vector2i] = []
 	for n in HexGrid.neighbors(core.coord):
 		if not board.tiles.has(n):
@@ -347,9 +347,21 @@ func _run() -> void:
 		_check(far_tile.interval() == far_before, "non-adjacent tile unaffected")
 	_check(booster.boosted_neighbors().has(core), "booster lists core as boosted")
 	booster.upgrade()
-	_check(absf(base_interval / core.interval() - (1.35 + bonus0)) < 0.001, "upgraded booster +35%")
+	var others: Array[float] = []
+	for n in HexGrid.neighbors(core.coord):
+		var nt: HexTile = board.tiles.get(n)
+		if nt != null and nt != booster and nt.haste > 0.0:
+			others.append(nt.haste)
+	var with_up: Array[float] = others.duplicate()
+	with_up.append(0.30)
+	_check(absf(core.haste_bonus() - HexTile.stack_haste(with_up)) < 0.001, "upgraded booster +30%")
 	var booster2 := board.place_tile(free_cells[1], "booster")
-	_check(absf(base_interval / core.interval() - (1.60 + bonus0)) < 0.001, "two boosters stack")
+	with_up.append(0.25)
+	_check(absf(core.haste_bonus() - HexTile.stack_haste(with_up)) < 0.001, "two boosters stack")
+	_check(absf(base_interval / core.interval() - (1.0 + core.haste_bonus())) < 0.001, "interval uses haste")
+	_check(is_equal_approx(HexTile.stack_haste([0.25, 0.30] as Array[float]), 0.30 + 0.125),
+			"strongest booster full, the rest half")
+	_check(is_equal_approx(HexTile.stack_haste([] as Array[float]), 0.0), "no booster no bonus")
 	_check(not GearDefs.ids().any(func(id: String) -> bool: return GearDefs.can_equip(id, booster2)),
 			"booster takes no gear")
 

@@ -10,6 +10,8 @@ const IDLE_RADIUS := 72.0
 const IDLE_SPIN := 1.6
 const SIZE := 11.0
 const FLASH_TIME := 0.15
+## 맞힌 뒤 튕겨 나오는 속도 비율
+const BOUNCE := 0.3
 
 var hive: HexTile
 var index := 0
@@ -50,8 +52,8 @@ func _process(delta: float) -> void:
 		_flash = FLASH_TIME
 		Sfx.play("drone")
 		hive.apply_hit(target, hive.damage())
-		# 맞힌 뒤 살짝 튕겨 나온다
-		_vel = -_vel * 0.6
+		# 맞힌 뒤 살짝 튕겨 나온다 (작게 튕겨야 빨리 돌아와 다시 박는다)
+		_vel = -_vel * BOUNCE
 	_flash = maxf(_flash - delta, 0.0)
 	if (_flash > 0.0) != _drawn_flash:
 		_drawn_flash = _flash > 0.0

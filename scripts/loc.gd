@@ -180,9 +180,10 @@ const KO := {
 			"빛나는 구체가 타일 둘레를 돌며 닿은 적을 때립니다.",
 	"Launches drones that roam nearby and ram enemies they find.":
 			"드론을 내보내 주변을 돌다가 찾은 적을 들이받습니다.",
-	"Long-range arrows. +40% damage for every ARCHER touching it.":
-			"멀리 화살을 쏩니다. 맞닿은 ARCHER 1개마다 피해 +40%.",
-	"Adjacent tiles attack 25% faster.": "맞닿은 타일의 공격 속도 +25%.",
+	"Long-range arrows. +25% damage for every ARCHER touching it.":
+			"멀리 화살을 쏩니다. 맞닿은 ARCHER 1개마다 피해 +25%.",
+	"Adjacent tiles attack 25% faster. A second BOOSTER on the same tile adds half.":
+			"맞닿은 타일의 공격 속도 +25%. 한 타일에 BOOSTER가 더 붙으면 절반만 더해집니다.",
 	"Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.":
 			"화염방사기. 가장 가까운 적에게 부채꼴 불길을 뿜어 불태웁니다. 불은 맞닿은 적에게 번집니다.",
 	"Earns money after every wave, plus interest on your savings.":
