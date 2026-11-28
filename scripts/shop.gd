@@ -590,6 +590,7 @@ class StagePicker extends Control:
 			if n != hovered:
 				hovered = n
 				mouse_default_cursor_shape = CURSOR_ARROW if n == 0 else Control.CURSOR_POINTING_HAND
+				tooltip_text = "" if n == 0 else StageDefs.tooltip(n)
 				hover_changed.emit(n)
 				queue_redraw()
 			return

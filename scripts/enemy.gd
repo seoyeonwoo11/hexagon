@@ -3,9 +3,11 @@ extends Node2D
 ## 화면 밖에서 나타나 가장 가까운 타일로 다가가는 적.
 ## 타일에 닿으면 피해를 주고 사라지며, 처치되면 보상금을 준다.
 ## 종류(kind)별 모양과 능력은 EnemyDefs 참고. armor는 받는 피해 감소 비율(0~1).
+## 기믹: 돌진(DASHER, COMET), 주변 회복/보호막(MENDER, AEGIS, BASTION), 은신(PHANTOM, WRAITH),
+## 체력 구간 소환(MONOLITH). 은신 중에는 is_alive()가 false라 타일이 노리지 않고 피해도 안 받는다.
 
 signal died(enemy: Enemy, reward: int)
-## 보스가 부하를 부를 때. Game이 받아서 enemy 주변에 kind를 count마리 만든다.
+## 보스가 부하를 부를 때 (시간마다, 은신할 때, 체력 구간). Game이 받아서 enemy 주변에 kind를 count마리 만든다.
 signal summoned(enemy: Enemy, kind: String, count: int)
 
 const GROUP := &"enemies"
@@ -15,6 +17,12 @@ const BURN_TICK := 0.25
 ## (SHOCK 여러 개로 계속 묶어 두지 못하게).
 const BOSS_STUN_MULT := 0.35
 const STUN_GRACE := 1.0
+## 은신 중 투명도 (조금은 보여서 어디 있는지는 안다)
+const CLOAK_ALPHA := 0.16
+## 회복/보호막 파동이 퍼지는 연출 시간(초)
+const PULSE_TIME := 0.45
+## 보호막 색
+const SHIELD_COLOR := Color(0.65, 0.85, 1.0)
 
 @export var color := Color(1.0, 0.3, 0.35)
 
@@ -50,6 +58,52 @@ var enrage_speed := 1.0
 var enraged := false
 ## 처치당해 죽었는지 (타일에 부딪혀 사라지면 false)
 var killed := false
+## 스테이지 마지막 보스 (화면 위 체력 막대, 잡으면 클리어)
+var is_final := false
+## 돌지 않고 가는 방향을 본다 (DASHER)
+var face := false
+var _heading := Vector2.RIGHT
+## 돌진: dash_every초마다 dash_time초 동안 dash_speed배. dash_windup초 멈춘 뒤 돌진, 첫 근접 타격 dash_hit배
+var dash_every := 0.0
+var dash_time := 0.0
+var dash_speed := 1.0
+var dash_windup := 0.0
+var dash_hit := 1.0
+var _dash_cd := 0.0
+var _dash_left := 0.0
+var _windup_left := 0.0
+var _dash_hit_ready := false
+## 주변 회복/보호막 ("heal", "shield")
+var aura := ""
+var aura_every := 0.0
+var aura_radius := 0.0
+var aura_amount := 0.0
+var aura_boss := 0.0
+var _aura_cd := 0.0
+var _pulse := 0.0
+## 보호막: 체력보다 먼저 깎인다 (장갑은 먼저 적용)
+var shield := 0.0
+## 은신: cloak_every초 보이다가 cloak_time초 숨는다
+var cloak_every := 0.0
+var cloak_time := 0.0
+var cloak_regen := 0.0
+var cloak_summon := false
+var _cloak_cd := 0.0
+var _cloak_left := 0.0
+## 체력 구간 소환: quake_at 비율 아래로 처음 떨어질 때마다 quake_kind를 quake_count마리
+var quake_at: Array = []
+var quake_kind := ""
+var quake_count := 0
+var _quake_next := 0
+var crown := false
+## 몸체 회전 속도 배율 (0이면 안 돎), 좌우로 흔들리는 폭 (라디안, WRAITH)
+var spin_rate := 1.0
+var sway := 0.0
+## 보스 장식: 몸체 밖에서 따로 도는 부품 (MONOLITH 돌조각, WRAITH 룬 고리, BASTION 방패판, OVERLORD 위성)
+var deco_spin := 0.0
+var _deco: _Deco
+## COMET 조준선 길이 (돌진 준비 중 목표 타일까지)
+var _aim_len := 0.0
 
 var _dead := false
 var _spin := 0.0
@@ -98,6 +152,33 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: f
 	_summon_cd = summon_every
 	enrage_at = def.get("enrage_at", 0.0)
 	enrage_speed = def.get("enrage_speed", 1.0)
+	is_final = def.get("final", false)
+	crown = def.get("crown", false)
+	spin_rate = def.get("spin", 1.0)
+	sway = def.get("sway", 0.0)
+	deco_spin = def.get("deco_spin", 0.0)
+	face = def.get("face", false)
+	dash_every = def.get("dash_every", 0.0)
+	dash_time = def.get("dash_time", 0.0)
+	dash_speed = def.get("dash_speed", 1.0)
+	dash_windup = def.get("dash_windup", 0.0)
+	dash_hit = def.get("dash_hit", 1.0)
+	# 같은 종류가 한꺼번에 돌진하지 않게 첫 주기는 조금씩 다르게
+	_dash_cd = dash_every * randf_range(0.5, 1.0)
+	aura = def.get("aura", "")
+	aura_every = def.get("aura_every", 0.0)
+	aura_radius = def.get("aura_radius", 0.0)
+	aura_amount = def.get("aura_amount", 0.0)
+	aura_boss = def.get("aura_boss", 0.0)
+	_aura_cd = aura_every * randf_range(0.6, 1.0)
+	cloak_every = def.get("cloak_every", 0.0)
+	cloak_time = def.get("cloak_time", 0.0)
+	cloak_regen = def.get("cloak_regen", 0.0)
+	cloak_summon = def.get("cloak_summon", false)
+	_cloak_cd = cloak_every * randf_range(0.7, 1.0)
+	quake_at = def.get("quake_at", [])
+	quake_kind = def.get("quake", "")
+	quake_count = def.get("quake_count", 0)
 
 
 func _ready() -> void:
@@ -107,6 +188,11 @@ func _ready() -> void:
 	_body.enemy = self
 	add_child(_body)
 	_body.sync()
+	if deco_spin != 0.0:
+		_deco = _Deco.new()
+		_deco.enemy = self
+		add_child(_deco)
+		_deco.sync()
 
 
 func _process(delta: float) -> void:
@@ -129,38 +215,159 @@ func _process(delta: float) -> void:
 				return
 	if _stun_immune > 0.0:
 		_stun_immune -= delta
+	# 은신은 얼어 있어도 풀린다 (FREEZE로 계속 숨어 있지 않게)
+	if cloak_every > 0.0:
+		_process_cloak(delta)
+	_pulse = maxf(_pulse - delta / PULSE_TIME, 0.0)
 	if _freeze_timer > 0.0:
 		_freeze_timer -= delta
 		if _body != null:
 			_body.sync()
 		return
-	if summon_kind != "":
+	if summon_kind != "" and summon_every > 0.0:
 		_summon_cd -= delta
 		if _summon_cd <= 0.0:
 			_summon_cd = summon_every * (0.5 if enraged else 1.0)
 			_lunge = 1.0
 			summoned.emit(self, summon_kind, summon_count)
+	if aura != "":
+		_aura_cd -= delta
+		if _aura_cd <= 0.0:
+			_aura_cd = aura_every
+			pulse_aura()
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
 	var to_target := target.global_position - global_position
 	_lunge = maxf(_lunge - delta * 4.0, 0.0)
+	if face and to_target.length_squared() > 1.0:
+		_heading = to_target.normalized()
+	var move_mult := 1.0
+	if dash_every > 0.0:
+		move_mult = _process_dash(delta)
+		_aim_len = to_target.length() if _windup_left > 0.0 else 0.0
 	if melee:
 		# 타일 가장자리에 붙어서 hit_interval초마다 때린다. 사라지지 않는다.
+		# 돌진하다 닿으면 기다리지 않고 바로 dash_hit배로 들이받고 돌진이 끝난다.
 		_hit_cd -= delta
 		if to_target.length() <= board.hex_size * 0.85 + radius * 0.6:
-			if _hit_cd <= 0.0:
+			if _hit_cd <= 0.0 or _dash_hit_ready:
 				_hit_cd = hit_interval
 				_lunge = 1.0
-				target.take_damage(contact_damage)
+				target.take_damage(contact_damage * (dash_hit if _dash_hit_ready else 1.0))
+				if _dash_hit_ready:
+					_dash_hit_ready = false
+					_dash_left = 0.0
+					Sfx.play("tile_hit")
 			_update_body(delta)
 			return
 	elif to_target.length() <= board.hex_size * 0.8:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
-	global_position += to_target.normalized() * speed * _slow_factor * delta
+	global_position += to_target.normalized() * speed * _slow_factor * move_mult * delta
 	_update_body(delta)
+
+
+## 돌진 타이머. 이번 프레임 이동 속도 배율을 돌려준다 (기를 모으는 동안은 0).
+func _process_dash(delta: float) -> float:
+	if _windup_left > 0.0:
+		_windup_left -= delta
+		if _windup_left <= 0.0:
+			_start_dash()
+		return 0.0
+	if _dash_left > 0.0:
+		_dash_left -= delta
+		if _dash_left <= 0.0:
+			_dash_hit_ready = false
+		return dash_speed
+	_dash_cd -= delta
+	if _dash_cd <= 0.0:
+		_dash_cd = dash_every
+		if dash_windup > 0.0:
+			_windup_left = dash_windup
+			Sfx.play("boss_charge")
+			return 0.0
+		_start_dash()
+		return dash_speed
+	return 1.0
+
+
+func _start_dash() -> void:
+	_dash_left = dash_time
+	_dash_hit_ready = dash_hit > 1.0
+	_lunge = 1.0
+	Sfx.play("dash")
+
+
+func is_dashing() -> bool:
+	return _dash_left > 0.0
+
+
+func is_winding_up() -> bool:
+	return _windup_left > 0.0
+
+
+## 은신 타이머. 숨을 때 cloak_summon이면 부하를 부르고, 숨어 있는 동안 cloak_regen만큼 회복.
+func _process_cloak(delta: float) -> void:
+	if _cloak_left > 0.0:
+		_cloak_left -= delta
+		if cloak_regen > 0.0 and hp < max_hp:
+			hp = minf(hp + max_hp * cloak_regen * delta, max_hp)
+			queue_redraw()
+		if _cloak_left <= 0.0:
+			_cloak_cd = cloak_every
+			modulate.a = 1.0
+		return
+	_cloak_cd -= delta
+	if _cloak_cd <= 0.0:
+		cloak()
+
+
+## 지금부터 cloak_time초 동안 숨는다.
+func cloak() -> void:
+	_cloak_left = cloak_time
+	modulate.a = CLOAK_ALPHA
+	Sfx.play("cloak")
+	if cloak_summon and summon_kind != "":
+		summoned.emit(self, summon_kind, summon_count)
+
+
+func is_cloaked() -> bool:
+	return _cloak_left > 0.0
+
+
+## 주변 aura_radius 안 적(자기 포함)에게 회복이나 보호막. 보스는 aura_boss 비율만.
+func pulse_aura() -> void:
+	var r2 := aura_radius * aura_radius
+	for node in get_tree().get_nodes_in_group(GROUP):
+		var e := node as Enemy
+		if e == null or e._dead or e.global_position.distance_squared_to(global_position) > r2:
+			continue
+		var amount := e.max_hp * (aura_boss if e.is_boss else aura_amount)
+		if aura == "heal":
+			e.heal(amount)
+		else:
+			e.add_shield(amount)
+	_pulse = 1.0
+	Sfx.play("heal" if aura == "heal" else "shield")
+
+
+func heal(amount: float) -> void:
+	if _dead or hp >= max_hp:
+		return
+	hp = minf(hp + amount, max_hp)
+	queue_redraw()
+
+
+## 보호막: 쌓이지 않고 더 큰 쪽으로.
+func add_shield(amount: float) -> void:
+	if _dead or amount <= shield:
+		return
+	shield = amount
+	queue_redraw()
+	if _body != null:
+		_body.sync()
 
 
 func _update_body(delta: float) -> void:
@@ -168,8 +375,16 @@ func _update_body(delta: float) -> void:
 	_crit_flash = maxf(_crit_flash - delta, 0.0)
 	if _body == null:
 		return
-	_body.rotation = _spin * 0.5 if star else _spin
+	if face:
+		_body.rotation = _heading.angle()
+	elif sway > 0.0:
+		_body.rotation = sin(_spin * 0.5) * sway
+	else:
+		_body.rotation = (_spin * 0.5 if star else _spin) * spin_rate
 	_body.sync()
+	if _deco != null:
+		_deco.rotation += delta * deco_spin
+		_deco.sync()
 
 
 ## 코어 스킬 FREEZE: duration초 동안 멈춘다.
@@ -194,10 +409,12 @@ func is_frozen() -> bool:
 	return _freeze_timer > 0.0
 
 
-## 몸체 색: 정지(하얀 얼음), 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
+## 몸체 색: 정지(하얀 얼음), 돌진 준비(하얗게 깜빡임), 감속(파랑), 치명타(하양), 화상(주황 깜빡임).
 func body_color() -> Color:
 	if is_frozen():
 		return Color(0.8, 0.95, 1.0)
+	if _windup_left > 0.0:
+		return color.lerp(Color.WHITE, 0.4 + 0.4 * sin(_windup_left * 40.0))
 	if enraged and _crit_flash <= 0.0:
 		# 분노: 붉게 맥동
 		return color.lerp(Color(1.0, 0.15, 0.2), 0.55 + 0.35 * sin(_spin * 4.0))
@@ -256,25 +473,44 @@ func is_slowed() -> bool:
 	return _slow_timer > 0.0
 
 
+## 맞힐 수 있는 상태인지: 살아 있고 숨어 있지 않음. 타일, 드론, 번개, 불길이 모두 이걸로 노릴 적을 고른다.
 func is_alive() -> bool:
+	return not _dead and _cloak_left <= 0.0
+
+
+## 숨어 있어도 살아 있으면 true (보스 체력 막대 등).
+func exists() -> bool:
 	return not _dead
 
 
 func take_damage(amount: float, source: HexTile = null) -> void:
-	if _dead:
+	if _dead or _cloak_left > 0.0:
 		return
-	var dealt := minf(amount * (1.0 - armor), hp)
+	var left := amount * (1.0 - armor)
+	var absorbed := 0.0
+	if shield > 0.0:
+		absorbed = minf(shield, left)
+		shield -= absorbed
+		left -= absorbed
+		if shield <= 0.0 and _body != null:
+			_body.sync()
+	var dealt := absorbed + minf(left, hp)
 	if source != null:
 		_last_source = source
 		if source.board != null:
 			source.board.stats.record(source, dealt)
-	hp -= amount * (1.0 - armor)
+	hp -= left
 	if hp <= 0.0:
 		_die(true)
 		return
 	if enrage_at > 0.0 and not enraged and hp < max_hp * enrage_at:
 		enraged = true
 		speed *= enrage_speed
+	while _quake_next < quake_at.size() and hp < max_hp * float(quake_at[_quake_next]):
+		_quake_next += 1
+		_lunge = 1.0
+		Sfx.play("quake")
+		summoned.emit(self, quake_kind, quake_count)
 	queue_redraw()
 
 
@@ -286,9 +522,26 @@ func _die(was_killed: bool) -> void:
 	queue_free()
 
 
-## 종류에 따른 외곽선 점들 (닫힌 도형).
+## 종류에 따른 외곽선 점들 (닫힌 도형). face(가는 방향을 봄)면 +x를 향한 화살촉.
+## COMET(혜성 머리)과 WRAITH(두건 쓴 망령)는 따로 그린 모양.
 func shape_points() -> PackedVector2Array:
 	var pts := PackedVector2Array()
+	var rr := radius
+	match kind:
+		"comet":
+			# 길쭉한 연 모양 머리 (코가 +x)
+			return _closed([Vector2(1.5, 0), Vector2(0.2, 0.58), Vector2(-0.5, 0.36),
+					Vector2(-0.3, 0), Vector2(-0.5, -0.36), Vector2(0.2, -0.58)], rr)
+		"wraith":
+			# 뾰족한 두건, 아래는 대칭 톱니 자락
+			return _closed([Vector2(0, -1.35), Vector2(0.42, -0.95), Vector2(0.78, -0.3),
+					Vector2(0.9, 0.55), Vector2(0.62, 0.35), Vector2(0.5, 0.95), Vector2(0.25, 0.6),
+					Vector2(0, 1.1), Vector2(-0.25, 0.6), Vector2(-0.5, 0.95), Vector2(-0.62, 0.35),
+					Vector2(-0.9, 0.55), Vector2(-0.78, -0.3), Vector2(-0.42, -0.95)], rr)
+	if face:
+		var r := radius
+		return PackedVector2Array([Vector2(r * 1.2, 0), Vector2(-r * 0.8, r * 0.8),
+				Vector2(-r * 0.3, 0), Vector2(-r * 0.8, -r * 0.8), Vector2(r * 1.2, 0)])
 	if star:
 		for i in sides * 2 + 1:
 			var a := PI * i / sides
@@ -301,25 +554,42 @@ func shape_points() -> PackedVector2Array:
 	return pts
 
 
+static func _closed(unit: Array, scale_by: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for p in unit:
+		pts.append(p * scale_by)
+	pts.append(unit[0] * scale_by)
+	return pts
+
+
 ## 체력 막대만 여기서 그린다 (피해를 받을 때만 다시 그림). 몸체는 _Body.
+## 보호막이 있으면 체력 막대 위에 하늘색 막대 (최대 체력 대비).
 func _draw() -> void:
+	var w := radius * 2.0
+	var y := radius + 6.0
 	if hp < max_hp:
-		var w := radius * 2.0
-		var y := radius + 6.0
 		draw_line(Vector2(-w / 2.0, y), Vector2(w / 2.0, y), Color(color, 0.25), 2.0)
 		draw_line(Vector2(-w / 2.0, y), Vector2(-w / 2.0 + w * hp / max_hp, y), color, 2.0)
+	if shield > 0.0:
+		var sw := w * minf(shield / max_hp, 1.0)
+		draw_line(Vector2(-w / 2.0, y + 3.5), Vector2(-w / 2.0 + sw, y + 3.5), SHIELD_COLOR, 2.0)
 
 
 ## 적의 몸체 (도는 도형). 근접 공격 때 잠깐 부풀어 오른다 (scale).
+## 색이나 상태(보호막, 돌진)가 바뀔 때만 다시 그린다. 회복/보호막 파동이 퍼지는 짧은 동안만 매 프레임.
 class _Body extends Node2D:
 	var enemy: Enemy
 	var _drawn_color := Color(0, 0, 0, 0)
+	var _drawn_state := -1
 
 	func sync() -> void:
 		scale = Vector2.ONE * (1.0 + 0.2 * enemy._lunge)
 		var c := enemy.body_color()
-		if not c.is_equal_approx(_drawn_color):
+		var state := (1 if enemy.shield > 0.0 else 0) | (2 if enemy.is_dashing() else 0)
+		if not c.is_equal_approx(_drawn_color) or state != _drawn_state or enemy._pulse > 0.0 \
+				or _drawn_state & 4:
 			_drawn_color = c
+			_drawn_state = state | (4 if enemy._pulse > 0.0 else 0)
 			queue_redraw()
 
 	func _draw() -> void:
@@ -330,23 +600,243 @@ class _Body extends Node2D:
 	func _draw_parts() -> void:
 		var pts := enemy.shape_points()
 		var c := _drawn_color
+		var r := enemy.radius
 		NeonDraw.polyline(self, pts, c, 1.0, 3.5 if enemy.is_boss else 2.5)
-		if enemy.summon_kind != "":
+		match enemy.kind:
+			"mender":
+				# 십자
+				NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.45, 0), Vector2(r * 0.45, 0)]), c, 2.5)
+				NeonDraw.line(self, PackedVector2Array([Vector2(0, -r * 0.45), Vector2(0, r * 0.45)]), c, 2.5)
+			"phantom":
+				# 가운데 눈
+				NeonDraw.circle(self, Vector2.ZERO, r * 0.25, Color(c, 0.9))
+			"hydra":
+				_inner(pts, 0.5, c)
+			"aegis":
+				# 바깥 방패 조각 3개
+				for i in 3:
+					var a := TAU * i / 3.0
+					NeonDraw.arc(self, Vector2.ZERO, r * 1.35, a - 0.55, a + 0.55, 8, Color(c, 0.8), 2.0)
+			"monolith":
+				_draw_monolith(r, c)
+			"comet":
+				_draw_comet(r, c)
+			"wraith":
+				_draw_wraith(r, c)
+			"bastion":
+				_draw_bastion(r, c)
+		if enemy.crown:
 			# 최종 보스: 바깥 왕관 고리 (별 끝마다 작은 삼각형)
 			var ring := PackedVector2Array()
-			var r := enemy.radius * 1.3
+			var cr := r * 1.3
 			for i in 33:
-				ring.append(Vector2.from_angle(TAU * i / 32.0) * r)
+				ring.append(Vector2.from_angle(TAU * i / 32.0) * cr)
 			NeonDraw.polyline(self, ring, c, 0.6, 2.0)
 			for i in enemy.sides:
 				var a := TAU * i / enemy.sides + PI / enemy.sides
 				var d := Vector2.from_angle(a)
 				var n := d.orthogonal() * 7.0
-				var tip := PackedVector2Array([d * r + n, d * (r + 14.0), d * r - n])
+				var tip := PackedVector2Array([d * cr + n, d * (cr + 14.0), d * cr - n])
 				NeonDraw.polyline(self, tip, c, 0.9, 2.0)
-		if enemy.armor > 0.0:
-			# 장갑: 안쪽에 같은 모양을 한 겹 더
-			var inner := PackedVector2Array()
-			for p in pts:
-				inner.append(p * 0.55)
-			NeonDraw.polyline(self, inner, c, 0.7, 1.5)
+		if enemy.armor > 0.0 and not enemy.is_final:
+			# 장갑: 안쪽에 같은 모양을 한 겹 더 (스테이지 보스는 자기 무늬가 있음)
+			_inner(pts, 0.55, c, 0.7)
+		if enemy.is_dashing() and enemy.kind == "dasher":
+			# 돌진 꼬리 (뒤쪽 = -x)
+			for k in [-0.4, 0.0, 0.4]:
+				NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.6, r * k),
+						Vector2(-r * 2.6, r * k * 1.4)]), Color(c, 0.55), 1.5)
+		if enemy.shield > 0.0:
+			NeonDraw.arc(self, Vector2.ZERO, r * 1.55 + 4.0, 0.0, TAU, 28,
+					Color(Enemy.SHIELD_COLOR, 0.75), 2.0)
+		if enemy._pulse > 0.0:
+			# 회복/보호막 파동: 가운데에서 aura_radius까지 퍼지는 고리
+			var t := 1.0 - enemy._pulse
+			var pc := Color(0.3, 1.0, 0.55) if enemy.aura == "heal" else Enemy.SHIELD_COLOR
+			NeonDraw.arc(self, Vector2.ZERO, lerpf(r, enemy.aura_radius, t) / scale.x, 0.0, TAU, 40,
+					Color(pc, 0.6 * enemy._pulse), 2.5)
+
+	## MONOLITH: 네모 두 겹 (8각 별처럼 겹침), 가운데 빛나는 핵, 체력 구간을 넘을 때마다 금이 하나씩.
+	func _draw_monolith(r: float, c: Color) -> void:
+		_ring(r * 0.86, 4, c, 0.85)
+		var core := PackedVector2Array()
+		for i in 4:
+			core.append(Vector2.from_angle(TAU * i / 4.0) * r * 0.3)
+		NeonDraw.fill(self, core, Color(c, 0.35))
+		core.append(core[0])
+		NeonDraw.polyline(self, core, c.lightened(0.3), 1.0, 2.0)
+		for i in enemy._quake_next:
+			var a := 0.5 + i * 2.2
+			var d := Vector2.from_angle(a)
+			var n := d.orthogonal()
+			var crack := PackedVector2Array([d * r * 0.32, d * r * 0.55 + n * r * 0.12,
+					d * r * 0.72 - n * r * 0.08, d * r * 0.98 + n * r * 0.06])
+			NeonDraw.line(self, crack, Color(1.0, 0.85, 0.6, 0.95), 2.0)
+
+	## COMET: 연 모양 머리 세 겹 (바깥, 안쪽 0.62배, 꽉 찬 핵), 양옆 칼날 날개 두 장, 가운데 등뼈 선,
+	## 뒤로 이어지는 겹 갈매기(>) 꼬리 (돌진 중엔 길고 밝게 + 속도선).
+	## 돌진 준비 중엔 목표 타일까지 끊긴 조준선과 끝에 과녁.
+	func _draw_comet(r: float, c: Color) -> void:
+		var head := enemy.shape_points()
+		_inner(head, 0.62, c, 0.8)
+		var core := PackedVector2Array()
+		for p in head:
+			core.append(p * 0.28 + Vector2(r * 0.2, 0))
+		NeonDraw.fill(self, core, Color(c.lightened(0.5), 0.9))
+		NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.3, 0), Vector2(r * 1.2, 0)]),
+				Color(c.lightened(0.3), 0.6), 1.2)
+		for sy in [-1.0, 1.0]:
+			# 머리 뒷변 바깥에 붙은 가는 칼날 날개
+			var wing := PackedVector2Array([Vector2(r * 0.05, sy * r * 0.68),
+					Vector2(-r * 1.0, sy * r * 1.12), Vector2(-r * 0.62, sy * r * 0.62),
+					Vector2(r * 0.05, sy * r * 0.68)])
+			NeonDraw.polyline(self, wing, c, 0.85, 2.0)
+		var dashing := enemy.is_dashing()
+		var count := 5 if dashing else 3
+		var gap := r * (0.55 if dashing else 0.42)
+		for k in count:
+			var x := -r * 0.75 - gap * k
+			var h := r * (0.42 - 0.06 * k)
+			var chev := PackedVector2Array([Vector2(x - h * 0.9, h), Vector2(x, 0), Vector2(x - h * 0.9, -h)])
+			NeonDraw.polyline(self, chev, c, (1.0 if dashing else 0.7) * (1.0 - k * 0.16), 2.0)
+		if dashing:
+			for sy in [-0.75, 0.75]:
+				NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.9, sy * r),
+						Vector2(-r * 3.4, sy * r)]), Color(c, 0.45), 1.5)
+		if enemy.is_winding_up() and enemy._aim_len > r * 1.6:
+			var end := enemy._aim_len / scale.x
+			var x := r * 1.7
+			while x < end - 22.0:
+				NeonDraw.line(self, PackedVector2Array([Vector2(x, 0), Vector2(x + 14.0, 0)]),
+						Color(1.0, 1.0, 1.0, 0.75), 2.0)
+				x += 26.0
+			var tip := Vector2(end, 0)
+			NeonDraw.arc(self, tip, 16.0, 0.0, TAU, 20, Color(1.0, 1.0, 1.0, 0.8), 2.0)
+			for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+				NeonDraw.line(self, PackedVector2Array([tip + d * 9.0, tip + d * 24.0]),
+						Color(1.0, 1.0, 1.0, 0.8), 2.0)
+
+	## WRAITH: 바깥 두건과 안쪽 두건 테, 이마의 꽉 찬 마름모 보석, 역삼각형 얼굴판에 기울어진 두 눈,
+	## 얼굴판 아래로 내려오는 선 세 줄.
+	func _draw_wraith(r: float, c: Color) -> void:
+		var rim := PackedVector2Array([Vector2(-r * 0.62, r * 0.05), Vector2(-r * 0.55, -r * 0.4),
+				Vector2(-r * 0.3, -r * 0.78), Vector2(0, -r * 1.05), Vector2(r * 0.3, -r * 0.78),
+				Vector2(r * 0.55, -r * 0.4), Vector2(r * 0.62, r * 0.05)])
+		NeonDraw.polyline(self, rim, c, 0.7, 1.5)
+		var gem := PackedVector2Array([Vector2(0, -r * 0.95), Vector2(r * 0.12, -r * 0.78),
+				Vector2(0, -r * 0.6), Vector2(-r * 0.12, -r * 0.78)])
+		NeonDraw.fill(self, gem, Color(c.lightened(0.5), 0.95))
+		var plate := PackedVector2Array([Vector2(-r * 0.5, -r * 0.48), Vector2(r * 0.5, -r * 0.48),
+				Vector2(0, r * 0.32), Vector2(-r * 0.5, -r * 0.48)])
+		NeonDraw.polyline(self, plate, c, 0.9, 2.0)
+		for sx in [-1.0, 1.0]:
+			var eye := PackedVector2Array([Vector2(sx * r * 0.08, -r * 0.3),
+					Vector2(sx * r * 0.36, -r * 0.4), Vector2(sx * r * 0.32, -r * 0.27),
+					Vector2(sx * r * 0.1, -r * 0.2)])
+			NeonDraw.fill(self, eye, Color(1.0, 0.95, 1.0, 0.95))
+		for k in [-1.0, 0.0, 1.0]:
+			NeonDraw.line(self, PackedVector2Array([Vector2(k * r * 0.16, r * (0.2 - absf(k) * 0.1)),
+					Vector2(k * r * 0.22, r * (0.75 - absf(k) * 0.15))]), Color(c, 0.6), 1.5)
+
+	## BASTION: 두꺼운 육각 성벽, 안쪽 성벽, 가운데 핵, 모서리마다 포탑.
+	func _draw_bastion(r: float, c: Color) -> void:
+		_ring(r * 0.62, 6, c, 0.8)
+		var core := PackedVector2Array()
+		for i in 6:
+			core.append(Vector2.from_angle(TAU * i / 6.0) * r * 0.24)
+		NeonDraw.fill(self, core, Color(c, 0.45))
+		for i in 6:
+			var d := Vector2.from_angle(TAU * i / 6.0)
+			var n := d.orthogonal() * r * 0.09
+			var base := d * r
+			NeonDraw.line(self, PackedVector2Array([base, base + d * r * 0.22]), c, 3.0)
+			var cap := PackedVector2Array([base + d * r * 0.22 + n, base + d * r * 0.36 + n,
+					base + d * r * 0.36 - n, base + d * r * 0.22 - n, base + d * r * 0.22 + n])
+			NeonDraw.polyline(self, cap, c, 0.8, 1.5)
+
+	func _inner(pts: PackedVector2Array, k: float, c: Color, intensity := 0.7) -> void:
+		var inner := PackedVector2Array()
+		for p in pts:
+			inner.append(p * k)
+		NeonDraw.polyline(self, inner, c, intensity, 1.5)
+
+	## 정다각형 고리 (sides 4면 사각형, 6이면 육각형)
+	func _ring(rr: float, n: int, c: Color, intensity: float) -> void:
+		var ring := PackedVector2Array()
+		for i in n + 1:
+			ring.append(Vector2.from_angle(TAU * i / n + PI / n) * rr)
+		NeonDraw.polyline(self, ring, c, intensity, 2.0)
+
+
+## 보스 장식: 몸체와 따로 천천히 도는 바깥 부품. 회전은 rotation, 모양이 바뀔 때만 다시 그린다.
+##   MONOLITH: 둘레를 도는 돌조각 (체력 구간을 넘을 때마다 하나씩 떨어져 나감)
+##   WRAITH: 끊긴 룬 고리 + 떠도는 영혼 3개
+##   BASTION: 방패판 6장 (보호막이 있으면 밝고 두껍게)
+##   OVERLORD: 위성 8개
+class _Deco extends Node2D:
+	var enemy: Enemy
+	var _drawn_color := Color(0, 0, 0, 0)
+	var _drawn_state := -1
+
+	func sync() -> void:
+		var c := enemy.body_color()
+		var state := enemy._quake_next * 2 + (1 if enemy.shield > 0.0 else 0)
+		if not c.is_equal_approx(_drawn_color) or state != _drawn_state:
+			_drawn_color = c
+			_drawn_state = state
+			queue_redraw()
+
+	func _draw() -> void:
+		NeonDraw.begin(self)
+		var c := _drawn_color
+		var r := enemy.radius
+		match enemy.kind:
+			"monolith":
+				var left := enemy.quake_at.size() + 1 - enemy._quake_next
+				NeonDraw.arc(self, Vector2.ZERO, r * 1.6, 0.0, TAU, 48, Color(c, 0.18), 1.5)
+				for i in left:
+					var at := Vector2.from_angle(TAU * i / 4.0) * r * 1.6
+					var sq := PackedVector2Array()
+					for k in 5:
+						sq.append(at + Vector2.from_angle(TAU * k / 4.0 + PI / 4.0) * r * 0.2)
+					NeonDraw.polyline(self, sq, c, 0.9, 2.0)
+			"comet":
+				# 자이로 고리: 얇은 원 + 바깥을 향한 이빨 6개
+				NeonDraw.arc(self, Vector2.ZERO, r * 1.75, 0.0, TAU, 48, Color(c, 0.35), 1.5)
+				for i in 6:
+					var d := Vector2.from_angle(TAU * i / 6.0)
+					var n := d.orthogonal() * 6.0
+					var tooth := PackedVector2Array([d * r * 1.75 + n, d * (r * 1.75 + 12.0), d * r * 1.75 - n])
+					NeonDraw.polyline(self, tooth, c, 0.8, 1.5)
+			"wraith":
+				# 두 겹 룬 고리: 바깥은 끊긴 호 6개와 눈금, 안쪽은 안을 향한 가시 12개. 영혼 3개
+				for i in 6:
+					var a := TAU * i / 6.0
+					NeonDraw.arc(self, Vector2.ZERO, r * 1.6, a + 0.1, a + 0.9, 10, Color(c, 0.7), 2.0)
+					var d := Vector2.from_angle(a + 0.98)
+					NeonDraw.line(self, PackedVector2Array([d * r * 1.48, d * r * 1.72]), Color(c, 0.9), 2.0)
+				for i in 12:
+					var d := Vector2.from_angle(TAU * i / 12.0 + 0.26)
+					var n := d.orthogonal() * 4.0
+					NeonDraw.line(self, PackedVector2Array([d * r * 1.42 + n, d * r * 1.3, d * r * 1.42 - n]),
+							Color(c, 0.55), 1.2)
+				for i in 3:
+					var at := Vector2.from_angle(TAU * i / 3.0 + 0.5) * r * 2.0
+					var soul := PackedVector2Array([at + Vector2(0, -9), at + Vector2(5, 0),
+							at + Vector2(0, 9), at + Vector2(-5, 0), at + Vector2(0, -9)])
+					NeonDraw.polyline(self, soul, c.lightened(0.3), 0.9, 1.5)
+					NeonDraw.circle(self, at, 2.0, Color(1.0, 1.0, 1.0, 0.9))
+			"bastion":
+				var on := enemy.shield > 0.0
+				var pc := Enemy.SHIELD_COLOR if on else c
+				for i in 6:
+					var a := TAU * i / 6.0 + PI / 6.0
+					NeonDraw.arc(self, Vector2.ZERO, r * 1.5, a - 0.38, a + 0.38, 8,
+							Color(pc, 0.95 if on else 0.4), 5.0 if on else 2.5)
+			"overlord":
+				for i in 8:
+					var at := Vector2.from_angle(TAU * i / 8.0) * r * 1.85
+					var dia := PackedVector2Array([at + Vector2(7, 0), at + Vector2(0, 5),
+							at + Vector2(-7, 0), at + Vector2(0, -5), at + Vector2(7, 0)])
+					NeonDraw.polyline(self, dia, c, 0.8, 1.5)
+		NeonDraw.flush()

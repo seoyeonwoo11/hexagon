@@ -443,6 +443,61 @@ def s_victory():
     return finish(echo(mix(lead, pad, sparkle), 0.14, 0.3, 4)[:int(3.2 * SR)], 0.75)
 
 
+def s_dash():
+    """DASHER 돌진: 짧게 휙 올라가는 바람 소리."""
+    d = 0.18
+    w = bp(noise(d), 800, 5000) * env(int(d * SR), 0.01, 0.06)
+    w = sweep_lp(w, 1500, 6000)
+    z = tone(sweep(300, 900, d, 0.6), d, tri, decay=0.06) * 0.35
+    return finish(mix(w, z), 0.4)
+
+
+def s_boss_charge():
+    """COMET 돌진 준비: 낮게 끌어올리는 소리 + 경고음 두 번."""
+    d = 0.8
+    t = t_of(d)
+    rise = sweep_lp(saw(sweep(60, 180, d, 1.5), d) + saw(sweep(61, 182, d, 1.5), d), 300, 2500)
+    rise *= np.minimum(t / 0.7, 1.0) ** 1.5 * 0.5
+    beeps = mix(*[at(tone(880, 0.09, square, decay=0.05) * 0.25, k * 0.3) for k in range(2)])
+    return finish(mix(rise, lp(beeps, 3000)), 0.6)
+
+
+def s_cloak():
+    """PHANTOM, WRAITH 은신: 내려가며 사라지는 쉬익 + 흐린 화음."""
+    d = 0.4
+    n = sweep_lp(hp(noise(d), 1500), 7000, 800) * env(int(d * SR), 0.01, 0.12) * 0.6
+    g = (sine(sweep(1200, 500, d), d) + 0.5 * sine(sweep(1800, 750, d), d)) * env(int(d * SR), 0.02, 0.12) * 0.3
+    return finish(mix(n, g), 0.35)
+
+
+def s_heal():
+    """MENDER 회복 파동: 부드럽게 올라가는 두 음."""
+    d = 0.5
+    a = chime(midi(76), d, 0.12) * 0.5
+    b = at(chime(midi(83), d - 0.08, 0.14) * 0.45, 0.08)
+    pad = sine(midi(64), d) * env(int(d * SR), 0.05, 0.15) * 0.2
+    return finish(mix(a, b, pad), 0.35)
+
+
+def s_shield():
+    """AEGIS, BASTION 보호막: 금속성 웅 + 반짝."""
+    d = 0.55
+    hum = (tri(330, d) + 0.6 * tri(495, d)) * env(int(d * SR), 0.03, 0.18) * 0.4
+    hum = lp(hum, 2500)
+    shine = at(chime(1980, 0.3, 0.08) * 0.35, 0.05)
+    return finish(mix(hum, shine), 0.4)
+
+
+def s_quake():
+    """MONOLITH 체력 구간: 땅 울림 + 돌 부서지는 소리."""
+    d = 0.9
+    sub = sine(sweep(70, 32, d, 0.6), d) * env(int(d * SR), 0.005, 0.3)
+    rumble = lp(noise(d), 400) * env(int(d * SR), 0.01, 0.28) * 0.8
+    crack = mix(*[at(hp(noise(0.04), 1500) * env(int(0.04 * SR), 0.001, 0.012) * rng.uniform(0.3, 0.7),
+                     rng.uniform(0.0, 0.3)) for _ in range(6)])
+    return finish(mix(sub, rumble, crack), 0.7)
+
+
 SFX = {name[2:]: fn for name, fn in globals().items() if name.startswith("s_") and callable(fn)}
 
 
