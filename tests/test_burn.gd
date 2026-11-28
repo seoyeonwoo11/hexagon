@@ -59,8 +59,11 @@ func _run() -> void:
 	_check(touching.hp == touching.max_hp and not touching.is_burning(), "enemy outside the cone untouched")
 	_check(behind.hp == behind.max_hp, "enemy behind untouched")
 	_check(far.hp == far.max_hp, "enemy out of range untouched")
-	var dps := burn.damage() * FlameJet.BURN_DPS_RATIO
-	_check(is_equal_approx(edge.burn_dps(), dps), "burn dps = damage x ratio")
+	var dps := burn.damage() * FlameJet.close_mult(150.0, burn.effective_range()) * FlameJet.BURN_DPS_RATIO
+	_check(is_equal_approx(edge.burn_dps(), dps), "burn dps = hit damage x ratio")
+	_check(aim.max_hp - aim.hp > edge.max_hp - edge.hp, "closer enemy takes more fire damage")
+	_check(is_equal_approx(FlameJet.close_mult(0.0, 100.0), FlameJet.NEAR_MULT)
+			and is_equal_approx(FlameJet.close_mult(100.0, 100.0), FlameJet.FAR_MULT), "distance multiplier ends")
 	_check(edge.burn_spread == FlameJet.SPREAD_HOPS, "flame burn can spread")
 
 	# 옮겨붙기: 맞닿은 적에게 약해진 불

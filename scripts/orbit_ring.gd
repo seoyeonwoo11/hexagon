@@ -4,8 +4,8 @@ extends Node2D
 ## 움직임과 피해 계산은 HexTile이 하고, 여기서는 그리기만 한다.
 ## 성능: 구체는 각도 0 기준으로 한 번만 그리고, 회전은 노드 rotation으로 한다 (HexTile이 맞춤).
 
-const TRAIL_STEPS := 6
-const TRAIL_ARC := 0.5
+const TRAIL_STEPS := 12
+const TRAIL_ARC := 0.75
 
 var tile: HexTile
 var _drawn := []
@@ -40,15 +40,19 @@ func _draw_parts() -> void:
 	var n := tile.orb_count()
 	for i in n:
 		var a := TAU * i / n
-		# 꼬리: 지나온 자리에 점점 옅어지는 원호
-		var trail := PackedVector2Array()
-		for s in TRAIL_STEPS + 1:
-			var ta := a - TRAIL_ARC * s / TRAIL_STEPS
-			trail.append(Vector2(cos(ta), sin(ta)) * r)
-		NeonDraw.polyline(self, trail, c, 0.45, 2.0)
-		var p := Vector2(cos(a), sin(a)) * r
 		var orb_r := HexTile.ORB_RADIUS
-		NeonDraw.circle(self, p, orb_r * 1.9, Color(c, 0.10))
-		NeonDraw.circle(self, p, orb_r * 1.35, Color(c, 0.22))
-		NeonDraw.circle(self, p, orb_r, Color(c, 0.85))
-		NeonDraw.circle(self, p, orb_r * 0.5, Color(1, 1, 1, 0.9))
+		# 꼬리: 지나온 자리에 뒤로 갈수록 가늘고 옅어지는 원호 조각들
+		for s in TRAIL_STEPS:
+			var k := float(s) / TRAIL_STEPS
+			var t0 := a - TRAIL_ARC * k
+			var t1 := a - TRAIL_ARC * (k + 1.0 / TRAIL_STEPS)
+			var seg := PackedVector2Array([Vector2.from_angle(t0) * r, Vector2.from_angle(t1) * r])
+			NeonDraw.line(self, seg, Color(c, 0.35 * (1.0 - k)), orb_r * 1.1 * (1.0 - k * 0.8))
+		var p := Vector2(cos(a), sin(a)) * r
+		# 큰 구체: 옅은 빛 번짐 2겹 + 속이 비치는 몸통 + 밝은 테두리 고리 + 가운데 육각형 핵
+		NeonDraw.circle(self, p, orb_r * 1.6, Color(c, 0.08))
+		NeonDraw.circle(self, p, orb_r * 1.25, Color(c, 0.16))
+		NeonDraw.circle(self, p, orb_r, Color(c, 0.35))
+		NeonDraw.arc(self, p, orb_r, 0.0, TAU, 40, Color(c.lightened(0.35), 0.95), 3.0)
+		NeonDraw.hexagon(self, p, orb_r * 0.55, c.lightened(0.2), 1.0, 2.5, 0.5)
+		NeonDraw.circle(self, p, orb_r * 0.22, Color(1, 1, 1, 0.95))

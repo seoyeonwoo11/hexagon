@@ -13,7 +13,11 @@ const TURN_SPEED := 7.0
 ## 마지막 공격 뒤 불길이 남아 보이는 시간, 켜질 때 불길이 뻗어 나가는 시간
 const LINGER := 0.22
 const GROW_TIME := 0.12
-## 화상 초당 피해 = 공격 1번의 피해 × BURN_DPS_RATIO
+## 가까울수록 불씨를 더 많이 맞는다: 노즐 바로 앞은 피해 × NEAR_MULT, 사거리 끝은 × FAR_MULT
+## (불길이 부채꼴로 퍼지며 멀수록 입자가 듬성해지는 것을 거리에 따른 배율로 셈)
+const NEAR_MULT := 2.2
+const FAR_MULT := 0.6
+## 화상 초당 피해 = 그 적이 맞은 피해 × BURN_DPS_RATIO
 const BURN_DPS_RATIO := 1.5
 ## 옮겨붙기: 최대 횟수, 옮겨붙을 때 화상 세기 비율, "맞닿음"으로 보는 몸 사이 여유 거리, 검사 간격
 const SPREAD_HOPS := 2
@@ -125,10 +129,16 @@ func fire() -> bool:
 				break
 		if not inside:
 			continue
-		tile.apply_hit(e, dmg)
+		var hit := dmg * close_mult(dist, reach)
+		tile.apply_hit(e, hit)
 		if e.is_alive():
-			e.apply_burn(dmg * BURN_DPS_RATIO, tile.burn_time, tile, SPREAD_HOPS)
+			e.apply_burn(hit * BURN_DPS_RATIO, tile.burn_time, tile, SPREAD_HOPS)
 	return true
+
+
+## 거리 dist(사거리 reach 기준)에 따른 피해 배율. 가까울수록 NEAR_MULT, 끝에서 FAR_MULT.
+static func close_mult(dist: float, reach: float) -> float:
+	return lerpf(NEAR_MULT, FAR_MULT, clampf(dist / maxf(reach, 1.0), 0.0, 1.0))
 
 
 ## 이 타일이 붙인 불이 맞닿은 다른 적에게 옮겨붙는다. 더 센 불이 이미 붙은 적은 그대로.
