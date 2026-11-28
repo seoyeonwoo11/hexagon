@@ -229,6 +229,17 @@ def s_flame():
     return finish(mix(roar, crackle * 0.5, low), 0.5)
 
 
+def s_shock():
+    """SHOCK 충격파: 낮게 쿵 + 퍼져 나가며 내려가는 링 소리 + 짧은 지지직."""
+    d = 0.55
+    thump = sine(sweep(140, 45, 0.3, 0.5), 0.3) * env(int(0.3 * SR), 0.002, 0.08)
+    ring = (sine(sweep(1400, 380, d, 0.6), d) + 0.35 * tri(sweep(2100, 570, d, 0.6), d)) \
+        * env(int(d * SR), 0.004, 0.14, 0.05) * 0.45
+    buzz = bp(noise(0.12), 2500, 9000) * env(int(0.12 * SR), 0.001, 0.03) * 0.35
+    whoosh = sweep_lp(noise(d), 3000, 300) * env(int(d * SR), 0.01, 0.12) * 0.3
+    return finish(mix(thump, ring, buzz, whoosh), 0.5)
+
+
 def s_frost():
     d = 0.45
     parts = [chime(f, d, 0.12) * g for f, g in ((2093, 0.6), (2637, 0.45), (3136, 0.35))]

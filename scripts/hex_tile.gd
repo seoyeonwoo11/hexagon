@@ -73,6 +73,9 @@ var haste := 0.0
 ## BURN: 불길 부채꼴의 반각(라디안)과 화상 시간(초)
 var cone := 0.0
 var burn_time := 0.0
+## SHOCK: 충격파 스턴 시간(초)과 링이 퍼지는 속도 배율 (강화마다 빨라짐)
+var stun_time := 0.0
+var wave_speed := 1.0
 var level := 1
 var selected := false:
 	set(value):
@@ -106,6 +109,7 @@ var _orbit_ring: OrbitRing
 var _frost_field: FrostField
 var _drones: Array[Drone] = []
 var _flame: FlameJet
+var _shock: ShockWave
 ## 다시 그리기 판단용: 마지막으로 그렸을 때의 상태
 var _drawn_state := []
 var _anim_active := false
@@ -134,6 +138,11 @@ func setup(tile_kind: String) -> void:
 	pack_bonus = def.get("pack", 0.0)
 	cone = def.get("cone", 0.0)
 	burn_time = def.get("burn_time", 0.0)
+	stun_time = def.get("stun", 0.0)
+	if attack == "shock" and _shock == null:
+		_shock = ShockWave.new()
+		_shock.tile = self
+		add_child(_shock)
 	if attack == "burn" and _flame == null:
 		_flame = FlameJet.new()
 		_flame.tile = self
@@ -223,7 +232,10 @@ func _exit_tree() -> void:
 
 
 ## 전체 강화 배율까지 반영한 실제 공격 간격(초).
+## SHOCK은 파장 주기가 고정이라 공격 속도가 올라도 그대로 (대신 링이 빨리 퍼짐, ShockWave.speed).
 func interval() -> float:
+	if attack == "shock":
+		return fire_interval
 	return fire_interval / speed_mult()
 
 
@@ -360,7 +372,8 @@ func upgrade() -> void:
 	base_damage *= UPG_DAMAGE
 	if attack_range > 0.0:
 		attack_range += UPG_RANGE
-	fire_interval *= UPG_INTERVAL
+	if attack != "shock":
+		fire_interval *= UPG_INTERVAL
 	max_hp += UPG_HP
 	hp = minf(hp + UPG_HP, max_hp)
 	match kind:
@@ -381,6 +394,9 @@ func upgrade() -> void:
 			pack_bonus += UPG_PACK
 		"burn":
 			burn_time += FlameJet.UPG_BURN_TIME
+		"shock":
+			stun_time = minf(stun_time + ShockWave.UPG_STUN, ShockWave.STUN_MAX)
+			wave_speed /= UPG_INTERVAL
 		"laser", "core":
 			if EXTRA_BEAM_LEVELS.has(level) and not beam:
 				extra_beams += 1
@@ -396,8 +412,12 @@ func upgrade_preview() -> Array[String]:
 	var mult := board.damage_mult if board != null else 1.0
 	if attack != "none":
 		lines.append(Loc.t("DMG %.1f > %.1f") % [damage(), base_damage * UPG_DAMAGE * mult])
-		lines.append(Loc.t("RANGE +%d    SPEED +%d%%") % [roundi(UPG_RANGE),
-				roundi((1.0 / UPG_INTERVAL - 1.0) * 100.0)])
+		if attack == "shock":
+			lines.append(Loc.t("RANGE +%d    WAVE SPEED +%d%%") % [roundi(UPG_RANGE),
+					roundi((1.0 / UPG_INTERVAL - 1.0) * 100.0)])
+		else:
+			lines.append(Loc.t("RANGE +%d    SPEED +%d%%") % [roundi(UPG_RANGE),
+					roundi((1.0 / UPG_INTERVAL - 1.0) * 100.0)])
 	match kind:
 		"bank":
 			lines.append(Loc.t("INCOME $%d > $%d") % [income, income + UPG_INCOME])
@@ -418,6 +438,10 @@ func upgrade_preview() -> Array[String]:
 					roundi((pack_bonus + UPG_PACK) * 100.0)])
 		"burn":
 			lines.append(Loc.t("BURN %.1f S > %.1f S") % [burn_time, burn_time + FlameJet.UPG_BURN_TIME])
+		"shock":
+			if stun_time < ShockWave.STUN_MAX:
+				lines.append(Loc.t("STUN %.1f S > %.1f S") % [stun_time,
+						minf(stun_time + ShockWave.UPG_STUN, ShockWave.STUN_MAX)])
 		"frost":
 			lines.append(Loc.t("SLOW %d%% > %d%%") % [roundi((1.0 - frost_slow) * 100.0),
 					roundi((1.0 - maxf(frost_slow * FROST_SLOW_STEP, FROST_SLOW_MIN)) * 100.0)])
@@ -464,6 +488,8 @@ func _process(delta: float) -> void:
 		_fire()
 	if _flame != null:
 		_flame.tick(delta)
+	if _shock != null:
+		_shock.tick(delta)
 	# 밝기 맥동은 다시 그리지 않고 투명도로만
 	self_modulate.a = 0.85 + 0.15 * sin(_time * 2.5)
 	_redraw_if_needed()
@@ -552,6 +578,10 @@ func _fire() -> void:
 			if _flame.fire():
 				_cooldown = interval()
 				Sfx.play("flame")
+		"shock":
+			if _shock.fire():
+				_cooldown = interval()
+				Sfx.play("shock")
 		"frost":
 			var targets := enemies_in_range()
 			_cooldown = interval()
@@ -882,6 +912,17 @@ static func draw_glyph(canvas: CanvasItem, kind: String, r: float, c: Color, int
 			var inner := PackedVector2Array([Vector2(0, -r * 0.2), Vector2(r * 0.25, r * 0.3),
 					Vector2(0, r * 0.6), Vector2(-r * 0.25, r * 0.3), Vector2(0, -r * 0.2)])
 			NeonDraw.polyline(canvas, inner, c.lerp(FlameJet.HOT, 0.6), intensity * 0.7, 1.5)
+		"shock":
+			# 가운데 점 + 양옆으로 퍼지는 물결 두 겹 (충격파)
+			NeonDraw.circle(canvas, Vector2.ZERO, r * 0.2, Color(c, intensity))
+			for k in 2:
+				var rr := r * (0.55 + 0.42 * k)
+				var w := intensity * (0.8 - 0.25 * k)
+				for side in 2:
+					var pts := PackedVector2Array()
+					for j in 9:
+						pts.append(Vector2.from_angle(PI * side + lerpf(-0.85, 0.85, j / 8.0)) * rr)
+					NeonDraw.polyline(canvas, pts, c, w, 2.0)
 		"booster":
 			# 위로 향한 겹 화살표 두 개
 			for k in 2:
