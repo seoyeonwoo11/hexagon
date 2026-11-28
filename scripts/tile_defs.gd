@@ -16,7 +16,7 @@ const DEFS := {
 	"laser": {
 		"name": "LASER", "color": Color(0.4, 1.0, 0.3), "attack": "laser",
 		"max_hp": 60.0, "damage": 6.6, "range": 290.0, "interval": 0.45, "income": 0,
-		"beam": true, "focus_step": 0.25, "focus_max": 8,
+		"beam": true, "focus_step": 0.2, "focus_max": 6,
 		"desc": "Locks a beam onto one enemy until it dies or leaves range. Gets stronger the longer it holds.",
 	},
 	"spark": {
@@ -32,7 +32,7 @@ const DEFS := {
 	},
 	"orbit": {
 		"name": "ORBIT", "color": Color(1.0, 0.3, 0.9), "attack": "orbit",
-		"max_hp": 60.0, "damage": 45.0, "range": 145.0, "interval": 0.35, "income": 0,
+		"max_hp": 60.0, "damage": 65.0, "range": 145.0, "interval": 0.35, "income": 0,
 		"orbs": 3,
 		"desc": "Glowing orbs circle the tile and hit enemies they touch.",
 	},
