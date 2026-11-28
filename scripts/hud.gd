@@ -15,6 +15,7 @@ signal pause_pressed
 signal speed_pressed
 signal restart_pressed
 signal option_chosen(index: int)
+signal reroll_pressed
 signal upgrade_pressed
 signal skill_pressed
 signal move_pressed
@@ -29,6 +30,7 @@ const MARGIN := 40
 const FONT := preload("res://assets/fonts/Orbitron.ttf")
 
 var _money_label: Label
+var _money_icon: CoinIcon
 var _wave_label: Label
 var _core_label: Label
 var _core_bar: ProgressBar
@@ -48,6 +50,11 @@ var _move_button: Button
 var _speed_button: Button
 var _choice_overlay: ColorRect
 var _choice_row: HBoxContainer
+## 카드 아래 다시 뽑기 버튼 (판 안 돈으로, 웨이브마다 1번)
+var _reroll_button: Button
+var _reroll_icon: RerollIcon
+var _reroll_cost: Label
+var _reroll_coin: CoinIcon
 var _tile_panel: PanelContainer
 var _tile_title: Label
 var _tile_stats: Label
@@ -91,7 +98,14 @@ func _ready() -> void:
 	_money_label = _make_label(NEON_YELLOW, 30, 700)
 	info.add_child(_stage_label)
 	info.add_child(_wave_label)
-	info.add_child(_money_label)
+	var money_row := HBoxContainer.new()
+	money_row.add_theme_constant_override("separation", 10)
+	money_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_money_icon = CoinIcon.new(34.0)
+	_money_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	money_row.add_child(_money_icon)
+	money_row.add_child(_money_label)
+	info.add_child(money_row)
 	var core_row := HBoxContainer.new()
 	core_row.add_theme_constant_override("separation", 14)
 	info.add_child(core_row)
@@ -167,7 +181,7 @@ func _ready() -> void:
 
 
 func set_money(value: int) -> void:
-	_money_label.text = "$ %d" % value
+	_money_label.text = "%d" % value
 
 
 ## 목표(FINAL_WAVE)까지는 "WAVE 12 / 30", 무한 모드에서는 "WAVE 31  ENDLESS".
@@ -361,6 +375,25 @@ func show_choices(options: Array) -> void:
 	_choice_overlay.visible = true
 
 
+## 다시 뽑기 버튼: cost = 다음 값, available = 이번 웨이브에 남았는지, affordable = 돈이 되는지.
+## 이번 웨이브에 이미 썼으면 아이콘만 흐리게 (값 숨김), 돈이 모자라면 아이콘과 값을 흐리게.
+func set_reroll(cost: int, available: bool, affordable: bool) -> void:
+	if _reroll_button == null:
+		return
+	_reroll_cost.text = "%d" % cost
+	_reroll_cost.visible = available
+	_reroll_coin.visible = available
+	_reroll_cost.modulate = Color.WHITE if affordable else Color(1, 1, 1, 0.35)
+	_reroll_coin.dim = not affordable
+	_reroll_icon.dim = not available or not affordable
+	_reroll_button.disabled = not available or not affordable
+
+
+## 버튼에 보이는 값 ("30", 코인 아이콘 옆). 이번 웨이브에 이미 썼으면 "".
+func reroll_cost_text() -> String:
+	return _reroll_cost.text if _reroll_cost.visible else ""
+
+
 func hide_choices() -> void:
 	_choice_overlay.visible = false
 
@@ -537,6 +570,29 @@ func _build_choice_overlay() -> void:
 	_choice_row.add_theme_constant_override("separation", 32)
 	_choice_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(_choice_row)
+	# 글자 대신 새로고침 아이콘 + 값
+	_reroll_button = make_neon_button("", NEON_YELLOW)
+	_reroll_button.custom_minimum_size = Vector2(180, 64)
+	_reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_reroll_button.tooltip_text = Loc.t("Draw 3 new cards. Once per wave, and every reroll costs more.")
+	_reroll_button.pressed.connect(func() -> void: reroll_pressed.emit())
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reroll_button.add_child(row)
+	_reroll_icon = RerollIcon.new()
+	_reroll_icon.color = NEON_YELLOW
+	_reroll_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_reroll_icon)
+	_reroll_coin = CoinIcon.new(20.0)
+	_reroll_coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_reroll_coin)
+	_reroll_cost = _make_label(NEON_YELLOW, 24, 700)
+	_reroll_cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_reroll_cost)
+	center.add_child(_reroll_button)
 
 
 func _make_card(option: Dictionary, index: int) -> Button:

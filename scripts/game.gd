@@ -4,7 +4,7 @@ extends Node2D
 ##
 ## 상태 흐름:
 ##   INTERMISSION (잠깐 대기) -> WAVE (적 생성/전투) -> 모든 적 처치 ->
-##   CHOOSING (카드 3장 중 선택) -> [타일 카드면 PLACING (칸 클릭해 배치),
+##   CHOOSING (카드 3장 중 선택, 돈으로 1번 다시 뽑기 가능) -> [타일 카드면 PLACING (칸 클릭해 배치),
 ##   장비 카드면 EQUIPPING (타일 클릭해 장착)] -> INTERMISSION ...
 ##
 ## 판 시작 전과 끝난 뒤에는 시작 화면(Shop)이 뜬다. 판이 끝나면 버틴 웨이브만큼 SHARD를 받고
@@ -55,6 +55,11 @@ const REINFORCE_TILE_HP := 0.15
 const BANK_INTEREST := 0.04
 const BANK_INTEREST_STEP := 0.01
 const BANK_INTEREST_CAP := 3
+## 카드 다시 뽑기(리롤): 카드가 뜰 때마다 1번까지. 값은 판 전체에서 쓴 횟수만큼 REROLL_GROWTH배씩
+## 오른다 (웨이브가 바뀌어도 내려가지 않음): 30, 60, 120, 240, 480 ...
+const REROLL_BASE := 30
+const REROLL_GROWTH := 2.0
+const REROLLS_PER_WAVE := 1
 
 @onready var board: Board = $Board
 @onready var hud: Hud = $HUD
@@ -67,6 +72,9 @@ var speed_multiplier := 1.0
 var state := State.INTERMISSION
 ## 지금 화면에 떠 있는 카드들.
 var current_options: Array = []
+## 이번 판에서 리롤한 횟수(값 계산용), 지금 뜬 카드에서 남은 리롤 횟수
+var reroll_count := 0
+var rerolls_left := 0
 
 var _to_spawn := 0
 var _spawn_timer := 0.0
@@ -119,6 +127,7 @@ func _ready() -> void:
 	hud.speed_pressed.connect(toggle_speed)
 	hud.restart_pressed.connect(_on_restart_pressed)
 	hud.option_chosen.connect(choose_option)
+	hud.reroll_pressed.connect(reroll)
 	hud.upgrade_pressed.connect(upgrade_selected)
 	hud.skill_pressed.connect(use_skill)
 	hud.move_pressed.connect(toggle_move)
@@ -395,6 +404,42 @@ func choose_option(index: int) -> void:
 		_start_intermission()
 
 
+## 다음 리롤 값.
+func reroll_cost() -> int:
+	return roundi(REROLL_BASE * pow(REROLL_GROWTH, reroll_count))
+
+
+func can_reroll() -> bool:
+	return state == State.CHOOSING and not is_over and not _victory_open \
+			and rerolls_left > 0 and money >= reroll_cost()
+
+
+## 카드 3장을 새로 뽑는다. 돈이 모자라거나 이번 웨이브에 이미 했으면 false.
+func reroll() -> bool:
+	if state != State.CHOOSING or is_over or _victory_open or current_options.is_empty():
+		return false
+	if not can_reroll():
+		Sfx.play("deny")
+		return false
+	add_money(-reroll_cost())
+	reroll_count += 1
+	rerolls_left -= 1
+	Sfx.play("card")
+	_offer_options()
+	return true
+
+
+func _offer_options() -> void:
+	current_options = make_options()
+	hud.show_choices(current_options)
+	_update_reroll()
+	choices_offered.emit(current_options)
+
+
+func _update_reroll() -> void:
+	hud.set_reroll(reroll_cost(), rerolls_left > 0, money >= reroll_cost())
+
+
 ## 강화 카드 수치 (퍼센트 또는 체력). 웨이브가 오를수록 커진다.
 func boost_value(id: String) -> float:
 	return BOOST_BASE[id] + BOOST_PER_WAVE[id] * maxi(wave - 1, 0)
@@ -442,6 +487,8 @@ func add_money(amount: int, earned := true) -> void:
 	if earned and amount > 0:
 		money_earned += amount
 	hud.set_money(money)
+	if state == State.CHOOSING:
+		_update_reroll()
 	money_changed.emit(money)
 
 
@@ -548,9 +595,8 @@ func _on_wave_cleared() -> void:
 		board.cancel_move()
 		_update_actions()
 	state = State.CHOOSING
-	current_options = make_options()
-	hud.show_choices(current_options)
-	choices_offered.emit(current_options)
+	rerolls_left = REROLLS_PER_WAVE
+	_offer_options()
 
 
 ## BANK 한 칸이 이번 웨이브에 줄 이자 (지금 가진 돈 기준).
