@@ -20,7 +20,7 @@ Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행�
 
 ## 언어
 
-- 한국어(기본)와 영어. 시작 화면 오른쪽 위 설정 버튼 안의 언어 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
+- 한국어(기본)와 영어. 시작 화면 설정 버튼 안의 언어 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
 - 번역표는 `scripts/loc.gd` 한 곳. 화면 글자는 영어 원문을 키로 `Loc.t("PAUSE")`, 숫자가 들어가면 `Loc.t("WAVE %d") % wave`. 표에 없으면 영어 그대로 나옴
 - 타일, 장비, 적, 코어, 스킬, 카드 이름(LASER, SCOPE, OVERLORD ...)은 고유 이름이라 영어 그대로
 - 한글 폰트: Orbit (`assets/fonts/Orbit-Regular.ttf`, SIL OFL). Orbitron에 없는 한글을 대체 폰트로 그림
@@ -136,12 +136,13 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - RETRY (R): 상점 없이 바로 새 판, CONTINUE (Enter/Space): 시작 화면으로
 
 
-- 게임을 켜면 시작 화면이 뜸. 위에 스테이지 육각형 (깬 스테이지는 아래 작은 점), 가운데 벌집 (가운데 START 또는 Enter, 둘레의 타일을 눌러 출정 타일 넣기/빼기), 왼쪽 아래 코어, 오른쪽에 가진 SHARD와 상점 버튼, 오른쪽 위 설정 버튼. 설명 글은 두지 않음
+- 게임을 켜면 시작 화면이 뜸. 왼쪽에 게임 이름과 메뉴 버튼 3개 (게임 시작 / 상점 / 설정), 위에 스테이지 육각형 (깬 스테이지는 아래 작은 점), 가운데 벌집 (가운데는 고른 코어, 둘레의 타일을 눌러 출정 타일 넣기/빼기), 오른쪽에 가진 SHARD. 설명 글은 두지 않음
+- 게임 시작 (또는 Enter): 게임 시작 창에서 코어를 고르고 시작 (또는 Enter)
 - 상점 버튼은 상점 창을 엶: 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼. 시작 화면에서 안 산 타일이나 코어를 누르면 그 탭이 바로 열림
 - 설정 버튼: 언어 (한국어 / ENGLISH), 소리 (소리 설정 창), 전체 화면
 - 창은 Esc, 오른쪽 클릭, 돌아가기/닫기 버튼으로 닫음
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). R을 누르면 상점 없이 바로 새 판
-- 코어 종류 (시작 화면 왼쪽 아래에서 고름, 판마다 1개):
+- 코어 종류 (게임 시작 창에서 고름, 판마다 1개):
   - CORE (기본): OVERDRIVE, 6초 동안 모든 타일 공격력 +60%, 쿨다운 35초
   - CRYO CORE (15): FREEZE, 모든 적 3.5초 정지 (움직이지도 때리지도 않음), 쿨다운 30초
   - AEGIS CORE (20): REPAIR, 모든 타일 최대 체력의 50% 회복, 쿨다운 40초
@@ -202,7 +203,8 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 스테이지 진행, 저장/불러오기
 - `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
-- `scripts/shop.gd`: 시작 화면 (스테이지, 벌집과 START, 코어, SHARD, 상점/설정 버튼)
+- `scripts/shop.gd`: 시작 화면 (메뉴 버튼, 스테이지, 벌집, SHARD)
+- `scripts/start_panel.gd`: 게임 시작 창 (코어 고르기)
 - `scripts/shop_window.gd`: 상점 창 (영구 강화, 타일, 코어 구매)
 - `scripts/settings_panel.gd`: 설정 창 (언어, 소리, 전체 화면)
 - `scripts/hud.gd`: 화면 위 정보와 버튼

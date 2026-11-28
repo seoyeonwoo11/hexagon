@@ -102,6 +102,7 @@ const KO := {
 	"CHOOSE ONE": "하나를 고르세요",
 	"CLOSE": "닫기",
 	"SETTINGS": "설정",
+	"NEW GAME": "게임 시작",
 	"WINDOWED": "창 모드",
 	"FULLSCREEN": "전체 화면",
 	"UPGRADE": "강화",

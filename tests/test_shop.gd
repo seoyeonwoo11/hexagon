@@ -2,6 +2,7 @@ extends SceneTree
 ## 실행: godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 ## 상점 창: 시작 화면의 SHOP 버튼으로 열고 닫기, 탭, 카드 버튼으로 강화/타일/코어 구매,
 ## 시작 화면의 잠긴 타일/코어를 누르면 그 탭이 열림, 창이 떠 있는 동안 Enter로 판이 시작되지 않음.
+## 메뉴 버튼 (게임 시작/상점/설정), 게임 시작 창에서 코어 고르고 시작.
 
 var _failures := 0
 var _frame := 0
@@ -125,7 +126,28 @@ func _run() -> void:
 	shop._settings._unhandled_input(esc)
 	_check(not shop._settings.is_open(), "escape closes settings")
 
-	# 판을 시작하면 창도 닫힌다
-	shop.open_window()
-	_game.start_run()
-	_check(not shop.is_open() and not shop.is_window_open(), "starting a run closes everything")
+	# 메뉴 버튼 3개가 한 군데에 모여 있다
+	var menu := shop.find_child("Menu", true, false)
+	for n in ["StartButton", "ShopButton", "SettingsButton"]:
+		var b := shop.find_child(n, true, false)
+		_check(b != null and b.get_parent() == menu, n + " in the menu")
+	# 시작 화면에서 Enter는 게임 시작 창을 열고, 거기서 코어를 고르고, Enter로 시작
+	shop._unhandled_input(enter)
+	_check(shop.is_start_open() and not _game.started, "enter opens the start panel")
+	var picker := shop._start.find_child("StartCorePicker", true, false)
+	_check(picker != null, "core picker in the start panel")
+	picker.core_clicked.emit("cryo")
+	_check(Meta.core_type == "cryo" and shop.is_start_open(), "core picked in the start panel")
+	picker.core_clicked.emit("nova")
+	_check(not shop.is_start_open() and shop.is_window_open() and win.tab == "cores",
+			"locked core in the start panel opens the shop")
+	win.close()
+	(shop.find_child("StartButton", true, false) as Button).pressed.emit()
+	_check(shop.is_start_open(), "start button opens the start panel")
+	shop._start._unhandled_input(esc)
+	_check(not shop.is_start_open() and not _game.started, "escape closes the start panel")
+	shop.open_start()
+	shop._start._unhandled_input(enter)
+	_check(_game.started and not shop.is_open() and not shop.is_start_open(),
+			"enter in the start panel starts the run")
+
