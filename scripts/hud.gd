@@ -255,7 +255,6 @@ func _build_victory() -> void:
 	center.add_theme_constant_override("separation", 22)
 	_victory.add_child(center)
 	_victory_tag = _make_label(Color(gold, 0.75), 26, 600)
-	_victory_tag.text = Loc.t("OVERLORD DEFEATED")
 	var title := _make_label(gold, 120, 900, 0.4)
 	title.text = Loc.t("VICTORY")
 	_victory_sub = _make_label(Color(1, 1, 1, 0.9), 30, 500)
@@ -290,7 +289,8 @@ func _build_victory() -> void:
 func show_victory(wave: int, shards: int, clears: int, cleared_stage := 1,
 		unlocks: Array[String] = []) -> void:
 	var c := StageDefs.color(cleared_stage)
-	_victory_tag.text = Loc.t("%s CLEARED  -  OVERLORD DEFEATED") % StageDefs.title(cleared_stage)
+	_victory_tag.text = Loc.t("%s CLEARED  -  %s DEFEATED") % [StageDefs.title(cleared_stage),
+			EnemyDefs.get_def(StageDefs.boss(cleared_stage))["name"]]
 	_victory_sub.text = Loc.t("All %d waves cleared   -   +%d shards\nClears  %d") % [wave, shards, clears]
 	_victory_unlocks.text = "\n".join(unlocks)
 	_victory_unlocks.label_settings.font_color = c

@@ -3,7 +3,7 @@ extends CanvasLayer
 ## 판이 끝났을 때 (코어 파괴, 또는 클리어 뒤 END RUN) 시작 화면 전에 뜨는 결과창.
 ##
 ## 배치 (1920x1080 기준):
-##   위    : 한 줄 설명 (CORE DESTROYED / OVERLORD DEFEATED) + 큰 제목 (GAME OVER / VICTORY)
+##   위    : 한 줄 설명 (CORE DESTROYED / <스테이지 보스> DEFEATED) + 큰 제목 (GAME OVER / VICTORY)
 ##   가운데: 숫자 카드 5장 (도달 웨이브, 처치 수, 플레이 시간, 번 돈, 받은 SHARD)
 ##   아래  : 왼쪽 타일별 총 피해 순위 (막대 + 몫), 오른쪽 적 종류별 처치 수
 ##   맨 아래: RETRY (R, 바로 새 판), CONTINUE (Enter/Space, 시작 화면으로)
@@ -108,10 +108,11 @@ func show_results(d: Dictionary) -> void:
 	data = d
 	var won: bool = d.get("victory", false)
 	var color := _accent()
+	var boss_name: String = EnemyDefs.get_def(StageDefs.boss(d.get("stage", 1)))["name"]
 	if won and d.get("endless", false):
-		_tag.text = Loc.t("ENDLESS RUN OVER  -  OVERLORD DEFEATED")
+		_tag.text = Loc.t("ENDLESS RUN OVER  -  %s DEFEATED") % boss_name
 	elif won:
-		_tag.text = Loc.t("OVERLORD DEFEATED")
+		_tag.text = Loc.t("%s DEFEATED") % boss_name
 	else:
 		_tag.text = Loc.t("CORE DESTROYED")
 	_tag.text = "%s  -  %s" % [StageDefs.title(d.get("stage", 1)), _tag.text]

@@ -295,7 +295,7 @@ func _process(delta: float) -> void:
 		hud.set_core(core.hp, core.max_hp)
 	hud.show_tile_panel(board.selected_tile, money)
 	if final_boss != null:
-		if is_instance_valid(final_boss) and final_boss.is_alive():
+		if is_instance_valid(final_boss) and final_boss.exists():
 			hud.set_boss_hp(final_boss.hp, final_boss.max_hp, final_boss.enraged)
 		else:
 			final_boss = null
@@ -318,7 +318,8 @@ func _process(delta: float) -> void:
 				_spawn_timer -= delta
 				if _spawn_timer <= 0.0:
 					if _to_spawn > 0:
-						spawn_enemy(EnemyDefs.pick_kind(wave), _random_spawn_point())
+						spawn_enemy(EnemyDefs.pick_kind(wave, StageDefs.roster(stage)),
+								_random_spawn_point())
 						_to_spawn -= 1
 					else:
 						_spawn_boss()
@@ -564,7 +565,8 @@ func _begin_wave() -> void:
 	Sfx.play("wave")
 	Sfx.music("boss" if _boss_pending else "battle")
 	if _boss_pending and wave == EnemyDefs.FINAL_WAVE:
-		hud.show_banner(Loc.t("FINAL WAVE  -  OVERLORD"), EnemyDefs.get_def("overlord")["color"])
+		var final_def := EnemyDefs.get_def(StageDefs.boss(stage))
+		hud.show_banner(Loc.t("FINAL WAVE  -  %s") % final_def["name"], final_def["color"])
 	elif _boss_pending:
 		hud.show_banner(Loc.t("WAVE %d  -  BOSS") % wave, EnemyDefs.get_def("boss")["color"])
 	else:
@@ -618,7 +620,7 @@ func spawn_enemy(kind: String, pos: Vector2, normal := true) -> Enemy:
 			wave_enemy_reward(wave) * Meta.bounty_mult(),
 			(10.0 + wave * 0.5) * StageDefs.damage_mult(stage))
 	enemy.died.connect(_on_enemy_died)
-	if enemy.summon_kind != "":
+	if enemy.summon_kind != "" or enemy.quake_kind != "":
 		enemy.summoned.connect(_on_enemy_summoned)
 	board.enemy_layer.add_child(enemy)
 	enemy.global_position = pos
@@ -659,18 +661,18 @@ func _on_enemy_died(enemy: Enemy, reward: int) -> void:
 			child.inherit_slow(enemy)
 
 
-## 웨이브 마지막 보스. FINAL_WAVE의 OVERLORD는 화면 위에 체력 막대를 띄운다.
+## 웨이브 마지막 보스. FINAL_WAVE는 스테이지 보스(StageDefs.boss)이고 화면 위에 체력 막대를 띄운다.
 func _spawn_boss() -> Enemy:
-	var kind := EnemyDefs.boss_kind(wave)
+	var kind := EnemyDefs.boss_kind(wave, StageDefs.boss(stage))
 	var boss := spawn_enemy(kind, _random_spawn_point())
-	Sfx.play("overlord" if kind == "overlord" else "boss_appear")
-	if kind == "overlord":
+	Sfx.play("overlord" if boss.is_final else "boss_appear")
+	if boss.is_final:
 		final_boss = boss
 		hud.show_boss_bar(EnemyDefs.get_def(kind)["name"], boss.color)
 	return boss
 
 
-## OVERLORD가 부하를 부른다: 주변에 둥글게.
+## 보스가 부하를 부른다 (시간마다, 은신할 때, 체력 구간): 주변에 둥글게.
 func _on_enemy_summoned(enemy: Enemy, kind: String, count: int) -> void:
 	if is_over:
 		return
