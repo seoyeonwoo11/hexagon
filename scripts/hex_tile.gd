@@ -11,7 +11,7 @@ const HIT_FLASH_TIME := 0.2
 const FROST_SLOW := 0.5
 const FROST_SLOW_TIME := 0.6
 ## ORBIT: 구체 회전 속도(라디안/초), 구체 반지름, 최대 구체 수
-const ORBIT_SPEED := 3.5
+const ORBIT_SPEED := 1.75
 const ORB_RADIUS := 12.0
 const MAX_ORBS := 6
 ## 강화 1번마다: 공격력 ×1.5, 공격 간격 ×0.9 (초당 피해 약 1.67배), 사거리 +20, 최대 체력 +20
@@ -24,7 +24,7 @@ const UPG_INCOME := 6
 const EXTRA_BEAM_LEVELS: Array[int] = [3, 5]
 ## LASER: 대상이 없을 때 새 대상을 찾는 간격(초), 강화마다 집중 보너스 +3%p
 const BEAM_RETARGET := 0.1
-const UPG_FOCUS := 0.03
+const UPG_FOCUS := 0.02
 ## DRONE HIVE: 최대 드론 수, 이 레벨에 도달하면 드론 +1
 const MAX_DRONES := 6
 const DRONE_LEVELS: Array[int] = [2, 4, 6]
