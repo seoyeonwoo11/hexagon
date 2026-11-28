@@ -79,7 +79,7 @@ const DASH_CHASE_MAX := 1.5
 var _dash_over := 0.0
 ## 들이받은 뒤 튕겨 돌아가기 (COMET): 돌진을 시작한 자리로 RECOIL_TIME초 동안 빠르게, 끝에서 느려지게.
 ## 그동안은 때리지도 쫓지도 않는다.
-const RECOIL_TIME := 0.55
+const RECOIL_TIME := 0.7
 var _dash_origin := Vector2.ZERO
 var _recoil_from := Vector2.ZERO
 var _recoil_left := 0.0
@@ -333,7 +333,9 @@ func _impact(at: Vector2) -> void:
 	_lunge = 1.0
 
 
-## 튕겨 돌아가는 중: 처음엔 빠르고 끝에서 느려진다 (ease out). 몸은 한 바퀴 빙글.
+## 튕겨 돌아가는 중: 위치는 처음엔 빠르고 끝에서 느려진다 (ease out).
+## 몸은 한 바퀴 빙글 도는데, 도는 속도가 천천히 붙었다가 천천히 멈춘다 (smootherstep).
+## 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
 func _process_recoil(delta: float) -> void:
 	_recoil_left = maxf(_recoil_left - delta, 0.0)
 	var k := 1.0 - _recoil_left / RECOIL_TIME
@@ -341,7 +343,8 @@ func _process_recoil(delta: float) -> void:
 	_lunge = maxf(_lunge - delta * 2.0, 0.0)
 	_update_body(delta)
 	if _body != null and face:
-		_body.rotation = _heading.angle() + TAU * (1.0 - pow(1.0 - k, 2.0))
+		var spin := k * k * k * (k * (k * 6.0 - 15.0) + 10.0)
+		_body.rotation = _heading.angle() + TAU * spin
 
 
 func is_recoiling() -> bool:
