@@ -79,7 +79,11 @@ const DASH_CHASE_MAX := 1.5
 var _dash_over := 0.0
 ## 들이받은 뒤 튕겨 돌아가기 (COMET): 돌진을 시작한 자리로 RECOIL_TIME초 동안 빠르게, 끝에서 느려지게.
 ## 그동안은 때리지도 쫓지도 않는다.
-const RECOIL_TIME := 0.7
+const RECOIL_TIME := 0.85
+## 들이받는 순간 잠깐 멈추는 시간(히트스톱)과 화면 흔들림 세기(픽셀)
+const HITSTOP := 0.14
+const SHAKE := 14.0
+var _hitstop := 0.0
 var _dash_origin := Vector2.ZERO
 var _recoil_from := Vector2.ZERO
 var _recoil_left := 0.0
@@ -246,6 +250,11 @@ func _process(delta: float) -> void:
 		if _aura_cd <= 0.0:
 			_aura_cd = aura_every
 			pulse_aura()
+	if _hitstop > 0.0:
+		_hitstop -= delta
+		if _body != null:
+			_body.sync()
+		return
 	if _recoil_left > 0.0:
 		_process_recoil(delta)
 		return
@@ -316,35 +325,50 @@ func _process_dash(delta: float) -> float:
 	return 1.0
 
 
-## 돌진 첫 타격: 부딪힌 자리에 충격 고리 두 개, 쿵 소리, 돌진을 시작한 자리로 튕겨 돌아가기 시작.
+## 돌진 첫 타격: 히트스톱(잠깐 멈춤) + 화면 흔들림 + 충격 고리 세 겹 + 낮은 쿵 소리,
+## 그다음 돌진을 시작한 자리로 튕겨 돌아가기 시작.
 func _impact(at: Vector2) -> void:
+	Sfx.play("quake")
 	Sfx.play("explode")
 	Sfx.play("tile_hit")
 	var layer := get_parent()
 	if layer != null:
-		for k in 2:
+		for k in 3:
 			var fx := Explosion.new()
-			fx.color = color.lerp(Color.WHITE, 0.35 * k)
-			fx.radius = radius * (2.2 - k * 0.8)
+			fx.color = color.lerp(Color.WHITE, 0.3 * k)
+			fx.radius = radius * (3.0 - k * 0.9)
 			layer.add_child(fx)
 			fx.global_position = at
+	_shake_camera()
+	_hitstop = HITSTOP
 	_recoil_from = global_position
 	_recoil_left = RECOIL_TIME
 	_lunge = 1.0
 
 
-## 튕겨 돌아가는 중: 위치는 처음엔 빠르고 끝에서 느려진다 (ease out).
-## 몸은 한 바퀴 빙글 도는데, 도는 속도가 천천히 붙었다가 천천히 멈춘다 (smootherstep).
-## 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
+## 화면을 짧게 흔든다 (카메라 offset, 점점 약하게). 카메라가 없으면 (테스트) 아무것도 안 함.
+func _shake_camera() -> void:
+	var cam := get_viewport().get_camera_2d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var tw := cam.create_tween()
+	for i in 7:
+		var power := SHAKE * (1.0 - i / 7.0)
+		tw.tween_property(cam, "offset", Vector2.from_angle(randf() * TAU) * power, 0.035)
+	tw.tween_property(cam, "offset", Vector2.ZERO, 0.05)
+
+
+## 튕겨 돌아가는 중: 무거운 물체처럼 처음에 확 튕겨 나갔다가 길게 미끄러지며 멈춘다 (ease out quart).
+## 몸도 같은 곡선으로 한 바퀴 돈다. 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
 func _process_recoil(delta: float) -> void:
 	_recoil_left = maxf(_recoil_left - delta, 0.0)
 	var k := 1.0 - _recoil_left / RECOIL_TIME
-	global_position = _recoil_from.lerp(_dash_origin, 1.0 - pow(1.0 - k, 3.0))
-	_lunge = maxf(_lunge - delta * 2.0, 0.0)
+	var heavy := 1.0 - pow(1.0 - k, 4.0)
+	global_position = _recoil_from.lerp(_dash_origin, heavy)
+	_lunge = maxf(_lunge - delta * 1.5, 0.0)
 	_update_body(delta)
 	if _body != null and face:
-		var spin := k * k * k * (k * (k * 6.0 - 15.0) + 10.0)
-		_body.rotation = _heading.angle() + TAU * spin
+		_body.rotation = _heading.angle() + TAU * heavy
 
 
 func is_recoiling() -> bool:

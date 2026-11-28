@@ -237,7 +237,7 @@ func _bosses() -> void:
 	# 들이받은 뒤 돌진을 시작한 자리로 튕겨 돌아가고, 그동안은 안 때린다
 	_check(comet.is_recoiling(), "comet recoils after the charge hit")
 	var hp_after := core.hp
-	for i in 60:
+	for i in 90:
 		comet._process(1.0 / 60.0)
 		if not comet.is_recoiling():
 			break
