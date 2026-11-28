@@ -56,9 +56,9 @@ const DEFS := {
 	},
 	"shock": {
 		"name": "SHOCK", "color": Color(0.9, 0.92, 1.0), "attack": "shock",
-		"max_hp": 60.0, "damage": 2.0, "range": 190.0, "interval": 3.0, "income": 0,
-		"stun": 0.7,
-		"desc": "Every 3 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.",
+		"max_hp": 60.0, "damage": 8.0, "range": 230.0, "interval": 2.5, "income": 0,
+		"stun": 1.0,
+		"desc": "Every 2.5 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.",
 	},
 	"booster": {
 		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",

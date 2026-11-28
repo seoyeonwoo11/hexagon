@@ -191,8 +191,8 @@ const KO := {
 			"맞닿은 타일의 공격 속도 +25%. 한 타일에 BOOSTER가 더 붙으면 절반만 더해집니다.",
 	"Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.":
 			"화염방사기. 가장 가까운 적에게 부채꼴 불길을 뿜어 불태웁니다. 불은 맞닿은 적에게 번집니다.",
-	"Every 3 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.":
-			"3초마다 충격파를 퍼뜨려 지나간 적을 잠깐 스턴시킵니다. 공격 속도가 오르면 파장이 더 빨리 퍼집니다. 보스는 짧게 스턴됩니다.",
+	"Every 2.5 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.":
+			"2.5초마다 충격파를 퍼뜨려 지나간 적을 잠깐 스턴시킵니다. 공격 속도가 오르면 파장이 더 빨리 퍼집니다. 보스는 짧게 스턴됩니다.",
 	"Earns money after every wave, plus interest on your savings.":
 			"웨이브가 끝날 때마다 돈을 벌고, 가진 돈에 이자도 붙습니다.",
 	# ---------------------------------------------------------------- 장비 설명

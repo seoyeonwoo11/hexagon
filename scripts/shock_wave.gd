@@ -12,7 +12,7 @@ const BASE_SPEED := 700.0
 const FADE := 0.18
 ## 강화마다 스턴 시간 +, 최대
 const UPG_STUN := 0.1
-const STUN_MAX := 1.6
+const STUN_MAX := 2.0
 
 var tile: HexTile
 ## 지금 링 반지름. 0 이하면 쉬는 중.
