@@ -135,12 +135,16 @@ const KO := {
 	"FLAMES %d": "불길 %d갈래",
 	"BURN %.1f / S FOR %.1f S": "화상 초당 %.1f, %.1f초 동안",
 	"FIRE SPREADS ON TOUCH (%d%%)": "닿으면 불이 번짐 (%d%%)",
+	"WAVE EVERY %.1f S    WAVE SPEED %d%%": "파장 %.1f초마다    파장 속도 %d%%",
+	"STUN %.1f S (BOSS %.1f S)": "스턴 %.1f초 (보스 %.1f초)",
 	"HP %d / %d": "체력 %d / %d",
 	"GEAR  %s": "장비  %s",
 	"GEAR  EMPTY SLOT": "장비  빈 칸",
 	# 다음 레벨 미리보기
 	"DMG %.1f > %.1f": "피해 %.1f > %.1f",
 	"RANGE +%d    SPEED +%d%%": "사거리 +%d    공격 속도 +%d%%",
+	"RANGE +%d    WAVE SPEED +%d%%": "사거리 +%d    파장 속도 +%d%%",
+	"STUN %.1f S > %.1f S": "스턴 %.1f초 > %.1f초",
 	"INCOME $%d > $%d": "수입 $%d > $%d",
 	"INTEREST +%d%%": "이자 +%d%%",
 	"+1 BOUNCE": "튕김 +1",
@@ -187,6 +191,8 @@ const KO := {
 			"맞닿은 타일의 공격 속도 +25%. 한 타일에 BOOSTER가 더 붙으면 절반만 더해집니다.",
 	"Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.":
 			"화염방사기. 가장 가까운 적에게 부채꼴 불길을 뿜어 불태웁니다. 불은 맞닿은 적에게 번집니다.",
+	"Every 3 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.":
+			"3초마다 충격파를 퍼뜨려 지나간 적을 잠깐 스턴시킵니다. 공격 속도가 오르면 파장이 더 빨리 퍼집니다. 보스는 짧게 스턴됩니다.",
 	"Earns money after every wave, plus interest on your savings.":
 			"웨이브가 끝날 때마다 돈을 벌고, 가진 돈에 이자도 붙습니다.",
 	# ---------------------------------------------------------------- 장비 설명

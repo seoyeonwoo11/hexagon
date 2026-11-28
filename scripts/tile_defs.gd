@@ -4,6 +4,7 @@ extends RefCounted
 ## attack: "laser" (CORE: 가까운 적에게 번쩍이는 광선, LASER: 한 적에게 꽂는 지속 광선), "spark" (적 사이를 튕기는 번개), "frost" (전체 감속 + 약한 피해),
 ##         "orbit" (타일 주위를 도는 구체가 닿은 적에게 피해), "drone" (드론이 쫓아가 들이받음),
 ##         "archer" (화살, 맞닿은 ARCHER 수만큼 강해짐), "burn" (가까운 적 쪽으로 부채꼴 불길, 화상),
+##         "shock" (몇 초마다 퍼지는 충격파가 범위 안 적을 잠깐 스턴, 피해는 아주 약함),
 ##         "none" (공격 안 함. BOOSTER, BANK)
 
 const DEFS := {
@@ -53,6 +54,12 @@ const DEFS := {
 		"cone": 0.5, "burn_time": 2.5,
 		"desc": "Flamethrower. Sprays a cone of fire at the nearest enemy and sets it ablaze. Fire spreads between enemies that touch.",
 	},
+	"shock": {
+		"name": "SHOCK", "color": Color(0.9, 0.92, 1.0), "attack": "shock",
+		"max_hp": 60.0, "damage": 2.0, "range": 190.0, "interval": 3.0, "income": 0,
+		"stun": 0.7,
+		"desc": "Every 3 seconds sends out a shockwave that briefly stuns enemies it passes. Attack speed makes the wave spread faster. Bosses are stunned for less.",
+	},
 	"booster": {
 		"name": "BOOSTER", "color": Color(1.0, 0.6, 0.15), "attack": "none",
 		"max_hp": 60.0, "damage": 0.0, "range": 0.0, "interval": 1.0, "income": 0,
@@ -67,7 +74,7 @@ const DEFS := {
 }
 
 ## 웨이브 클리어 카드로 얻을 수 있는 타일.
-const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer", "burn"]
+const PLACEABLE: Array[String] = ["laser", "spark", "frost", "orbit", "booster", "bank", "drone", "archer", "burn", "shock"]
 
 
 static func get_def(kind: String) -> Dictionary:

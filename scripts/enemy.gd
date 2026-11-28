@@ -11,6 +11,10 @@ signal summoned(enemy: Enemy, kind: String, count: int)
 const GROUP := &"enemies"
 ## 화상 피해를 몰아서 주는 간격(초). 매 프레임 주면 불붙은 적이 많을 때 체력 막대를 계속 다시 그려 렉이 걸린다.
 const BURN_TICK := 0.25
+## SHOCK 스턴: 보스는 이 비율만큼만 멈춘다. 스턴이 풀린 뒤 이 시간(초) 동안은 다시 스턴되지 않는다
+## (SHOCK 여러 개로 계속 묶어 두지 못하게).
+const BOSS_STUN_MULT := 0.35
+const STUN_GRACE := 1.0
 
 @export var color := Color(1.0, 0.3, 0.35)
 
@@ -62,6 +66,8 @@ var _last_source: HexTile
 var _crit_flash := 0.0
 ## 코어 스킬 FREEZE: 남은 정지 시간. 그동안 움직이지도 때리지도 않는다.
 var _freeze_timer := 0.0
+## SHOCK 스턴 면역이 남은 시간 (스턴 시간 + STUN_GRACE)
+var _stun_immune := 0.0
 ## 성능: 도는 몸체는 자식 노드로 그리고 회전은 rotation으로. 색/모양이 바뀔 때만 다시 그린다.
 var _body: _Body
 
@@ -121,6 +127,8 @@ func _process(delta: float) -> void:
 			_burn_acc = 0.0
 			if _dead:
 				return
+	if _stun_immune > 0.0:
+		_stun_immune -= delta
 	if _freeze_timer > 0.0:
 		_freeze_timer -= delta
 		if _body != null:
@@ -169,6 +177,17 @@ func freeze(duration: float) -> void:
 	_freeze_timer = maxf(_freeze_timer, duration)
 	if _body != null:
 		_body.sync()
+
+
+## SHOCK 충격파: duration초 스턴 (보스는 BOSS_STUN_MULT배). 그동안 움직이지도 때리지도 않는다.
+## 스턴이 풀린 뒤 STUN_GRACE초 동안은 다시 안 걸린다. 걸렸으면 true.
+func stun(duration: float) -> bool:
+	if _stun_immune > 0.0 or duration <= 0.0:
+		return false
+	var d := duration * (BOSS_STUN_MULT if is_boss else 1.0)
+	freeze(d)
+	_stun_immune = d + STUN_GRACE
+	return true
 
 
 func is_frozen() -> bool:

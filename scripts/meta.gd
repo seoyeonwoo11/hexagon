@@ -30,7 +30,7 @@ const CAP_PER_STAGE := 3
 
 ## 처음부터 쓸 수 있는 타일과 SHARD로 사야 하는 타일 (가격).
 const STARTER_TILES: Array[String] = ["laser", "frost", "bank"]
-const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "burn": 20, "drone": 25}
+const TILE_PRICES := {"spark": 12, "archer": 15, "orbit": 20, "burn": 20, "shock": 15, "drone": 25}
 ## 게임에서 빠진 타일과 그때 가격. 예전 저장 파일에서 산 적이 있으면 SHARD로 돌려준다.
 const REMOVED_TILES := {"prism": 20}
 ## 한 판에 들고 갈 수 있는 타일 종류 수 (출정 타일). 카드에는 이 타일들만 나온다.

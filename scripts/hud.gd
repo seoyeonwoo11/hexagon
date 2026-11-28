@@ -415,6 +415,9 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 		lines.append(Loc.t("DMG %.1f    RANGE %d") % [tile.damage(), roundi(tile.effective_range())])
 		if tile.attack == "orbit":
 			lines.append(Loc.t("ORBS %d    HIT EVERY %.2f S") % [tile.orb_count(), tile.interval()])
+		elif tile.attack == "shock":
+			lines.append(Loc.t("WAVE EVERY %.1f S    WAVE SPEED %d%%") % [tile.interval(),
+					roundi(tile.wave_speed * tile.speed_mult() * 100.0)])
 		else:
 			lines.append(Loc.t("RATE %.1f / S") % (1.0 / tile.interval()))
 	if tile.haste > 0.0:
@@ -447,6 +450,8 @@ func show_tile_panel(tile: HexTile, money: int) -> void:
 			lines.append(Loc.t("FLAMES %d") % tile.target_count())
 		lines.append(Loc.t("BURN %.1f / S FOR %.1f S") % [tile.damage() * FlameJet.BURN_DPS_RATIO, tile.burn_time])
 		lines.append(Loc.t("FIRE SPREADS ON TOUCH (%d%%)") % roundi(FlameJet.SPREAD_RATIO * 100.0))
+	if tile.attack == "shock":
+		lines.append(Loc.t("STUN %.1f S (BOSS %.1f S)") % [tile.stun_time, tile.stun_time * Enemy.BOSS_STUN_MULT])
 	lines.append(Loc.t("HP %d / %d") % [ceili(tile.hp), ceili(tile.max_hp)])
 	_tile_stats.text = "\n".join(lines)
 	if not tile.gears.is_empty():
