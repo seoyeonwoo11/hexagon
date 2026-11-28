@@ -100,8 +100,6 @@ const KO := {
 	"SPACE OR CLICK TO RESUME": "SPACE 또는 클릭으로 계속",
 	"PAUSED": "일시정지",
 	"CHOOSE ONE": "하나를 고르세요",
-	"REROLL  $%d": "다시 뽑기  $%d",
-	"REROLL USED THIS WAVE": "이번 웨이브 다시 뽑기 끝",
 	"Draw 3 new cards. Once per wave, and every reroll costs more.": "카드 3장을 새로 뽑습니다. 웨이브마다 1번, 뽑을 때마다 값이 오릅니다.",
 	"CLOSE": "닫기",
 	"SETTINGS": "설정",
