@@ -95,7 +95,7 @@ const DEFS := {
 		"quake_at": [0.75, 0.5, 0.25], "quake": "grunt", "quake_count": 6,
 		"enrage_at": 0.25, "enrage_speed": 1.4, "spin": 0.12, "deco_spin": 0.7,
 	},
-	## 2스테이지: 혜성. 3.5초마다 0.8초 멈춰 번쩍인 뒤 6배로 들이받는다 (첫 타격 3배).
+	## 2스테이지: 혜성. 3.5초마다 0.8초 멈춰 번쩍인 뒤 6배로 들이받는다 (첫 타격 4.5배).
 	## 들이받으면 돌진을 시작한 자리로 튕겨 돌아간다. 돌진 준비와 돌진 중에는 감속, 빙결, 스턴, 밀치기 무시.
 	## 6초마다 DASHER 2마리.
 	"comet": {
@@ -103,7 +103,7 @@ const DEFS := {
 		"radius": 40.0, "hp": 46.0, "speed": 0.38, "reward": 60.0, "contact": 2.2,
 		"armor": 0.2, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 1.0,
 		"is_boss": true, "final": true, "summon": "dasher", "summon_count": 2, "summon_every": 6.0,
-		"dash_every": 3.5, "dash_time": 0.9, "dash_speed": 6.0, "dash_windup": 0.8, "dash_hit": 3.0,
+		"dash_every": 3.5, "dash_time": 0.9, "dash_speed": 6.0, "dash_windup": 0.8, "dash_hit": 4.5,
 		"dash_unstoppable": true,
 		"enrage_at": 0.4, "enrage_speed": 1.3, "deco_spin": 1.2,
 	},

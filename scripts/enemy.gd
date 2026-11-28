@@ -359,7 +359,8 @@ func _shake_camera() -> void:
 
 
 ## 튕겨 돌아가는 중: 무거운 물체처럼 처음에 확 튕겨 나갔다가 길게 미끄러지며 멈춘다 (ease out quart).
-## 몸도 같은 곡선으로 한 바퀴 돈다. 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
+## 몸은 위치와 따로, 천천히 돌기 시작해 천천히 멈추며 한 바퀴 돈다 (smootherstep).
+## 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
 func _process_recoil(delta: float) -> void:
 	_recoil_left = maxf(_recoil_left - delta, 0.0)
 	var k := 1.0 - _recoil_left / RECOIL_TIME
@@ -368,7 +369,8 @@ func _process_recoil(delta: float) -> void:
 	_lunge = maxf(_lunge - delta * 1.5, 0.0)
 	_update_body(delta)
 	if _body != null and face:
-		_body.rotation = _heading.angle() + TAU * heavy
+		var spin := k * k * k * (k * (k * 6.0 - 15.0) + 10.0)
+		_body.rotation = _heading.angle() + TAU * spin
 
 
 func is_recoiling() -> bool:
