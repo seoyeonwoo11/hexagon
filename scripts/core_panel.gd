@@ -1,14 +1,13 @@
-class_name StartPanel
+class_name CorePanel
 extends CanvasLayer
-## 게임 시작 창: 시작 화면의 게임 시작 버튼(또는 Enter)으로 연다.
-## 판에 쓸 코어를 고르고 시작한다. 안 산 코어를 누르면 상점 창의 코어 탭으로 넘어간다.
-## Enter로 시작, Esc, 오른쪽 클릭, 빈 곳 클릭으로 닫는다.
+## 코어 고르기 창: 시작 화면 벌집 한가운데 코어를 누르면 연다.
+## 산 코어는 누르면 고르고, 안 산 코어는 상점 창의 코어 탭으로 넘어간다.
+## Esc, Enter, 오른쪽 클릭, 빈 곳 클릭, 닫기 버튼으로 닫는다.
 
-signal start_pressed
 ## 안 산 코어를 눌렀을 때 (상점 창을 연다)
 signal shop_requested
+signal closed
 
-var _title: Label
 var _picker: Shop.CorePicker
 var _desc: Label
 
@@ -45,12 +44,13 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", 22)
 	box.add_child(col)
 
-	_title = Hud.make_label(Hud.NEON_CYAN, 44, 900, 0.3)
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_title)
+	var title := Hud.make_label(Hud.NEON_CYAN, 44, 900, 0.3)
+	title.text = Loc.t("CORES")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(title)
 
 	_picker = Shop.CorePicker.new()
-	_picker.name = "StartCorePicker"
+	_picker.name = "PanelCorePicker"
 	_picker.r = 58.0
 	_picker.gap = 150.0
 	_picker.show_names = true
@@ -62,21 +62,12 @@ func _ready() -> void:
 	_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_desc)
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
-	col.add_child(row)
-	var back := Hud.make_neon_button(Loc.t("CLOSE"), Hud.NEON_PINK)
-	back.custom_minimum_size = Vector2(220, 80)
-	back.add_theme_font_size_override("font_size", 26)
-	back.pressed.connect(close)
-	row.add_child(back)
-	var go := Hud.make_neon_button(Loc.t("START"), Hud.NEON_CYAN)
-	go.name = "GoButton"
-	go.custom_minimum_size = Vector2(420, 80)
-	go.add_theme_font_size_override("font_size", 34)
-	go.pressed.connect(func() -> void: start_pressed.emit())
-	row.add_child(go)
+	var done := Hud.make_neon_button(Loc.t("CLOSE"), Hud.NEON_PINK)
+	done.custom_minimum_size = Vector2(320, 70)
+	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	done.add_theme_font_size_override("font_size", 26)
+	done.pressed.connect(close)
+	col.add_child(done)
 
 
 ## 산 코어는 고르고, 안 산 코어는 상점 창으로.
@@ -91,10 +82,8 @@ func _on_core_clicked(id: String) -> void:
 
 
 func refresh() -> void:
-	if _title == null:
+	if _desc == null:
 		return
-	_title.text = StageDefs.title(Meta.stage)
-	_title.label_settings.font_color = StageDefs.color(Meta.stage)
 	_desc.text = Loc.t(CoreDefs.get_def(Meta.core_type)["desc"])
 	_picker.queue_redraw()
 
@@ -106,7 +95,10 @@ func open() -> void:
 
 
 func close() -> void:
+	if not visible:
+		return
 	visible = false
+	closed.emit()
 
 
 func is_open() -> bool:
@@ -117,13 +109,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo:
-		if key.keycode == KEY_ESCAPE:
-			get_viewport().set_input_as_handled()
-			close()
-		elif key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER:
-			get_viewport().set_input_as_handled()
-			start_pressed.emit()
+	if key != null and key.pressed and not key.echo and key.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER]:
+		get_viewport().set_input_as_handled()
+		close()
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_RIGHT:
 		get_viewport().set_input_as_handled()

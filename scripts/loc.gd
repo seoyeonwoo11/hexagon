@@ -106,6 +106,7 @@ const KO := {
 	"WINDOWED": "창 모드",
 	"FULLSCREEN": "전체 화면",
 	"UPGRADE": "강화",
+	"BUY": "구매",
 	"UPGRADE  $%d": "강화  $%d",
 	"NEXT LEVEL": "다음 레벨",
 	"MOVE": "옮기기",

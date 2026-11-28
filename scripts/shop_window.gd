@@ -58,15 +58,13 @@ func _ready() -> void:
 	shard_box.size = Vector2(700, 60)
 	frame.add_child(shard_box)
 	_shards = Hud.make_label(Shop.SHARD_COLOR, 44, 900, 0.3)
-	var unit := Hud.make_label(Color(Shop.SHARD_COLOR, 0.7), 22, 600)
-	unit.text = Loc.t("shards")
-	unit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var unit := Hud.make_shard_icon(52)
 	var back := Hud.make_neon_button(Loc.t("BACK  (ESC)"), Hud.NEON_CYAN)
 	back.custom_minimum_size = Vector2(210, 60)
 	back.pressed.connect(close)
 	var space := Control.new()
 	space.custom_minimum_size = Vector2(30, 0)
-	for c in [_shards, unit, space, back]:
+	for c in [unit, _shards, space, back]:
 		shard_box.add_child(c)
 
 	var tabs := HBoxContainer.new()
@@ -227,6 +225,40 @@ func _buy_button(text: String, enabled: bool, color := Shop.SHARD_COLOR) -> Butt
 	return b
 
 
+## 사는 버튼: "강화" 같은 글자 + SHARD 아이콘 + 가격. 못 사면 흐리게.
+func _price_button(text: String, price: int) -> Button:
+	var enabled := Meta.shards >= price
+	var b := _buy_button("", enabled)
+	b.name = "PriceButton"
+	b.tooltip_text = "%s  %d" % [text, price]
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(center)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.modulate.a = 1.0 if enabled else 0.35
+	center.add_child(row)
+	var word := Hud.make_label(Shop.SHARD_COLOR, 22, 700)
+	word.text = text
+	row.add_child(word)
+	row.add_child(_gap_x(10))
+	row.add_child(Hud.make_shard_icon(26))
+	var num := Hud.make_label(Shop.SHARD_COLOR, 22, 700)
+	num.name = "Price"
+	num.text = "%d" % price
+	row.add_child(num)
+	return b
+
+
+func _gap_x(w: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(w, 0)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
+
+
 func _upgrade_card(u: Dictionary) -> Control:
 	var id: String = u["id"]
 	var open := Meta.is_upgrade_unlocked(id)
@@ -252,7 +284,7 @@ func _upgrade_card(u: Dictionary) -> Control:
 		b = _buy_button(Loc.t("Maxed"), false)
 		b.tooltip_text = Loc.t("Clear a new stage to raise the limit.")
 	else:
-		b = _buy_button(Loc.t("UPGRADE   %d shards") % cost, Meta.shards >= cost)
+		b = _price_button(Loc.t("UPGRADE"), cost)
 	b.pressed.connect(func() -> void:
 		Sfx.play("coin" if Meta.buy_upgrade(id) else "deny")
 		refresh())
@@ -269,8 +301,7 @@ func _tile_card(kind: String) -> Control:
 	var col: VBoxContainer = parts[1]
 	col.add_child(_title_row(def["name"], color, "", kind, color))
 	col.add_child(_desc(Loc.t(def["desc"]), false))
-	var b := _buy_button(Loc.t("OWNED") if owned else Loc.t("BUY   %d shards") % price,
-			not owned and Meta.shards >= price)
+	var b := _buy_button(Loc.t("OWNED"), false) if owned else _price_button(Loc.t("BUY"), price)
 	b.pressed.connect(func() -> void:
 		Sfx.play("coin" if Meta.buy_tile(kind) else "deny")
 		refresh())
@@ -296,7 +327,7 @@ func _core_card(id: String) -> Control:
 		b = _buy_button(Loc.t("Clear %s to unlock.") % StageDefs.title(StageDefs.stage_for_unlock("core:" + id)),
 				false, Shop.LOCKED_COLOR)
 	else:
-		b = _buy_button(Loc.t("BUY   %d shards") % price, Meta.shards >= price)
+		b = _price_button(Loc.t("BUY"), price)
 	b.pressed.connect(func() -> void:
 		Sfx.play("coin" if Meta.buy_core(id) else "deny")
 		refresh())
