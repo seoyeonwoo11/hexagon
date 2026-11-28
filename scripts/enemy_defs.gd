@@ -86,41 +86,43 @@ const DEFS := {
 		"is_boss": true,
 	},
 	## ---- 스테이지 마지막 보스 (StageDefs "boss") ----
-	## 1스테이지: 무거운 돌기둥. 2.6초마다 GRUNT 1마리, 체력 75/50/25%에서 GRUNT 5마리를 둥글게.
+	## 1스테이지: 무거운 돌기둥. 2초마다 GRUNT 1마리, 체력 75/50/25%에서 GRUNT 6마리를 둥글게.
 	"monolith": {
 		"name": "MONOLITH", "color": Color(1.0, 0.28, 0.22), "sides": 4, "star": false,
-		"radius": 44.0, "hp": 42.0, "speed": 0.33, "reward": 60.0, "contact": 2.5,
+		"radius": 44.0, "hp": 46.0, "speed": 0.33, "reward": 60.0, "contact": 2.5,
 		"armor": 0.25, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.9,
-		"is_boss": true, "final": true, "summon": "grunt", "summon_count": 1, "summon_every": 2.6,
-		"quake_at": [0.75, 0.5, 0.25], "quake": "grunt", "quake_count": 5,
+		"is_boss": true, "final": true, "summon": "grunt", "summon_count": 1, "summon_every": 2.0,
+		"quake_at": [0.75, 0.5, 0.25], "quake": "grunt", "quake_count": 6,
 		"enrage_at": 0.25, "enrage_speed": 1.4, "spin": 0.12, "deco_spin": 0.7,
 	},
-	## 2스테이지: 혜성. 5초마다 0.8초 멈춰 번쩍인 뒤 6배로 들이받는다 (첫 타격 3배).
+	## 2스테이지: 혜성. 3.5초마다 0.8초 멈춰 번쩍인 뒤 6배로 들이받는다 (첫 타격 4.5배).
+	## 들이받으면 돌진을 시작한 자리로 튕겨 돌아간다. 돌진 준비와 돌진 중에는 감속, 빙결, 스턴, 밀치기 무시.
 	## 6초마다 DASHER 2마리.
 	"comet": {
 		"name": "COMET", "color": Color(1.0, 0.4, 0.8), "sides": 3, "star": false, "face": true,
-		"radius": 40.0, "hp": 42.0, "speed": 0.38, "reward": 60.0, "contact": 2.2,
+		"radius": 40.0, "hp": 46.0, "speed": 0.38, "reward": 60.0, "contact": 2.2,
 		"armor": 0.2, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 1.0,
 		"is_boss": true, "final": true, "summon": "dasher", "summon_count": 2, "summon_every": 6.0,
-		"dash_every": 5.0, "dash_time": 0.9, "dash_speed": 6.0, "dash_windup": 0.8, "dash_hit": 3.0,
+		"dash_every": 3.5, "dash_time": 0.9, "dash_speed": 6.0, "dash_windup": 0.8, "dash_hit": 4.5,
+		"dash_unstoppable": true,
 		"enrage_at": 0.4, "enrage_speed": 1.3, "deco_spin": 1.2,
 	},
-	## 3스테이지: 망령. 6초 보이다가 2.5초 은신 (은신 중 초당 2% 회복), 숨을 때마다 PHANTOM 3마리.
+	## 3스테이지: 망령. 5초 보이다가 2.5초 은신 (은신 중 초당 2.5% 회복), 숨을 때마다 PHANTOM 3마리.
 	"wraith": {
 		"name": "WRAITH", "color": Color(0.75, 0.55, 1.0), "sides": 5, "star": false,
-		"radius": 42.0, "hp": 40.0, "speed": 0.38, "reward": 60.0, "contact": 2.4,
+		"radius": 42.0, "hp": 44.0, "speed": 0.38, "reward": 60.0, "contact": 2.4,
 		"armor": 0.2, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.9,
 		"is_boss": true, "final": true, "summon": "phantom", "summon_count": 3,
-		"cloak_every": 6.0, "cloak_time": 2.5, "cloak_regen": 0.02, "cloak_summon": true,
+		"cloak_every": 5.0, "cloak_time": 2.5, "cloak_regen": 0.025, "cloak_summon": true,
 		"enrage_at": 0.35, "enrage_speed": 1.4, "sway": 0.15, "deco_spin": -0.5,
 	},
 	## 4스테이지: 요새. 6초마다 자기와 주변(200) 적에게 보호막 (자기는 8%, 다른 적은 20%),
-	## 9초마다 ARMORED 2마리.
+	## 7초마다 ARMORED 2마리.
 	"bastion": {
 		"name": "BASTION", "color": Color(1.0, 0.55, 0.15), "sides": 6, "star": false,
-		"radius": 46.0, "hp": 38.0, "speed": 0.3, "reward": 60.0, "contact": 2.6,
+		"radius": 46.0, "hp": 40.0, "speed": 0.3, "reward": 60.0, "contact": 2.6,
 		"armor": 0.3, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.9,
-		"is_boss": true, "final": true, "summon": "armored", "summon_count": 2, "summon_every": 9.0,
+		"is_boss": true, "final": true, "summon": "armored", "summon_count": 2, "summon_every": 7.0,
 		"aura": "shield", "aura_every": 6.0, "aura_radius": 200.0, "aura_amount": 0.2, "aura_boss": 0.08,
 		"enrage_at": 0.3, "enrage_speed": 1.5, "spin": 0.08, "deco_spin": -0.35,
 	},
@@ -128,9 +130,9 @@ const DEFS := {
 	## 체력이 enrage_at 아래로 떨어지면 enrage_speed배 빨라지고 두 배 자주 부른다.
 	"overlord": {
 		"name": "OVERLORD", "color": Color(1.0, 0.82, 0.25), "sides": 8, "star": true,
-		"radius": 46.0, "hp": 45.0, "speed": 0.35, "reward": 60.0, "contact": 2.5,
+		"radius": 46.0, "hp": 52.0, "speed": 0.35, "reward": 60.0, "contact": 2.5,
 		"armor": 0.3, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.8,
-		"is_boss": true, "summon": "runner", "summon_count": 3, "summon_every": 5.0,
+		"is_boss": true, "summon": "runner", "summon_count": 4, "summon_every": 5.0,
 		"enrage_at": 0.5, "enrage_speed": 1.6, "final": true, "crown": true, "deco_spin": 0.4,
 	},
 }

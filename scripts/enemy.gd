@@ -69,10 +69,27 @@ var dash_time := 0.0
 var dash_speed := 1.0
 var dash_windup := 0.0
 var dash_hit := 1.0
+## 돌진 준비와 돌진 중에는 감속, 빙결(FREEZE), 스턴(SHOCK), WARP 밀치기를 무시한다 (COMET)
+var dash_unstoppable := false
 var _dash_cd := 0.0
 var _dash_left := 0.0
 var _windup_left := 0.0
 var _dash_hit_ready := false
+const DASH_CHASE_MAX := 1.5
+var _dash_over := 0.0
+## 들이받은 뒤 튕겨 돌아가기 (COMET): 돌진을 시작한 자리로 RECOIL_TIME초 동안 빠르게, 끝에서 느려지게.
+## 그동안은 때리지도 쫓지도 않는다.
+const RECOIL_TIME := 0.85
+## 들이받는 순간 잠깐 멈추는 시간(히트스톱)과 화면 흔들림 세기(픽셀)
+const HITSTOP := 0.14
+const SHAKE := 14.0
+## COMET 꼬리가 몸 회전을 따라가는 빠르기(클수록 빨리 따라옴)와 최대로 휘는 각도
+const TAIL_FOLLOW := 9.0
+const TAIL_BEND_MAX := 1.3
+var _hitstop := 0.0
+var _dash_origin := Vector2.ZERO
+var _recoil_from := Vector2.ZERO
+var _recoil_left := 0.0
 ## 주변 회복/보호막 ("heal", "shield")
 var aura := ""
 var aura_every := 0.0
@@ -163,6 +180,7 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: f
 	dash_speed = def.get("dash_speed", 1.0)
 	dash_windup = def.get("dash_windup", 0.0)
 	dash_hit = def.get("dash_hit", 1.0)
+	dash_unstoppable = def.get("dash_unstoppable", false)
 	# 같은 종류가 한꺼번에 돌진하지 않게 첫 주기는 조금씩 다르게
 	_dash_cd = dash_every * randf_range(0.5, 1.0)
 	aura = def.get("aura", "")
@@ -235,6 +253,14 @@ func _process(delta: float) -> void:
 		if _aura_cd <= 0.0:
 			_aura_cd = aura_every
 			pulse_aura()
+	if _hitstop > 0.0:
+		_hitstop -= delta
+		if _body != null:
+			_body.sync()
+		return
+	if _recoil_left > 0.0:
+		_process_recoil(delta)
+		return
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -258,14 +284,15 @@ func _process(delta: float) -> void:
 				if _dash_hit_ready:
 					_dash_hit_ready = false
 					_dash_left = 0.0
-					Sfx.play("tile_hit")
+					_impact(global_position + to_target.normalized() * radius)
 			_update_body(delta)
 			return
 	elif to_target.length() <= board.hex_size * 0.8:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
-	global_position += to_target.normalized() * speed * _slow_factor * move_mult * delta
+	var slow := 1.0 if cc_immune() else _slow_factor
+	global_position += to_target.normalized() * speed * slow * move_mult * delta
 	_update_body(delta)
 
 
@@ -279,13 +306,21 @@ func _process_dash(delta: float) -> float:
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		if _dash_left <= 0.0:
-			_dash_hit_ready = false
+			if _dash_hit_ready and _dash_over < DASH_CHASE_MAX:
+				# 들이받는 돌진은 dash_time이 지나도 타일에 닿을 때까지 이어간다 (최대 DASH_CHASE_MAX초 더)
+				_dash_over += delta
+				_dash_left = 0.001
+			else:
+				_dash_hit_ready = false
 		return dash_speed
 	_dash_cd -= delta
 	if _dash_cd <= 0.0:
 		_dash_cd = dash_every
 		if dash_windup > 0.0:
 			_windup_left = dash_windup
+			if dash_unstoppable:
+				_slow_timer = 0.0
+				_slow_factor = 1.0
 			Sfx.play("boss_charge")
 			return 0.0
 		_start_dash()
@@ -293,11 +328,70 @@ func _process_dash(delta: float) -> float:
 	return 1.0
 
 
+## 돌진 첫 타격: 히트스톱(잠깐 멈춤) + 화면 흔들림 + 충격 고리 세 겹 + 낮은 쿵 소리,
+## 그다음 돌진을 시작한 자리로 튕겨 돌아가기 시작.
+func _impact(at: Vector2) -> void:
+	Sfx.play("quake")
+	Sfx.play("explode")
+	Sfx.play("tile_hit")
+	var layer := get_parent()
+	if layer != null:
+		for k in 3:
+			var fx := Explosion.new()
+			fx.color = color.lerp(Color.WHITE, 0.3 * k)
+			fx.radius = radius * (3.0 - k * 0.9)
+			layer.add_child(fx)
+			fx.global_position = at
+	_shake_camera()
+	_hitstop = HITSTOP
+	_recoil_from = global_position
+	_recoil_left = RECOIL_TIME
+	_lunge = 1.0
+
+
+## 화면을 짧게 흔든다 (카메라 offset, 점점 약하게). 카메라가 없으면 (테스트) 아무것도 안 함.
+func _shake_camera() -> void:
+	var cam := get_viewport().get_camera_2d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var tw := cam.create_tween()
+	for i in 7:
+		var power := SHAKE * (1.0 - i / 7.0)
+		tw.tween_property(cam, "offset", Vector2.from_angle(randf() * TAU) * power, 0.035)
+	tw.tween_property(cam, "offset", Vector2.ZERO, 0.05)
+
+
+## 튕겨 돌아가는 중: 무거운 물체처럼 처음에 확 튕겨 나갔다가 길게 미끄러지며 멈춘다 (ease out quart).
+## 몸은 위치와 따로 한 바퀴 돈다. 부딪히자마자 적당한 속도로 돌기 시작해 천천히 멈춘다 (sine ease-out).
+## 끝나면 정확히 한 바퀴라 다시 목표를 바라보는 방향과 이어진다.
+func _process_recoil(delta: float) -> void:
+	_recoil_left = maxf(_recoil_left - delta, 0.0)
+	var k := 1.0 - _recoil_left / RECOIL_TIME
+	var heavy := 1.0 - pow(1.0 - k, 4.0)
+	global_position = _recoil_from.lerp(_dash_origin, heavy)
+	_lunge = maxf(_lunge - delta * 1.5, 0.0)
+	_update_body(delta)
+	if _body != null and face:
+		var spin := sin(k * PI * 0.5)
+		_body.rotation = _heading.angle() + TAU * spin
+
+
+func is_recoiling() -> bool:
+	return _recoil_left > 0.0
+
+
 func _start_dash() -> void:
+	_dash_origin = global_position
+	_dash_over = 0.0
 	_dash_left = dash_time
 	_dash_hit_ready = dash_hit > 1.0
 	_lunge = 1.0
 	Sfx.play("dash")
+
+
+## 돌진 준비나 돌진 중이라 군중 제어(감속, 빙결, 스턴, 밀치기)가 안 먹히는지.
+func cc_immune() -> bool:
+	return dash_unstoppable and (_windup_left > 0.0 or _dash_left > 0.0)
 
 
 func is_dashing() -> bool:
@@ -389,6 +483,8 @@ func _update_body(delta: float) -> void:
 
 ## 코어 스킬 FREEZE: duration초 동안 멈춘다.
 func freeze(duration: float) -> void:
+	if cc_immune():
+		return
 	_freeze_timer = maxf(_freeze_timer, duration)
 	if _body != null:
 		_body.sync()
@@ -397,7 +493,7 @@ func freeze(duration: float) -> void:
 ## SHOCK 충격파: duration초 스턴 (보스는 BOSS_STUN_MULT배). 그동안 움직이지도 때리지도 않는다.
 ## 스턴이 풀린 뒤 STUN_GRACE초 동안은 다시 안 걸린다. 걸렸으면 true.
 func stun(duration: float) -> bool:
-	if _stun_immune > 0.0 or duration <= 0.0:
+	if _stun_immune > 0.0 or duration <= 0.0 or cc_immune():
 		return false
 	var d := duration * (BOSS_STUN_MULT if is_boss else 1.0)
 	freeze(d)
@@ -428,6 +524,8 @@ func body_color() -> Color:
 
 ## factor 배 속도로 duration초 동안 느려진다 (여러 번 걸리면 가장 강한 감속 유지).
 func apply_slow(factor: float, duration: float) -> void:
+	if cc_immune():
+		return
 	_slow_factor = minf(_slow_factor, factor)
 	_slow_timer = maxf(_slow_timer, duration)
 
@@ -581,6 +679,38 @@ class _Body extends Node2D:
 	var enemy: Enemy
 	var _drawn_color := Color(0, 0, 0, 0)
 	var _drawn_state := -1
+	## COMET 꼬리: 꼬리 끝이 몸의 회전을 늦게 따라온다. 몸 기준 꼬리 끝의 휘어진 각도 (라디안).
+	var tail_bend := 0.0
+	var _tail_world := NAN
+
+	func _ready() -> void:
+		set_process(enemy.kind == "comet")
+
+	## 꼬리 끝 방향이 몸 방향을 지수적으로 따라간다. 휘는 정도가 바뀔 때만 다시 그린다.
+	func _process(delta: float) -> void:
+		var target := global_rotation
+		if is_nan(_tail_world):
+			_tail_world = target
+		_tail_world = lerp_angle(_tail_world, target, 1.0 - exp(-delta * TAIL_FOLLOW))
+		var bend := clampf(wrapf(_tail_world - target, -PI, PI), -TAIL_BEND_MAX, TAIL_BEND_MAX)
+		if absf(bend - tail_bend) > 0.003:
+			tail_bend = bend
+			queue_redraw()
+
+	## 꼬리 뿌리(x = -0.6r)에서 멀수록 더 많이 돌려서 꼬리가 활처럼 휜다.
+	func _bend(p: Vector2, r: float) -> Vector2:
+		var root := Vector2(-r * 0.6, 0)
+		var d := root.x - p.x
+		if d <= 0.0 or tail_bend == 0.0:
+			return p
+		var t := minf(d / (r * 2.8), 1.0)
+		return root + (p - root).rotated(tail_bend * t * (0.6 + 0.4 * t))
+
+	func _bent(pts: PackedVector2Array, r: float) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for p in pts:
+			out.append(_bend(p, r))
+		return out
 
 	func sync() -> void:
 		scale = Vector2.ONE * (1.0 + 0.2 * enemy._lunge)
@@ -721,11 +851,18 @@ class _Body extends Node2D:
 			var x := -r * 0.75 - gap * k
 			var h := r * (0.42 - 0.06 * k)
 			var chev := PackedVector2Array([Vector2(x - h * 0.9, h), Vector2(x, 0), Vector2(x - h * 0.9, -h)])
-			NeonDraw.polyline(self, chev, c, (1.0 if dashing else 0.7) * (1.0 - k * 0.16), 2.0)
-		if dashing:
+			NeonDraw.polyline(self, _bent(chev, r), c, (1.0 if dashing else 0.7) * (1.0 - k * 0.16), 2.0)
+		if dashing or absf(tail_bend) > 0.05:
+			# 돌진 중 꼬리 줄기. 튕겨 돌 때는 휘어진 꼬리를 따라 흐릿하게 남는다.
+			var a := 0.9 if dashing else minf(absf(tail_bend) * 1.2, 0.9)
 			for sy in [-0.75, 0.75]:
-				NeonDraw.line(self, PackedVector2Array([Vector2(-r * 0.9, sy * r),
-						Vector2(-r * 3.4, sy * r)]), Color(c, 0.45), 1.5)
+				var streak := PackedVector2Array()
+				for i in 7:
+					streak.append(_bend(Vector2(-r * (0.9 + 2.5 * i / 6.0), sy * r), r))
+				# 끝으로 갈수록 흐려지게 마디마다 따로
+				for i in 6:
+					NeonDraw.polyline(self, PackedVector2Array([streak[i], streak[i + 1]]),
+							c, a * (1.0 - i / 7.0), 1.5)
 		if enemy.is_winding_up() and enemy._aim_len > r * 1.6:
 			var end := enemy._aim_len / scale.x
 			var x := r * 1.7
