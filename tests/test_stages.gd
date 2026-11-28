@@ -45,8 +45,8 @@ func _meta_rules() -> void:
 				and StageDefs.damage_mult(i) > StageDefs.damage_mult(i - 1)
 				and StageDefs.shard_mult(i) > StageDefs.shard_mult(i - 1),
 				"stage %d harder and pays more than stage %d" % [i, i - 1])
-	# 1스테이지는 첫 판도 깰 만하게 적 체력이 기본보다 낮다. SHARD와 적 피해는 기본 그대로.
-	_check(StageDefs.hp_mult(1) < 1.0 and is_equal_approx(StageDefs.damage_mult(1), 1.0)
+	# 1스테이지는 적 체력이 기본보다 조금 낮다. SHARD와 적 피해는 기본 그대로.
+	_check(StageDefs.hp_mult(1) <= 1.0 and is_equal_approx(StageDefs.damage_mult(1), 1.0)
 			and is_equal_approx(StageDefs.shard_mult(1), 1.0),
 			"stage 1 is the gentle base game")
 

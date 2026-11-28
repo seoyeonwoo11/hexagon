@@ -217,8 +217,15 @@ func _bosses() -> void:
 	var p0 := comet.global_position
 	comet._process(0.05)
 	_check(comet.is_winding_up() and comet.global_position == p0, "comet stops to wind up")
+	# 돌진 준비 중엔 감속, 빙결, 스턴이 안 먹힌다
+	comet.apply_slow(0.3, 5.0)
+	comet.freeze(5.0)
+	_check(not comet.stun(1.0) and not comet.is_frozen() and not comet.is_slowed(),
+			"comet ignores crowd control while winding up")
 	comet._process(comet.dash_windup)
 	_check(comet.is_dashing(), "then charges")
+	comet.freeze(5.0)
+	_check(not comet.is_frozen() and comet.cc_immune(), "and while charging")
 	comet.contact_damage = 5.0
 	core.hp = core.max_hp
 	for i in 60:
@@ -227,6 +234,16 @@ func _bosses() -> void:
 			break
 	_check(not comet.is_dashing() and is_equal_approx(core.max_hp - core.hp, 5.0 * comet.dash_hit),
 			"charge hit deals dash_hit (%.1f)" % (core.max_hp - core.hp))
+	# 들이받은 뒤 돌진을 시작한 자리로 튕겨 돌아가고, 그동안은 안 때린다
+	_check(comet.is_recoiling(), "comet recoils after the charge hit")
+	var hp_after := core.hp
+	for i in 60:
+		comet._process(1.0 / 60.0)
+		if not comet.is_recoiling():
+			break
+	_check(not comet.is_recoiling() and comet.global_position.distance_to(p0) < 1.0,
+			"comet bounces back to where the charge started")
+	_check(core.hp == hp_after, "no hits while bouncing back")
 	core.hp = core.max_hp
 	comet._die(false)
 	_clear()

@@ -69,10 +69,20 @@ var dash_time := 0.0
 var dash_speed := 1.0
 var dash_windup := 0.0
 var dash_hit := 1.0
+## 돌진 준비와 돌진 중에는 감속, 빙결(FREEZE), 스턴(SHOCK), WARP 밀치기를 무시한다 (COMET)
+var dash_unstoppable := false
 var _dash_cd := 0.0
 var _dash_left := 0.0
 var _windup_left := 0.0
 var _dash_hit_ready := false
+const DASH_CHASE_MAX := 1.5
+var _dash_over := 0.0
+## 들이받은 뒤 튕겨 돌아가기 (COMET): 돌진을 시작한 자리로 RECOIL_TIME초 동안 빠르게, 끝에서 느려지게.
+## 그동안은 때리지도 쫓지도 않는다.
+const RECOIL_TIME := 0.55
+var _dash_origin := Vector2.ZERO
+var _recoil_from := Vector2.ZERO
+var _recoil_left := 0.0
 ## 주변 회복/보호막 ("heal", "shield")
 var aura := ""
 var aura_every := 0.0
@@ -163,6 +173,7 @@ func setup(enemy_kind: String, base_hp: float, base_speed: float, base_reward: f
 	dash_speed = def.get("dash_speed", 1.0)
 	dash_windup = def.get("dash_windup", 0.0)
 	dash_hit = def.get("dash_hit", 1.0)
+	dash_unstoppable = def.get("dash_unstoppable", false)
 	# 같은 종류가 한꺼번에 돌진하지 않게 첫 주기는 조금씩 다르게
 	_dash_cd = dash_every * randf_range(0.5, 1.0)
 	aura = def.get("aura", "")
@@ -235,6 +246,9 @@ func _process(delta: float) -> void:
 		if _aura_cd <= 0.0:
 			_aura_cd = aura_every
 			pulse_aura()
+	if _recoil_left > 0.0:
+		_process_recoil(delta)
+		return
 	var target := board.nearest_tile(global_position)
 	if target == null:
 		return
@@ -258,14 +272,15 @@ func _process(delta: float) -> void:
 				if _dash_hit_ready:
 					_dash_hit_ready = false
 					_dash_left = 0.0
-					Sfx.play("tile_hit")
+					_impact(global_position + to_target.normalized() * radius)
 			_update_body(delta)
 			return
 	elif to_target.length() <= board.hex_size * 0.8:
 		target.take_damage(contact_damage)
 		_die(false)
 		return
-	global_position += to_target.normalized() * speed * _slow_factor * move_mult * delta
+	var slow := 1.0 if cc_immune() else _slow_factor
+	global_position += to_target.normalized() * speed * slow * move_mult * delta
 	_update_body(delta)
 
 
@@ -279,13 +294,21 @@ func _process_dash(delta: float) -> float:
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		if _dash_left <= 0.0:
-			_dash_hit_ready = false
+			if _dash_hit_ready and _dash_over < DASH_CHASE_MAX:
+				# 들이받는 돌진은 dash_time이 지나도 타일에 닿을 때까지 이어간다 (최대 DASH_CHASE_MAX초 더)
+				_dash_over += delta
+				_dash_left = 0.001
+			else:
+				_dash_hit_ready = false
 		return dash_speed
 	_dash_cd -= delta
 	if _dash_cd <= 0.0:
 		_dash_cd = dash_every
 		if dash_windup > 0.0:
 			_windup_left = dash_windup
+			if dash_unstoppable:
+				_slow_timer = 0.0
+				_slow_factor = 1.0
 			Sfx.play("boss_charge")
 			return 0.0
 		_start_dash()
@@ -293,11 +316,50 @@ func _process_dash(delta: float) -> float:
 	return 1.0
 
 
+## 돌진 첫 타격: 부딪힌 자리에 충격 고리 두 개, 쿵 소리, 돌진을 시작한 자리로 튕겨 돌아가기 시작.
+func _impact(at: Vector2) -> void:
+	Sfx.play("explode")
+	Sfx.play("tile_hit")
+	var layer := get_parent()
+	if layer != null:
+		for k in 2:
+			var fx := Explosion.new()
+			fx.color = color.lerp(Color.WHITE, 0.35 * k)
+			fx.radius = radius * (2.2 - k * 0.8)
+			layer.add_child(fx)
+			fx.global_position = at
+	_recoil_from = global_position
+	_recoil_left = RECOIL_TIME
+	_lunge = 1.0
+
+
+## 튕겨 돌아가는 중: 처음엔 빠르고 끝에서 느려진다 (ease out). 몸은 한 바퀴 빙글.
+func _process_recoil(delta: float) -> void:
+	_recoil_left = maxf(_recoil_left - delta, 0.0)
+	var k := 1.0 - _recoil_left / RECOIL_TIME
+	global_position = _recoil_from.lerp(_dash_origin, 1.0 - pow(1.0 - k, 3.0))
+	_lunge = maxf(_lunge - delta * 2.0, 0.0)
+	_update_body(delta)
+	if _body != null and face:
+		_body.rotation = _heading.angle() + TAU * (1.0 - pow(1.0 - k, 2.0))
+
+
+func is_recoiling() -> bool:
+	return _recoil_left > 0.0
+
+
 func _start_dash() -> void:
+	_dash_origin = global_position
+	_dash_over = 0.0
 	_dash_left = dash_time
 	_dash_hit_ready = dash_hit > 1.0
 	_lunge = 1.0
 	Sfx.play("dash")
+
+
+## 돌진 준비나 돌진 중이라 군중 제어(감속, 빙결, 스턴, 밀치기)가 안 먹히는지.
+func cc_immune() -> bool:
+	return dash_unstoppable and (_windup_left > 0.0 or _dash_left > 0.0)
 
 
 func is_dashing() -> bool:
@@ -389,6 +451,8 @@ func _update_body(delta: float) -> void:
 
 ## 코어 스킬 FREEZE: duration초 동안 멈춘다.
 func freeze(duration: float) -> void:
+	if cc_immune():
+		return
 	_freeze_timer = maxf(_freeze_timer, duration)
 	if _body != null:
 		_body.sync()
@@ -397,7 +461,7 @@ func freeze(duration: float) -> void:
 ## SHOCK 충격파: duration초 스턴 (보스는 BOSS_STUN_MULT배). 그동안 움직이지도 때리지도 않는다.
 ## 스턴이 풀린 뒤 STUN_GRACE초 동안은 다시 안 걸린다. 걸렸으면 true.
 func stun(duration: float) -> bool:
-	if _stun_immune > 0.0 or duration <= 0.0:
+	if _stun_immune > 0.0 or duration <= 0.0 or cc_immune():
 		return false
 	var d := duration * (BOSS_STUN_MULT if is_boss else 1.0)
 	freeze(d)
@@ -428,6 +492,8 @@ func body_color() -> Color:
 
 ## factor 배 속도로 duration초 동안 느려진다 (여러 번 걸리면 가장 강한 감속 유지).
 func apply_slow(factor: float, duration: float) -> void:
+	if cc_immune():
+		return
 	_slow_factor = minf(_slow_factor, factor)
 	_slow_timer = maxf(_slow_timer, duration)
 

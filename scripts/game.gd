@@ -220,7 +220,7 @@ func use_skill() -> bool:
 			# 코어에서 먼 쪽으로 순간 이동. 보스는 덜 밀린다.
 			for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 				var e := node as Enemy
-				if not e.is_alive():
+				if not e.is_alive() or e.cc_immune():
 					continue
 				var away := e.global_position - core.global_position
 				if away.length() < 1.0:
