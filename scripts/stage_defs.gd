@@ -31,8 +31,8 @@ const STAGES := [
 	# 4: 보호막 AEGIS, 단단한 적 많이. 보스 BASTION
 	{"hp": 2.95, "damage": 1.5, "shards": 2.5, "color": Color(1.0, 0.5, 0.1),
 			"unlock": "upgrade:tuning", "boss": "bastion",
-			"enemies": {"grunt": 8.0, "runner": 2.0, "dasher": 2.0, "phantom": 2.0, "tank": 2.5,
-				"splitter": 1.5, "armored": 2.5, "hydra": 1.5, "mender": 1.2, "aegis": 1.5}},
+			"enemies": {"grunt": 9.0, "runner": 2.5, "dasher": 2.0, "phantom": 2.0, "tank": 2.0,
+				"splitter": 1.5, "armored": 2.0, "hydra": 1.2, "mender": 1.0, "aegis": 1.0}},
 	# 5: 전부. 보스 OVERLORD
 	{"hp": 4.0, "damage": 1.65, "shards": 3.0, "color": Color(1.0, 0.15, 0.6),
 			"unlock": "", "boss": "overlord",

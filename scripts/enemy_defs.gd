@@ -114,14 +114,14 @@ const DEFS := {
 		"cloak_every": 6.0, "cloak_time": 2.5, "cloak_regen": 0.02, "cloak_summon": true,
 		"enrage_at": 0.35, "enrage_speed": 1.4, "sway": 0.15, "deco_spin": -0.5,
 	},
-	## 4스테이지: 요새. 6초마다 자기와 주변(260) 적에게 보호막 (자기는 15%, 다른 적은 30%),
-	## 7초마다 MENDER 2마리.
+	## 4스테이지: 요새. 6초마다 자기와 주변(200) 적에게 보호막 (자기는 8%, 다른 적은 20%),
+	## 9초마다 ARMORED 2마리.
 	"bastion": {
 		"name": "BASTION", "color": Color(1.0, 0.55, 0.15), "sides": 6, "star": false,
-		"radius": 46.0, "hp": 44.0, "speed": 0.3, "reward": 60.0, "contact": 2.6,
+		"radius": 46.0, "hp": 38.0, "speed": 0.3, "reward": 60.0, "contact": 2.6,
 		"armor": 0.3, "from_wave": 999, "weight": 0.0, "melee": true, "hit_interval": 0.9,
-		"is_boss": true, "final": true, "summon": "mender", "summon_count": 2, "summon_every": 7.0,
-		"aura": "shield", "aura_every": 6.0, "aura_radius": 260.0, "aura_amount": 0.3, "aura_boss": 0.15,
+		"is_boss": true, "final": true, "summon": "armored", "summon_count": 2, "summon_every": 9.0,
+		"aura": "shield", "aura_every": 6.0, "aura_radius": 200.0, "aura_amount": 0.2, "aura_boss": 0.08,
 		"enrage_at": 0.3, "enrage_speed": 1.5, "spin": 0.08, "deco_spin": -0.35,
 	},
 	## 5스테이지 최종 보스. summon_every초마다 summon을 summon_count마리 부르고,
