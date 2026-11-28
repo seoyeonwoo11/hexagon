@@ -10,11 +10,13 @@ extends RefCounted
 ## hp: 적 체력 배율 (보스와 OVERLORD 포함), damage: 적이 타일에 주는 피해 배율,
 ## shards: 이 스테이지에서 받는 SHARD 배율 (웨이브 몫과 클리어 보너스 모두).
 ## 처치 보상(돈)은 스테이지와 상관없이 같다. 강해지는 몫은 영구 강화가 맡는다.
+## 1, 2스테이지 체력은 영구 강화가 거의 없는 첫 판도 깰 만하게 낮춰 두었다
+## (봇, 강화 없음: 1스테이지 승률 약 63%, 2스테이지는 강화 3레벨로 약 53%).
 
 const STAGES := [
-	{"hp": 1.0, "damage": 1.0, "shards": 1.0, "color": Color(0.0, 0.95, 1.0),
+	{"hp": 0.8, "damage": 1.0, "shards": 1.0, "color": Color(0.0, 0.95, 1.0),
 			"unlock": "upgrade:bounty"},
-	{"hp": 1.9, "damage": 1.2, "shards": 1.5, "color": Color(0.4, 1.0, 0.3),
+	{"hp": 1.4, "damage": 1.2, "shards": 1.5, "color": Color(0.4, 1.0, 0.3),
 			"unlock": "core:warp"},
 	{"hp": 2.4, "damage": 1.35, "shards": 2.0, "color": Color(1.0, 0.85, 0.1),
 			"unlock": "loadout"},
