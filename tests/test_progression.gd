@@ -179,7 +179,7 @@ func _run() -> void:
 	var on_path := _spawn_enemy_at(orbit.position + Vector2(orbit.effective_range(), 0))
 	var off_path := _spawn_enemy_at(orbit.position + Vector2(orbit.effective_range() + 90.0, 0))
 	var inside := _spawn_enemy_at(orbit.position + Vector2(30, 0))
-	for i in 120:
+	for i in 240:
 		orbit._process_orbit(1.0 / 60.0)
 	var hits := roundi((on_path.max_hp - on_path.hp) / orbit.damage())
 	_check(hits >= 2 and hits <= 5, "orbs hit enemy on orbit path (hits %d)" % hits)
@@ -365,7 +365,16 @@ func _run() -> void:
 	var far_before := far_tile.interval() if far_tile != null else 0.0
 	var booster := board.place_tile(free_cells[0], "booster")
 	_check(booster != null and booster.attack == "none", "booster placed")
-	_check(absf(base_interval / core.interval() - (1.25 + bonus0)) < 0.001, "adjacent tile 25% faster")
+	# 앞에서 놓인 BOOSTER가 있으면 겹치기 규칙(가장 센 것 + 나머지 절반)으로 더해진다
+	var before_hastes: Array[float] = []
+	for n in HexGrid.neighbors(core.coord):
+		var nt: HexTile = board.tiles.get(n)
+		if nt != null and nt != booster and nt.haste > 0.0:
+			before_hastes.append(nt.haste)
+	var with_new: Array[float] = before_hastes.duplicate()
+	with_new.append(0.25)
+	_check(absf(base_interval / core.interval() - (1.0 + HexTile.stack_haste(with_new))) < 0.001,
+			"adjacent tile 25% faster")
 	if far_tile != null and HexGrid.distance(far_tile.coord, booster.coord) > 1:
 		_check(far_tile.interval() == far_before, "non-adjacent tile unaffected")
 	_check(booster.boosted_neighbors().has(core), "booster lists core as boosted")
