@@ -17,8 +17,8 @@ const BURN_TICK := 0.25
 ## (SHOCK 여러 개로 계속 묶어 두지 못하게).
 const BOSS_STUN_MULT := 0.35
 const STUN_GRACE := 1.0
-## 은신 중 투명도 (조금은 보여서 어디 있는지는 안다)
-const CLOAK_ALPHA := 0.16
+## 은신 중 투명도. 타일은 못 노리지만 플레이어 눈에는 흐릿하게 보인다
+const CLOAK_ALPHA := 0.4
 ## 회복/보호막 파동이 퍼지는 연출 시간(초)
 const PULSE_TIME := 0.45
 ## 보호막 색
