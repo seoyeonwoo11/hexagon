@@ -161,17 +161,7 @@ func _in_game() -> void:
 	_check(Meta.stage == 1, "locked stage not picked")
 	picker.stage_clicked.emit(2)
 	_check(Meta.stage == 2, "stage 2 picked")
-	_check(Shop.stage_info(3).contains(Loc.t("Clear %s to unlock.") % StageDefs.title(2)),
-			"locked stage explains how to open it")
-	_check(shop._stage_info.text == Shop.stage_info(2), "stage line shows the picked stage")
-	shop.open_window("core")
-	var win := shop._window
-	var warp: Control = win._grid.get_child(CoreDefs.ORDER.find("warp"))
-	var warp_col := warp.get_child(0)
-	var warp_button := warp_col.get_child(warp_col.get_child_count() - 1) as Button
-	_check(warp_button.disabled and warp_button.text.contains(StageDefs.title(2)),
-			"warp core explains how to open it")
-	win.close()
+	_check(not Meta.is_core_available("warp"), "warp core waits for stage 2")
 
 	_game.start_run()
 	_check(_game.stage == 2 and _game.hud._stage_label.text == StageDefs.title(2), "run uses the picked stage")

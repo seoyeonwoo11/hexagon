@@ -44,7 +44,7 @@ func _run() -> void:
 	var shop := _game.shop
 	var win := shop._window
 	_check(shop.is_open() and not shop.is_window_open(), "start screen without the shop window")
-	var button := shop.find_child("ShopButton", true, false) as Shop.HubButton
+	var button := shop.find_child("ShopButton", true, false) as Button
 	_check(button != null, "shop button on the start screen")
 	button.pressed.emit()
 	_check(shop.is_window_open() and win.tab == "upgrades", "shop button opens the upgrades tab")
@@ -97,32 +97,33 @@ func _run() -> void:
 	win._unhandled_input(esc)
 	_check(not shop.is_window_open() and shop._root.visible, "escape closes the shop window")
 
-	# 가져갈 타일 창: 산 타일은 넣고 빼고, 안 산 타일은 상점 타일 탭으로
-	shop._loadout_button.pressed.emit()
-	_check(shop.is_window_open() and win.tab == "loadout" and win.group() == "prep",
-			"tiles-to-bring button opens the prep window")
-	_check(win._grid.get_child_count() == TileDefs.PLACEABLE.size(), "one card per tile")
-	var spark_i := TileDefs.PLACEABLE.find("spark")
-	var had := Meta.in_loadout("spark")
-	_card_button(win, spark_i).pressed.emit()
-	_check(Meta.in_loadout("spark") != had, "loadout card toggles the tile")
+	# 시작 화면에서 안 산 타일/코어를 누르면 그 탭이 열리고, 사지는 않는다
 	var before := Meta.shards
-	_card_button(win, TileDefs.PLACEABLE.find("drone")).pressed.emit()
-	_check(win.tab == "tiles" and win.group() == "shop" and not Meta.is_tile_unlocked("drone")
-			and Meta.shards == before, "locked tile sends you to the shop, without buying")
-	_check(not (win._tab_buttons["loadout"] as Button).visible
-			and (win._tab_buttons["tiles"] as Button).visible, "only the shop tabs in the shop")
+	shop._on_tile_clicked("drone")
+	_check(shop.is_window_open() and win.tab == "tiles" and not Meta.is_tile_unlocked("drone")
+			and Meta.shards == before, "locked tile opens the tiles tab")
 	win.close()
+	shop._on_core_clicked("nova")
+	_check(shop.is_window_open() and win.tab == "cores" and not Meta.is_core_unlocked("nova"),
+			"locked core opens the cores tab")
+	win.close()
+	# 산 타일은 그대로 넣고 빼기, 산 코어는 고르기
+	shop._on_tile_clicked("spark")
+	_check(not shop.is_window_open() and not Meta.in_loadout("spark"), "owned tile toggles the loadout")
+	shop._on_core_clicked("core")
+	_check(Meta.core_type == "core" and not shop.is_window_open(), "owned core is picked")
 
-	# 코어 창: 산 코어는 고르기, 안 산 코어는 상점 코어 탭으로
-	shop._core_button.pressed.emit()
-	_check(win.tab == "core", "core button opens the core tab")
-	_card_button(win, CoreDefs.ORDER.find("core")).pressed.emit()
-	_check(Meta.core_type == "core", "owned core is picked")
-	_card_button(win, CoreDefs.ORDER.find("nova")).pressed.emit()
-	_check(win.tab == "cores" and not Meta.is_core_unlocked("nova"), "locked core sends you to the shop")
-	win.close()
-	_check(shop._root.visible and not shop.is_window_open(), "start screen back after closing")
+	# 설정 버튼: 언어/소리/전체 화면 버튼이 있고, 떠 있는 동안 Enter로 판이 시작되지 않는다
+	var settings := shop.find_child("SettingsButton", true, false) as Button
+	_check(settings != null, "settings button on the start screen")
+	settings.pressed.emit()
+	_check(shop._settings.is_open(), "settings button opens the settings panel")
+	for n in ["LanguageButton", "SoundButton", "FullscreenButton"]:
+		_check(shop._settings.find_child(n, true, false) is Button, "settings has " + n)
+	shop._unhandled_input(enter)
+	_check(not _game.started, "enter does nothing while settings is open")
+	shop._settings._unhandled_input(esc)
+	_check(not shop._settings.is_open(), "escape closes settings")
 
 	# 판을 시작하면 창도 닫힌다
 	shop.open_window()

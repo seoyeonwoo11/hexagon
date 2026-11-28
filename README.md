@@ -20,7 +20,7 @@ Godot 4.7 에디터에서 이 폴더의 `project.godot`를 열고 F5로 실행�
 
 ## 언어
 
-- 한국어(기본)와 영어. 시작 화면 오른쪽 위 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
+- 한국어(기본)와 영어. 시작 화면 오른쪽 위 설정 버튼 안의 언어 버튼(ENGLISH / 한국어)으로 바꿈. 설정은 `user://language.cfg`에 저장
 - 번역표는 `scripts/loc.gd` 한 곳. 화면 글자는 영어 원문을 키로 `Loc.t("PAUSE")`, 숫자가 들어가면 `Loc.t("WAVE %d") % wave`. 표에 없으면 영어 그대로 나옴
 - 타일, 장비, 적, 코어, 스킬, 카드 이름(LASER, SCOPE, OVERLORD ...)은 고유 이름이라 영어 그대로
 - 한글 폰트: Orbit (`assets/fonts/Orbit-Regular.ttf`, SIL OFL). Orbitron에 없는 한글을 대체 폰트로 그림
@@ -120,7 +120,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - 효과음 31종과 배경음 3곡 (시작 화면, 전투, 보스 웨이브). 전부 `tools/gen_sounds.py`가 코드로 합성한 것이라 외부 음원이나 저작권 걱정이 없음
 - 배경음: 시작 화면은 잔잔한 패드, 판이 시작되면 전투 곡, 보스 웨이브(10, 20, 30)에는 빠르고 어두운 보스 곡으로 천천히 바뀜. 일시정지 중에는 작게, 게임 오버와 클리어 때는 멈추고 짧은 곡
 - 효과음: 타일 공격마다 (LASER, CORE, SPARK, ARCHER, FROST, ORBIT, DRONE, BURN, 폭발, 치명타), 적 처치, 보스 처치, 타일 피격과 파괴, 보스/OVERLORD 등장, 웨이브 시작과 클리어, 카드 선택, 배치, 장착, 강화, 코어 스킬 4종, 상점 구매, 버튼 딸깍, 돈이 모자랄 때
-- 설정: 오른쪽 위 SOUND 버튼 (시작 화면에서는 FULL 아래). MUSIC, EFFECTS 볼륨 막대와 MUTE. 창이 열려 있는 동안은 게임이 멈춤. N 키는 바로 음소거. 음소거면 버튼이 MUTED로 바뀜
+- 설정: 오른쪽 위 SOUND 버튼 (시작 화면에서는 설정 버튼 안). MUSIC, EFFECTS 볼륨 막대와 MUTE. 창이 열려 있는 동안은 게임이 멈춤. N 키는 바로 음소거. 음소거면 버튼이 MUTED로 바뀜
 - 저장: `user://settings.cfg` (SHARD 저장 파일과 따로)
 - 렉 방지: 효과음 재생기 14개를 미리 만들어 돌려 씀. 소리마다 동시에 울리는 수와 최소 간격(실제 시간 기준이라 2배속이어도 안 쌓임)이 있고, 전투 소리는 다 합쳐 7개까지. 자리가 없으면 중요한 소리(보스, 파괴, 스킬)가 전투 소리를 끊고 울림
 - 소리 다시 만들기: `pip install numpy scipy` 후 `python3 tools/gen_sounds.py` (배경음 인코딩에 ffmpeg 필요). 소리 이름과 볼륨은 `scripts/sfx.gd`의 SOUNDS
@@ -136,12 +136,12 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - RETRY (R): 상점 없이 바로 새 판, CONTINUE (Enter/Space): 시작 화면으로
 
 
-- 게임을 켜면 시작 화면이 뜸. 가운데 한 줄: 스테이지 고르기 -> 큰 START (또는 Enter) -> 버튼 3개 (가져갈 타일 / 코어 / 상점). 위 오른쪽에 가진 SHARD, 맨 아래에 지난 판 결과
-- 가져갈 타일, 코어 버튼은 출전 준비 창을 엶: 카드마다 넣기/빼기, 고르기. 안 산 타일이나 코어는 "상점에서 사기"로 상점 탭으로 넘어감
-- 상점 버튼은 상점 창을 엶: 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼
-- 창은 Esc, 오른쪽 클릭, 돌아가기 버튼으로 닫음
+- 게임을 켜면 시작 화면이 뜸. 위에 스테이지 육각형 (깬 스테이지는 아래 작은 점), 가운데 벌집 (가운데 START 또는 Enter, 둘레의 타일을 눌러 출정 타일 넣기/빼기), 왼쪽 아래 코어, 오른쪽에 가진 SHARD와 상점 버튼, 오른쪽 위 설정 버튼. 설명 글은 두지 않음
+- 상점 버튼은 상점 창을 엶: 탭 3개 (영구 강화 / 타일 / 코어)에 카드마다 설명, 레벨, 사는 버튼. 시작 화면에서 안 산 타일이나 코어를 누르면 그 탭이 바로 열림
+- 설정 버튼: 언어 (한국어 / ENGLISH), 소리 (소리 설정 창), 전체 화면
+- 창은 Esc, 오른쪽 클릭, 돌아가기/닫기 버튼으로 닫음
 - 게임 오버 때 다 처리한 웨이브 수만큼 SHARD를 받음 (10웨이브마다 +5). R을 누르면 상점 없이 바로 새 판
-- 코어 종류 (시작 화면의 코어 버튼에서 고름, 판마다 1개):
+- 코어 종류 (시작 화면 왼쪽 아래에서 고름, 판마다 1개):
   - CORE (기본): OVERDRIVE, 6초 동안 모든 타일 공격력 +60%, 쿨다운 35초
   - CRYO CORE (15): FREEZE, 모든 적 3.5초 정지 (움직이지도 때리지도 않음), 쿨다운 30초
   - AEGIS CORE (20): REPAIR, 모든 타일 최대 체력의 50% 회복, 쿨다운 40초
@@ -150,7 +150,7 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - 영구 강화 (처음엔 각 5레벨, 스테이지를 처음 깰 때마다 +3레벨): CORE PLATING 코어 체력 +25, POWER GRID 공격력 +8%, FAST CYCLE 공격 속도 +5%, HARD SHELL 타일 체력 +10%, SEED FUND 시작 돈 +$10
 - 스테이지 보상 강화 (5레벨 고정): BOUNTY 처치 보상 +8% (1스테이지 클리어), SKILL TUNING 코어 스킬 쿨다운 -7% (4스테이지 클리어)
 - 타일 구매: 처음엔 LASER, FROST, BOOSTER, BANK만 쓸 수 있고 SPARK(12), ARCHER(15), ORBIT(20), BURN(20), DRONE HIVE(25)는 SHARD로 사야 함 (예전에 PRISM을 샀다면 PRISM이 빠지면서 SHARD 20개를 돌려받음)
-- 가져갈 타일: 시작 화면의 가져갈 타일 버튼에서 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
+- 출정 타일: 시작 화면 벌집에서 풀린 타일을 눌러 최대 6종(3스테이지를 깨면 7종)을 고름. 판에서는 고른 타일만 카드로 나옴. 새로 산 타일은 자리가 있으면 바로 들어감
 - 저장 위치: `user://meta.cfg` (Windows는 `%APPDATA%\Godot\app_userdata\Hexagon\`). 지우면 처음부터
 
 ## 강화 (타일 정보 창의 UPGRADE)
@@ -202,8 +202,9 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_shop.gd
 - `scripts/game.gd`: 돈, 웨이브, 적 생성, 웨이브 클리어 카드, 강화, 일시정지/배속, 게임 오버 (밸런스 숫자는 wave_enemy_* 함수)
 - `scripts/meta.gd`: SHARD, 영구 강화, 타일 구매, 스테이지 진행, 저장/불러오기
 - `scripts/stage_defs.gd`: 스테이지별 난이도 배율, SHARD 배율, 처음 깼을 때 보상
-- `scripts/shop.gd`: 시작 화면 (스테이지, START, 버튼 3개)
-- `scripts/shop_window.gd`: 출전 준비 창 (가져갈 타일, 코어)과 상점 창 (영구 강화, 타일, 코어 구매)
+- `scripts/shop.gd`: 시작 화면 (스테이지, 벌집과 START, 코어, SHARD, 상점/설정 버튼)
+- `scripts/shop_window.gd`: 상점 창 (영구 강화, 타일, 코어 구매)
+- `scripts/settings_panel.gd`: 설정 창 (언어, 소리, 전체 화면)
 - `scripts/hud.gd`: 화면 위 정보와 버튼
 - `scripts/sfx.gd`: 효과음과 배경음 (`Sfx.play("kill")`, `Sfx.music("battle")`), 볼륨 설정
 - `scripts/sound_panel.gd`: 소리 설정 창과 SOUND 버튼
